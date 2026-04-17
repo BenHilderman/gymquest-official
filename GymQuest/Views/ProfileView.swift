@@ -133,13 +133,42 @@ struct ProfileView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 0) {
+                    // Inline header — scrolls with content (Instagram-style)
+                    HStack(spacing: 8) {
+                        HStack(spacing: 4) {
+                            Text("@\(profile.username)")
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundColor(GQColors.textPrimary)
+                            if profile.isPremium {
+                                PremiumBadge(size: 16)
+                            }
+                        }
+                        Spacer()
+                        #if os(iOS)
+                        Button {
+                            showingSettings = true
+                        } label: {
+                            Image(systemName: "gearshape.fill")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(GQColors.textPrimary)
+                                .frame(width: 34, height: 34)
+                                .background(GQColors.overlayLight)
+                                .clipShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+                        #endif
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+                    .padding(.bottom, 4)
+
                     VStack(spacing: 12) {
                         profileHeader
                         if isOwnProfile { profileCompletionBanner }
                         achievementBadgesSection
                     }
                     .padding(.horizontal, 16)
-                    .padding(.top, GQLayout.pageTop)
+                    .padding(.top, 12)
 
                     // Posts grid — edge-to-edge like Instagram
                     postsContent
@@ -149,34 +178,7 @@ struct ProfileView: View {
             }
             .scrollContentBackground(.hidden)
             .gqPageBackground()
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    HStack(spacing: 4) {
-                        Text("@\(profile.username)")
-                            .font(.system(size: 20, weight: .bold))
-                            .foregroundColor(GQColors.textPrimary)
-                        if profile.isPremium {
-                            PremiumBadge(size: 16)
-                        }
-                    }
-                }
-                #if os(iOS)
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showingSettings = true
-                    } label: {
-                        Image(systemName: "gearshape.fill")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(GQColors.textPrimary)
-                            .frame(width: 34, height: 34)
-                            .background(GQColors.overlayLight)
-                            .clipShape(Circle())
-                    }
-                    .buttonStyle(.plain)
-                }
-                #endif
-            }
-            .navigationBarTitleDisplayMode(.inline)
+            .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(isPresented: $showingSettings) {
                 SettingsView(profile: profile)
             }
@@ -3327,7 +3329,7 @@ struct SettingsView: View {
                     #if canImport(UIKit)
                     settingsToggleRow(
                         title: "Haptic Feedback",
-                        subtitle: "Vibration on taps and actions",
+                        subtitle: hapticEnabled ? "Vibration on taps and actions" : "No vibration on interactions",
                         isOn: $hapticEnabled
                     )
                     #endif
@@ -3403,6 +3405,7 @@ struct SettingsView: View {
         }
         .scrollContentBackground(.hidden)
         .gqPageBackground()
+        .toolbarBackground(.visible, for: .navigationBar)
         .navigationTitle("Settings")
         .navigationBarBackButtonHidden(true)
         #if os(iOS)

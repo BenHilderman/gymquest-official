@@ -556,6 +556,9 @@ struct ClubFeedView: View {
         }
         .scrollContentBackground(.hidden)
         .background(GQColors.background.ignoresSafeArea())
+        .navigationTitle("Clubs")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.visible, for: .navigationBar)
         .refreshable {
             // Pull-to-refresh triggers SwiftData @Query re-evaluation
             try? await Task.sleep(for: .milliseconds(300))
