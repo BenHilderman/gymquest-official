@@ -1,0 +1,9 @@
+# Files copied into new worktrees (gitignore syntax).
+# Only files that are ALSO gitignored get copied — this is for secrets and
+# local config that never belong in git but are required to build/run.
+
+# Backend env + any local overrides
+backend/.env
+backend/.env.local
+.env
+.env.local
