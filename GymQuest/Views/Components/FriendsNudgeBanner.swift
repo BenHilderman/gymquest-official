@@ -6,8 +6,8 @@ import UIKit
 /// Dismissible banner slotted at the very top of Explore. Shows exactly one
 /// nudge at a time (the highest-priority), with a primary action button and
 /// a quiet X to dismiss. Never interrupts video — renders as a compact strip.
-struct CommunityNudgeBanner: View {
-    let nudge: CommunityNudge
+struct FriendsNudgeBanner: View {
+    let nudge: FriendsNudge
     let onAction: () -> Void
     let onDismiss: () -> Void
 
@@ -71,7 +71,7 @@ struct CommunityNudgeBanner: View {
         case .justFinished: return "hand.raised.fill"
         case .duoDay: return "sparkles"
         case .friendOnStreak: return "flame.fill"
-        case .crewAhead: return "figure.run"
+        case .friendsAhead: return "figure.run"
         }
     }
 }

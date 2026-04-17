@@ -3,27 +3,27 @@ import Foundation
 /// Retrospective summary of the previous 7 days for the user + their crew.
 /// Designed to feel like a small event — rendered as a celebration card on
 /// Today at the start of each week.
-struct CrewWeeklyRecapData {
+struct FriendsWeeklyRecapData {
     let weekStartDate: Date      // Start of the Monday 7 days ago
     let weekEndDate: Date        // End of Sunday just passed
-    let crewDaysTrained: Int     // 0-7 distinct days *any* crew member trained
+    let friendsDaysTrained: Int     // 0-7 distinct days *any* crew member trained
     let userDaysTrained: Int     // 0-7 days the user trained
     let topMemberName: String?
     let topMemberDays: Int
     let duoDays: Int             // days user + any crew member both trained
     let totalCheckIns: Int       // sum of CheckIns across the crew
-    let crewSize: Int            // follow count (to contextualize "4 of 5")
+    let friendsCount: Int            // follow count (to contextualize "4 of 5")
 
     /// Short celebratory one-liner rendered as the recap card headline.
     var headline: String {
-        if crewDaysTrained == 7 {
-            return "Perfect week — crew trained every single day"
+        if friendsDaysTrained == 7 {
+            return "Perfect week — friends trained every single day"
         }
-        if crewDaysTrained >= 5 {
-            return "Strong week — \(crewDaysTrained) of 7 days covered"
+        if friendsDaysTrained >= 5 {
+            return "Strong week — \(friendsDaysTrained) of 7 days covered"
         }
-        if userDaysTrained > 0 && crewDaysTrained > userDaysTrained {
-            return "Your crew pulled you forward this week"
+        if userDaysTrained > 0 && friendsDaysTrained > userDaysTrained {
+            return "Your friends pulled you forward this week"
         }
         if userDaysTrained > 0 {
             return "You showed up \(userDaysTrained) day\(userDaysTrained == 1 ? "" : "s") last week"
@@ -33,7 +33,7 @@ struct CrewWeeklyRecapData {
 }
 
 @MainActor
-enum CrewRecapService {
+enum FriendsRecapService {
 
     /// Compute the recap for the calendar week that just ended. Returns
     /// nil when there's no crew data yet (e.g. first install with no
@@ -46,7 +46,7 @@ enum CrewRecapService {
         checkIns: [WorkoutCheckIn],
         profileLookup: [UUID: UserProfile] = [:],
         now: Date = Date()
-    ) -> CrewWeeklyRecapData? {
+    ) -> FriendsWeeklyRecapData? {
         let cal = Calendar.current
         let today = cal.startOfDay(for: now)
         // "Last week" window = 7 days ending at the most recent start-of-week.
@@ -100,16 +100,16 @@ enum CrewRecapService {
         // Empty-state guard — don't render a recap when nothing happened.
         if crewDays == 0 && totalCheckIns == 0 { return nil }
 
-        return CrewWeeklyRecapData(
+        return FriendsWeeklyRecapData(
             weekStartDate: lastWeekMonday,
             weekEndDate: lastWeekSunday,
-            crewDaysTrained: crewDays,
+            friendsDaysTrained: crewDays,
             userDaysTrained: userDays,
             topMemberName: topName,
             topMemberDays: top?.value ?? 0,
             duoDays: duoDays,
             totalCheckIns: totalCheckIns,
-            crewSize: followedIds.count
+            friendsCount: followedIds.count
         )
     }
 }

@@ -3,17 +3,17 @@ import Foundation
 /// Snapshot of the user's crew's training cadence over a rolling window.
 /// Replaces the personal-streak framing with a "we're in it together"
 /// framing — the most important single UX shift for the community feel.
-struct CrewRhythm {
+struct FriendsRhythm {
     /// Days in the window (typically 7 for "this week").
     let totalDaysTracked: Int
     /// Distinct days any crew member (user + followed users) trained.
-    let daysTrainedByCrew: Int
+    let daysTrainedByFriends: Int
     /// Distinct days the current user trained.
     let userDaysTrained: Int
     /// One entry per day (oldest → newest). Value is the count of distinct
     /// crew members who trained that day (user included). Powers the
     /// 7-dot rhythm bar in the UI.
-    let perDayCrewCount: [Int]
+    let perDayFriendsCount: [Int]
     /// Most consistent member in the window (excluding self), for the
     /// "Sarah is on 3 straight" call-out.
     let topMember: (name: String, username: String, daysTrained: Int)?
@@ -23,7 +23,7 @@ struct CrewRhythm {
 }
 
 @MainActor
-enum CrewRhythmService {
+enum FriendsRhythmService {
 
     /// Computes the rhythm snapshot. Uses local Workout records for the
     /// user and Post records (by author + day) as a proxy for followed
@@ -35,7 +35,7 @@ enum CrewRhythmService {
         follows: [Friend],
         profileLookup: [UUID: UserProfile] = [:],
         now: Date = Date()
-    ) -> CrewRhythm {
+    ) -> FriendsRhythm {
         let cal = Calendar.current
         let startOfWindow = cal.date(byAdding: .day, value: -6, to: cal.startOfDay(for: now)) ?? now
         let totalDays = 7
@@ -61,12 +61,12 @@ enum CrewRhythmService {
         }
 
         // Rolled counts per day, ordered oldest → newest.
-        let perDayCrewCount: [Int] = (0..<totalDays).map { offset in
+        let perDayFriendsCount: [Int] = (0..<totalDays).map { offset in
             let day = cal.date(byAdding: .day, value: offset, to: startOfWindow) ?? now
             return trainedByDay[cal.startOfDay(for: day)]?.count ?? 0
         }
 
-        let daysTrainedByCrew = trainedByDay.values.filter { !$0.isEmpty }.count
+        let daysTrainedByFriends = trainedByDay.values.filter { !$0.isEmpty }.count
 
         let userDays = trainedByDay.values.filter { $0.contains(selfId) }.count
 
@@ -100,11 +100,11 @@ enum CrewRhythmService {
                 return (name, username)
             }
 
-        return CrewRhythm(
+        return FriendsRhythm(
             totalDaysTracked: totalDays,
-            daysTrainedByCrew: daysTrainedByCrew,
+            daysTrainedByFriends: daysTrainedByFriends,
             userDaysTrained: userDays,
-            perDayCrewCount: perDayCrewCount,
+            perDayFriendsCount: perDayFriendsCount,
             topMember: topMember,
             todayCompanions: companions
         )

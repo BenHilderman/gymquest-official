@@ -37,7 +37,7 @@ struct ExploreView: View {
     @State private var sheetPostForCollection: Post?
 
     // MARK: - Cached feed data (computed once in .task, not per-render)
-    @State private var cachedCrewMembers: [CrewMember] = []
+    @State private var cachedFriendsMembers: [FriendsMember] = []
     @State private var cachedDiscoverItems: [DiscoverFeedItem] = []
     @State private var cachedHeroPick: Post?
     @State private var cachedShortsClips: [Post] = []
@@ -57,7 +57,7 @@ struct ExploreView: View {
     @State private var presentedClub: Club?
 
     /// Nudge IDs the user dismissed this session — suppressed from the
-    /// banner. Day-keyed so "crewAhead-2-Jake" doesn't nag every open.
+    /// banner. Day-keyed so "friendsAhead-2-Jake" doesn't nag every open.
     @State private var dismissedNudgeIds: Set<String> = []
 
     /// Last 3 hero ids to skip on refresh — keeps the hero feeling fresh
@@ -75,7 +75,7 @@ struct ExploreView: View {
                 }
 
                 if let topNudge = activeNudges.first {
-                    CommunityNudgeBanner(nudge: topNudge, onAction: { handleNudgeAction(topNudge) }, onDismiss: { dismissedNudgeIds.insert(topNudge.id) }).padding(.horizontal, 16)
+                    FriendsNudgeBanner(nudge: topNudge, onAction: { handleNudgeAction(topNudge) }, onDismiss: { dismissedNudgeIds.insert(topNudge.id) }).padding(.horizontal, 16)
                 }
 
                 // ── 4. Hero (the action CTA — above the fold) ─
@@ -186,8 +186,8 @@ struct ExploreView: View {
     }
 
     /// Unified crew row data: merges live presence + recent posts + inactive
-    /// friends into one flat list of CrewMembers, sorted by status priority.
-    private var crewMembers: [CrewMember] {
+    /// friends into one flat list of FriendsMembers, sorted by status priority.
+    private var friendsMembers: [FriendsMember] {
         let followedIds = Set(follows.filter { $0.userId == profile.id }.map(\.odId))
         guard !followedIds.isEmpty else { return [] }
 
@@ -202,7 +202,7 @@ struct ExploreView: View {
             latestPost[post.authorId] = post
         }
 
-        return followedIds.compactMap { friendId -> CrewMember? in
+        return followedIds.compactMap { friendId -> FriendsMember? in
             let profile = profilesById[friendId]
             let follow = follows.first(where: { $0.odId == friendId })
             let name = profile?.name ?? follow?.odName ?? "Friend"
@@ -213,7 +213,7 @@ struct ExploreView: View {
                 let state = liveNowStates.first(where: { $0.userId == friendId })
                 let type = state?.workoutTypeRaw?.capitalized ?? "Training"
                 let mins = state?.minutesIn ?? 0
-                return CrewMember(
+                return FriendsMember(
                     id: friendId, name: name, username: username, avatarData: avatarData,
                     status: .live(workoutType: state?.workoutTypeRaw),
                     statusText: "\(type) · \(mins)m"
@@ -222,7 +222,7 @@ struct ExploreView: View {
 
             if let post = latestPost[friendId], post.timestamp >= weekAgo {
                 let warm = RelativeDateString.warm(from: post.timestamp)
-                return CrewMember(
+                return FriendsMember(
                     id: friendId, name: name, username: username, avatarData: avatarData,
                     status: .recent,
                     statusText: warm
@@ -232,7 +232,7 @@ struct ExploreView: View {
             let lastDate = latestPost[friendId]?.timestamp
             if lastDate == nil || lastDate! < inactiveThreshold {
                 let text = lastDate.map { RelativeDateString.warm(from: $0) } ?? "no posts"
-                return CrewMember(
+                return FriendsMember(
                     id: friendId, name: name, username: username, avatarData: avatarData,
                     status: .inactive,
                     statusText: text
@@ -246,7 +246,7 @@ struct ExploreView: View {
         }
     }
 
-    private func statusPriority(_ status: CrewMember.Status) -> Int {
+    private func statusPriority(_ status: FriendsMember.Status) -> Int {
         switch status {
         case .live: return 0
         case .recent: return 1
@@ -291,7 +291,7 @@ struct ExploreView: View {
         try? modelContext.save()
 
         let name = profilesById[userId]?.name ?? "A friend"
-        CommunityNotificationService.shared.notifyFriendStartedTraining(
+        FriendsNotificationService.shared.notifyFriendStartedTraining(
             friendName: "You",
             workoutType: "nudge from \(profile.name)",
             eventId: "nudge-\(userId)-\(Calendar.current.startOfDay(for: Date()))"
@@ -341,10 +341,10 @@ struct ExploreView: View {
     }
 
     /// Current crew rhythm snapshot — drives the nudge engine and, on the
-    /// Today page, the CrewRhythmCard.
-    private var crewRhythm: CrewRhythm {
+    /// Today page, the FriendsRhythmCard.
+    private var friendsRhythm: FriendsRhythm {
         let friendPosts = allPosts.filter { $0.authorId != profile.id }
-        return CrewRhythmService.weekRhythm(
+        return FriendsRhythmService.weekRhythm(
             selfId: profile.id,
             myWorkouts: recentWorkouts,
             friendPosts: friendPosts,
@@ -354,14 +354,14 @@ struct ExploreView: View {
     }
 
     /// Ordered nudges after rules + dismissal filter.
-    private var activeNudges: [CommunityNudge] {
+    private var activeNudges: [FriendsNudge] {
         let followedIds = Set(follows.filter { $0.userId == profile.id }.map(\.odId))
         let finished = PresenceService.justFinished(
             from: presenceStates,
             followedIds: followedIds
         )
-        return CommunityNudgeService.nudges(
-            rhythm: crewRhythm,
+        return FriendsNudgeService.nudges(
+            rhythm: friendsRhythm,
             justFinishedStates: finished,
             profileLookup: profilesById,
             dismissedIds: dismissedNudgeIds
@@ -369,7 +369,7 @@ struct ExploreView: View {
     }
 
     /// Routes the banner's action button — depends on nudge type.
-    private func handleNudgeAction(_ nudge: CommunityNudge) {
+    private func handleNudgeAction(_ nudge: FriendsNudge) {
         #if canImport(UIKit)
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         #endif
@@ -386,7 +386,7 @@ struct ExploreView: View {
             modelContext.insert(reaction)
             try? modelContext.save()
             dismissedNudgeIds.insert(nudge.id)
-        case .crewAhead:
+        case .friendsAhead:
             // Jump the user into a workout — kicks off the flow.
             appState.showingLogWorkout = true
             dismissedNudgeIds.insert(nudge.id)
@@ -398,9 +398,9 @@ struct ExploreView: View {
 
     /// Fires local notifications for crew events visible on this render:
     /// friends currently training, duo-day celebrations, rhythm milestones.
-    /// Deduped per session by CommunityNotificationService.
+    /// Deduped per session by FriendsNotificationService.
     private func scheduleNotificationsForLiveState() {
-        let notifier = CommunityNotificationService.shared
+        let notifier = FriendsNotificationService.shared
         notifier.requestAuthorizationIfNeeded()
 
         for state in liveNowStates where state.userId != profile.id {
@@ -412,12 +412,12 @@ struct ExploreView: View {
             )
         }
 
-        let rhythm = crewRhythm
-        if rhythm.daysTrainedByCrew >= 5 {
-            notifier.notifyCrewMilestone(
-                crewDays: rhythm.daysTrainedByCrew,
+        let rhythm = friendsRhythm
+        if rhythm.daysTrainedByFriends >= 5 {
+            notifier.notifyFriendsMilestone(
+                friendsDays: rhythm.daysTrainedByFriends,
                 totalDays: rhythm.totalDaysTracked,
-                eventId: "crewMilestone-\(rhythm.daysTrainedByCrew)-\(Calendar.current.startOfDay(for: Date()))"
+                eventId: "friendsMilestone-\(rhythm.daysTrainedByFriends)-\(Calendar.current.startOfDay(for: Date()))"
             )
         }
 
@@ -538,7 +538,7 @@ struct ExploreView: View {
     /// This is the key perf fix — without it, 13 computed properties
     /// iterate all posts on every SwiftUI render pass.
     private func rebuildFeedCache() {
-        cachedCrewMembers = crewMembers
+        cachedFriendsMembers = friendsMembers
         cachedHeroPick = heroPick
         cachedShortsClips = shortsClips
         cachedDiscoverItems = discoverGridItems
@@ -574,14 +574,14 @@ struct ExploreView: View {
             // Crew row: properly spaced, no clipping, pulsing green dots
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 14) {
-                    ForEach(cachedCrewMembers.prefix(6)) { member in
+                    ForEach(cachedFriendsMembers.prefix(6)) { member in
                         Button {
                             #if canImport(UIKit)
                             UIImpactFeedbackGenerator(style: .light).impactOccurred()
                             #endif
                             openFriendPost(member)
                         } label: {
-                            topCrewCell(member)
+                            topFriendCell(member)
                         }
                         .buttonStyle(.plain)
                     }
@@ -594,12 +594,12 @@ struct ExploreView: View {
         .onAppear { livePulse = true }
     }
 
-    private func topCrewCell(_ member: CrewMember) -> some View {
+    private func topFriendCell(_ member: FriendsMember) -> some View {
         VStack(spacing: 3) {
             ZStack {
                 // Ring (green = live, purple = recent, gray = inactive)
                 Circle()
-                    .stroke(crewDotColor(member), lineWidth: 2)
+                    .stroke(friendDotColor(member), lineWidth: 2)
                     .frame(width: 38, height: 38)
 
                 // Avatar
@@ -629,7 +629,7 @@ struct ExploreView: View {
             }
 
             // Name
-            Text(crewFirstName(member))
+            Text(friendFirstName(member))
                 .font(.system(size: 10, weight: .semibold))
                 .foregroundColor(GQColors.textPrimary)
                 .lineLimit(1)
@@ -644,7 +644,7 @@ struct ExploreView: View {
         }
     }
 
-    private func crewDotColor(_ member: CrewMember) -> Color {
+    private func friendDotColor(_ member: FriendsMember) -> Color {
         switch member.status {
         case .live: return .green
         case .recent: return .purple
@@ -654,7 +654,7 @@ struct ExploreView: View {
 
     /// Tap a crew member → opens the full Friends feed so the user
     /// can scroll through all friends' posts comfortably.
-    private func openFriendPost(_ member: CrewMember) {
+    private func openFriendPost(_ member: FriendsMember) {
         presentingFriendsFeed = true
     }
 
@@ -691,11 +691,11 @@ struct ExploreView: View {
                 // Crew row with names + status (from option 15)
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
-                        ForEach(cachedCrewMembers.prefix(6)) { member in
+                        ForEach(cachedFriendsMembers.prefix(6)) { member in
                             Button { presentingFriendsFeed = true } label: {
                                 VStack(spacing: 3) {
-                                    crewAvatar(member, size: 38)
-                                    Text(crewFirstName(member))
+                                    friendAvatar(member, size: 38)
+                                    Text(friendFirstName(member))
                                         .font(.system(size: 10, weight: .semibold))
                                         .foregroundColor(GQColors.textPrimary)
                                         .lineLimit(1)
@@ -752,10 +752,10 @@ struct ExploreView: View {
         .gqShadow(.card)
     }
 
-    private func crewAvatar(_ member: CrewMember, size: CGFloat) -> some View {
+    private func friendAvatar(_ member: FriendsMember, size: CGFloat) -> some View {
         ZStack {
             Circle()
-                .stroke(crewRingStyle(member), lineWidth: 2)
+                .stroke(friendRingStyle(member), lineWidth: 2)
                 .frame(width: size, height: size)
             Circle()
                 .fill(GQGradients.primary)
@@ -768,7 +768,7 @@ struct ExploreView: View {
         }
     }
 
-    private func crewRingStyle(_ member: CrewMember) -> some ShapeStyle {
+    private func friendRingStyle(_ member: FriendsMember) -> some ShapeStyle {
         switch member.status {
         case .live: return AnyShapeStyle(GQColors.success)
         case .recent: return AnyShapeStyle(GQGradients.primary)
@@ -776,7 +776,7 @@ struct ExploreView: View {
         }
     }
 
-    private func crewFirstName(_ member: CrewMember) -> String {
+    private func friendFirstName(_ member: FriendsMember) -> String {
         member.name.split(separator: " ").first.map(String.init) ?? member.name
     }
 

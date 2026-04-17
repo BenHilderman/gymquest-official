@@ -6,8 +6,8 @@ import UIKit
 /// Warm card that reframes the week from personal streak → crew rhythm.
 /// Shows: crew training days, user's role, 7-day activity bar, and the
 /// most-consistent crew member as a social cue.
-struct CrewRhythmCard: View {
-    let rhythm: CrewRhythm
+struct FriendsRhythmCard: View {
+    let rhythm: FriendsRhythm
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -35,7 +35,7 @@ struct CrewRhythmCard: View {
 
     private var header: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text("Your crew")
+            Text("Your friends")
                 .font(.system(size: 11, weight: .heavy))
                 .foregroundColor(GQColors.textTertiary)
                 .tracking(1.1)
@@ -45,7 +45,7 @@ struct CrewRhythmCard: View {
             VStack(alignment: .leading, spacing: 4) {
                 Spacer().frame(height: 16)
                 HStack(alignment: .lastTextBaseline, spacing: 6) {
-                    Text("\(rhythm.daysTrainedByCrew) of \(rhythm.totalDaysTracked)")
+                    Text("\(rhythm.daysTrainedByFriends) of \(rhythm.totalDaysTracked)")
                         .font(.system(size: 34, weight: .heavy, design: .rounded))
                         .foregroundStyle(GQGradients.primary)
                     Text("days this week")
@@ -64,10 +64,10 @@ struct CrewRhythmCard: View {
     // MARK: - Rhythm bar
 
     private var rhythmBar: some View {
-        let max = rhythm.perDayCrewCount.max() ?? 0
+        let max = rhythm.perDayFriendsCount.max() ?? 0
         return HStack(spacing: 6) {
-            ForEach(0..<rhythm.perDayCrewCount.count, id: \.self) { idx in
-                let count = rhythm.perDayCrewCount[idx]
+            ForEach(0..<rhythm.perDayFriendsCount.count, id: \.self) { idx in
+                let count = rhythm.perDayFriendsCount[idx]
                 VStack(spacing: 4) {
                     RoundedRectangle(cornerRadius: 4)
                         .fill(

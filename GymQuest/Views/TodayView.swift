@@ -34,7 +34,7 @@ struct TodayView: View {
 
     /// Persisted "I've seen this week's recap" flag, keyed by the week-end
     /// date so a new recap surfaces automatically each Monday.
-    @AppStorage("lastDismissedCrewRecapKey") private var lastDismissedCrewRecapKey: String = ""
+    @AppStorage("lastDismissedFriendsRecapKey") private var lastDismissedFriendsRecapKey: String = ""
 
     // Challenge data
     @Query(sort: \ChallengeEnrollment.enrolledAt, order: .reverse) private var allChallengeEnrollments: [ChallengeEnrollment]
@@ -161,7 +161,7 @@ struct TodayView: View {
             checkForDraft()
             MockDataSeeder.seedIfNeeded(modelContext: modelContext, profile: profile)
             MockDataSeeder.fillCurrentWeek(modelContext: modelContext)
-            CommunitySeeder.seedIfNeeded(modelContext: modelContext, profile: profile)
+            ClubsSeeder.seedIfNeeded(modelContext: modelContext, profile: profile)
             #if DEBUG
             // Dev-only: seed demo posts once per profile. Never wipe real
             // production data on every tab appearance.
@@ -1354,8 +1354,8 @@ struct TodayView: View {
             // Crew weekly recap — Monday-morning celebration of last week.
             // Appears above activity so it reads as a "this week's event"
             // rather than a tile. Auto-dismisses once seen for that week.
-            if let recap = currentCrewRecap, !isRecapDismissed(recap) {
-                CrewRecapCard(recap: recap) { dismissRecap(recap) }
+            if let recap = currentFriendsRecap, !isRecapDismissed(recap) {
+                FriendsRecapCard(recap: recap) { dismissRecap(recap) }
             }
 
             // Activity — taps through to Activity tab
@@ -1367,7 +1367,7 @@ struct TodayView: View {
             // Crew rhythm — reframes the week as collective instead of solo.
             // Slots between personal activity stats and challenges so the
             // flow reads: my stats → our week → my challenges.
-            CrewRhythmCard(rhythm: crewRhythmSnapshot)
+            FriendsRhythmCard(rhythm: friendsRhythmSnapshot)
 
             // Progressive challenges (3 at a time, tier-based)
             TodayChallengesSection(profile: profile)
@@ -1386,10 +1386,10 @@ struct TodayView: View {
 
     // MARK: - Crew Weekly Recap
 
-    private var currentCrewRecap: CrewWeeklyRecapData? {
+    private var currentFriendsRecap: FriendsWeeklyRecapData? {
         let profilesById = Dictionary(uniqueKeysWithValues: allUserProfiles.map { ($0.id, $0) })
         let friendPosts = allPosts.filter { $0.authorId != profile.id }
-        return CrewRecapService.lastWeekRecap(
+        return FriendsRecapService.lastWeekRecap(
             selfId: profile.id,
             myWorkouts: allWorkouts,
             friendPosts: friendPosts,
@@ -1401,28 +1401,28 @@ struct TodayView: View {
 
     /// Key for persisting "I've seen this week's recap" — uses the window
     /// end date so next week's recap re-surfaces automatically.
-    private func recapKey(_ recap: CrewWeeklyRecapData) -> String {
+    private func recapKey(_ recap: FriendsWeeklyRecapData) -> String {
         let fmt = DateFormatter()
         fmt.dateFormat = "yyyy-MM-dd"
         return "recap-\(fmt.string(from: recap.weekEndDate))"
     }
 
-    private func isRecapDismissed(_ recap: CrewWeeklyRecapData) -> Bool {
-        lastDismissedCrewRecapKey == recapKey(recap)
+    private func isRecapDismissed(_ recap: FriendsWeeklyRecapData) -> Bool {
+        lastDismissedFriendsRecapKey == recapKey(recap)
     }
 
-    private func dismissRecap(_ recap: CrewWeeklyRecapData) {
-        lastDismissedCrewRecapKey = recapKey(recap)
+    private func dismissRecap(_ recap: FriendsWeeklyRecapData) {
+        lastDismissedFriendsRecapKey = recapKey(recap)
     }
 
-    // MARK: - Crew Rhythm
+    // MARK: - Friends Rhythm
 
-    /// Snapshot for the CrewRhythmCard above. Shares logic with Explore so
+    /// Snapshot for the FriendsRhythmCard above. Shares logic with Explore so
     /// both surfaces read the same "we trained X of Y days this week."
-    private var crewRhythmSnapshot: CrewRhythm {
+    private var friendsRhythmSnapshot: FriendsRhythm {
         let profilesById = Dictionary(uniqueKeysWithValues: allUserProfiles.map { ($0.id, $0) })
         let friendPosts = allPosts.filter { $0.authorId != profile.id }
-        return CrewRhythmService.weekRhythm(
+        return FriendsRhythmService.weekRhythm(
             selfId: profile.id,
             myWorkouts: allWorkouts,
             friendPosts: friendPosts,

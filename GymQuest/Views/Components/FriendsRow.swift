@@ -4,7 +4,7 @@ import UIKit
 #endif
 
 /// Single merged crew member for the unified row.
-struct CrewMember: Identifiable {
+struct FriendsMember: Identifiable {
     let id: UUID
     let name: String
     let username: String
@@ -22,9 +22,9 @@ struct CrewMember: Identifiable {
 /// One horizontal row replacing both LiveNowStrip and FriendFeedSection.
 /// Green ring = training now, purple = posted recently, gray = inactive.
 /// ~70pt tall. Tap avatar → callback. [+] at the end starts a workout.
-struct CrewRow: View {
-    let members: [CrewMember]
-    let onTapMember: (CrewMember) -> Void
+struct FriendsRow: View {
+    let members: [FriendsMember]
+    let onTapMember: (FriendsMember) -> Void
     let onStartWorkout: () -> Void
 
     @State private var pulse: Bool = false
@@ -32,7 +32,7 @@ struct CrewRow: View {
     var body: some View {
         if members.isEmpty { EmptyView() } else {
             VStack(alignment: .leading, spacing: 6) {
-                Text("YOUR CREW")
+                Text("FRIENDS")
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundColor(GQColors.textTertiary)
                     .tracking(1.2)
@@ -52,7 +52,7 @@ struct CrewRow: View {
         }
     }
 
-    private func memberCell(_ member: CrewMember) -> some View {
+    private func memberCell(_ member: FriendsMember) -> some View {
         Button {
             #if canImport(UIKit)
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -131,7 +131,7 @@ struct CrewRow: View {
     // MARK: - Helpers
 
     @ViewBuilder
-    private func avatarImage(_ member: CrewMember) -> some View {
+    private func avatarImage(_ member: FriendsMember) -> some View {
         #if canImport(UIKit)
         if let data = member.avatarData, let img = UIImage(data: data) {
             Image(uiImage: img).resizable().aspectRatio(contentMode: .fill)
@@ -148,7 +148,7 @@ struct CrewRow: View {
         #endif
     }
 
-    private func ringColor(_ member: CrewMember) -> some ShapeStyle {
+    private func ringColor(_ member: FriendsMember) -> some ShapeStyle {
         switch member.status {
         case .live: return AnyShapeStyle(GQColors.success)
         case .recent: return AnyShapeStyle(GQGradients.primary)
@@ -156,17 +156,17 @@ struct CrewRow: View {
         }
     }
 
-    private func isLive(_ member: CrewMember) -> Bool {
+    private func isLive(_ member: FriendsMember) -> Bool {
         if case .live = member.status { return true }
         return false
     }
 
-    private func isInactive(_ member: CrewMember) -> Bool {
+    private func isInactive(_ member: FriendsMember) -> Bool {
         if case .inactive = member.status { return true }
         return false
     }
 
-    private func firstName(_ member: CrewMember) -> String {
+    private func firstName(_ member: FriendsMember) -> String {
         member.name.split(separator: " ").first.map(String.init) ?? member.name
     }
 }

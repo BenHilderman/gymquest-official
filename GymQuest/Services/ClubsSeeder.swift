@@ -1,11 +1,11 @@
 import Foundation
 import SwiftData
 
-/// Seeds the community surfaces (ClubsShelf, CrewRecapCard, check-in tiles)
+/// Seeds the community surfaces (ClubsShelf, FriendsRecapCard, check-in tiles)
 /// so every social feature has content on first launch. Runs once per
 /// profile (guarded by a UserDefaults flag).
 @MainActor
-enum CommunitySeeder {
+enum ClubsSeeder {
 
     static func seedIfNeeded(modelContext: ModelContext, profile: UserProfile) {
         let key = "communitySeeder_v1_\(profile.id.uuidString)"
@@ -64,7 +64,7 @@ enum CommunitySeeder {
             modelContext.insert(checkIn)
         }
 
-        // 3) Seed last-week workouts for the user (so CrewRecapCard shows
+        // 3) Seed last-week workouts for the user (so FriendsRecapCard shows
         //    "You're in for X" with real data). These supplements the posts
         //    already seeded by SocialSeeder.
         let today = cal.startOfDay(for: now)

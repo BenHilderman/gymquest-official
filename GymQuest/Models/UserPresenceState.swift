@@ -9,7 +9,7 @@ enum PresenceStatus: String, Codable, CaseIterable {
     case idle        // not training
     case training    // actively in a workout
     case resting     // between sets
-    case done        // finished recently (last 10 min) — cue for crew support
+    case done        // finished recently (last 10 min) — cue for friend support
 }
 
 @Model

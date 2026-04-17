@@ -24,7 +24,7 @@ struct OnboardingFlow: View {
         Page(
             eyebrow: "YOUR GYM HOME",
             title: "Train-first, always",
-            body: "Open Feed and you land on Train: tonight's pick, your saved workouts, and shelves tailored to your week. Your crew's clips live one tap away — not in your face.",
+            body: "Open Feed and you land on Train: tonight's pick, your saved workouts, and shelves tailored to your week. Your friends' clips live one tap away — not in your face.",
             icon: "figure.strengthtraining.traditional",
             accentColor: .orange
         ),
@@ -37,7 +37,7 @@ struct OnboardingFlow: View {
         ),
         Page(
             eyebrow: "NEVER ALONE",
-            title: "Your crew is working out with you",
+            title: "Your friends is working out with you",
             body: "See who's training right now. Send support with one tap. Long-press the heart on any clip for 🔥💪👀🙌. Clubs bring the group back.",
             icon: "person.3.fill",
             accentColor: .pink
@@ -45,7 +45,7 @@ struct OnboardingFlow: View {
         Page(
             eyebrow: "CONSISTENCY TOGETHER",
             title: "Rhythms, not streaks",
-            body: "Your week is collective. \"Your crew trained 5 of 7 days — you're in for 3.\" Missing a day feels like letting down a friend, not a counter.",
+            body: "Your week is collective. \"Your friends trained 5 of 7 days — you're in for 3.\" Missing a day feels like letting down a friend, not a counter.",
             icon: "sparkles",
             accentColor: .blue
         )

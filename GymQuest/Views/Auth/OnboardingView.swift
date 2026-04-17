@@ -586,7 +586,7 @@ struct JoinSquadStepView: View {
                 .font(.system(size: 44))
                 .foregroundStyle(GQGradients.primary)
 
-            Text("Find your crew")
+            Text("Find your friends")
                 .font(.title)
                 .fontWeight(.bold)
 

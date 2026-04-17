@@ -2,11 +2,11 @@ import XCTest
 @testable import GymQuest
 
 @MainActor
-final class CommunityTests: XCTestCase {
+final class FriendsNudgeTests: XCTestCase {
 
-    // MARK: - CrewRhythmService
+    // MARK: - FriendsRhythmService
 
-    func testCrewRhythm_countsDistinctDaysCrewTrained() {
+    func testFriendsRhythm_countsDistinctDaysFriendsTrained() {
         let selfId = UUID()
         let friend = UUID()
 
@@ -25,7 +25,7 @@ final class CommunityTests: XCTestCase {
         ]
         let follow = Friend(userId: selfId, odId: friend, odName: "Jake", odUsername: "jake")
 
-        let rhythm = CrewRhythmService.weekRhythm(
+        let rhythm = FriendsRhythmService.weekRhythm(
             selfId: selfId,
             myWorkouts: myWorkouts,
             friendPosts: friendPosts,
@@ -34,11 +34,11 @@ final class CommunityTests: XCTestCase {
         )
 
         // Crew trained distinct days: today (me), yesterday (both), 2-days-ago (friend)
-        XCTAssertEqual(rhythm.daysTrainedByCrew, 3)
+        XCTAssertEqual(rhythm.daysTrainedByFriends, 3)
         XCTAssertEqual(rhythm.userDaysTrained, 2)
     }
 
-    func testCrewRhythm_topMemberIsFriendWithMostDays() {
+    func testFriendsRhythm_topMemberIsFriendWithMostDays() {
         let selfId = UUID()
         let heavy = UUID()
         let light = UUID()
@@ -52,7 +52,7 @@ final class CommunityTests: XCTestCase {
             Friend(userId: selfId, odId: light, odName: "Light", odUsername: "light")
         ]
 
-        let rhythm = CrewRhythmService.weekRhythm(
+        let rhythm = FriendsRhythmService.weekRhythm(
             selfId: selfId,
             myWorkouts: [],
             friendPosts: friendPosts,
@@ -63,7 +63,7 @@ final class CommunityTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(rhythm.topMember?.daysTrained ?? 0, 4)
     }
 
-    func testCrewRhythm_duoDayCompanionSurfaces() {
+    func testFriendsRhythm_duoDayCompanionSurfaces() {
         let selfId = UUID()
         let companion = UUID()
         let today = Date()
@@ -72,7 +72,7 @@ final class CommunityTests: XCTestCase {
         let friendPosts = [postFromAuthor(companion, on: today)]
         let follow = Friend(userId: selfId, odId: companion, odName: "Sarah", odUsername: "sarah")
 
-        let rhythm = CrewRhythmService.weekRhythm(
+        let rhythm = FriendsRhythmService.weekRhythm(
             selfId: selfId,
             myWorkouts: myWorkouts,
             friendPosts: friendPosts,
@@ -81,16 +81,16 @@ final class CommunityTests: XCTestCase {
         XCTAssertEqual(rhythm.todayCompanions.first?.username, "sarah")
     }
 
-    // MARK: - CommunityNudgeService
+    // MARK: - FriendsNudgeService
 
     func testNudge_duoDayFiresWhenCompanionPresent() {
-        let rhythm = CrewRhythm(
-            totalDaysTracked: 7, daysTrainedByCrew: 3, userDaysTrained: 1,
-            perDayCrewCount: [0, 0, 1, 1, 1, 0, 2],
+        let rhythm = FriendsRhythm(
+            totalDaysTracked: 7, daysTrainedByFriends: 3, userDaysTrained: 1,
+            perDayFriendsCount: [0, 0, 1, 1, 1, 0, 2],
             topMember: nil,
             todayCompanions: [(name: "Sarah", username: "sarah")]
         )
-        let nudges = CommunityNudgeService.nudges(
+        let nudges = FriendsNudgeService.nudges(
             rhythm: rhythm, justFinishedStates: [], profileLookup: [:],
             dismissedIds: []
         )
@@ -101,13 +101,13 @@ final class CommunityTests: XCTestCase {
     }
 
     func testNudge_dismissalSuppresses() {
-        let rhythm = CrewRhythm(
-            totalDaysTracked: 7, daysTrainedByCrew: 3, userDaysTrained: 0,
-            perDayCrewCount: [1, 0, 0, 1, 1, 0, 0],
+        let rhythm = FriendsRhythm(
+            totalDaysTracked: 7, daysTrainedByFriends: 3, userDaysTrained: 0,
+            perDayFriendsCount: [1, 0, 0, 1, 1, 0, 0],
             topMember: (name: "Jake", username: "jake", daysTrained: 3),
             todayCompanions: []
         )
-        let first = CommunityNudgeService.nudges(
+        let first = FriendsNudgeService.nudges(
             rhythm: rhythm, justFinishedStates: [], profileLookup: [:], dismissedIds: []
         )
         // First call yields a friendOnStreak (3 days for Jake).
@@ -119,7 +119,7 @@ final class CommunityTests: XCTestCase {
         let dismissedId = first.first(where: {
             if case .friendOnStreak = $0 { return true } else { return false }
         })!.id
-        let second = CommunityNudgeService.nudges(
+        let second = FriendsNudgeService.nudges(
             rhythm: rhythm, justFinishedStates: [], profileLookup: [:],
             dismissedIds: [dismissedId]
         )
@@ -130,9 +130,9 @@ final class CommunityTests: XCTestCase {
     }
 
     func testNudge_justFinishedIsHighestPriority() {
-        let rhythm = CrewRhythm(
-            totalDaysTracked: 7, daysTrainedByCrew: 4, userDaysTrained: 0,
-            perDayCrewCount: [1, 1, 1, 1, 0, 0, 0],
+        let rhythm = FriendsRhythm(
+            totalDaysTracked: 7, daysTrainedByFriends: 4, userDaysTrained: 0,
+            perDayFriendsCount: [1, 1, 1, 1, 0, 0, 0],
             topMember: (name: "Jake", username: "jake", daysTrained: 4),
             todayCompanions: []
         )
@@ -143,7 +143,7 @@ final class CommunityTests: XCTestCase {
         )
         finished.updatedAt = Date().addingTimeInterval(-5 * 60)
 
-        let nudges = CommunityNudgeService.nudges(
+        let nudges = FriendsNudgeService.nudges(
             rhythm: rhythm, justFinishedStates: [finished],
             profileLookup: [friendId: makeProfile(id: friendId, name: "Marcus")],
             dismissedIds: []

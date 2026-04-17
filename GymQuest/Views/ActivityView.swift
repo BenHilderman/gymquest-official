@@ -21,7 +21,7 @@ struct ActivityItem: Identifiable {
         case checkIn(workoutType: String, minutes: Int)
         case startedTraining(workoutType: String)
         case duoDay
-        case crewMilestone(days: Int)
+        case friendsMilestone(days: Int)
 
         var description: String {
             switch self {
@@ -32,7 +32,7 @@ struct ActivityItem: Identifiable {
             case .checkIn(let type, let mins): return "checked in · \(type.lowercased()) · \(mins) min"
             case .startedTraining(let type): return "started \(type.lowercased())"
             case .duoDay: return "trained with you today ✨"
-            case .crewMilestone(let days): return "crew hit \(days) of 7 days this week 🔥"
+            case .friendsMilestone(let days): return "friends hit \(days) of 7 days this week 🔥"
             }
         }
 
@@ -45,7 +45,7 @@ struct ActivityItem: Identifiable {
             case .checkIn: return "checkmark.circle.fill"
             case .startedTraining: return "figure.run"
             case .duoDay: return "sparkles"
-            case .crewMilestone: return "flame.fill"
+            case .friendsMilestone: return "flame.fill"
             }
         }
 
@@ -58,7 +58,7 @@ struct ActivityItem: Identifiable {
             case .checkIn: return GQColors.success
             case .startedTraining: return GQColors.success
             case .duoDay: return GQColors.vividPurple
-            case .crewMilestone: return .orange
+            case .friendsMilestone: return .orange
             }
         }
     }

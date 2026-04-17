@@ -175,7 +175,7 @@ struct FriendsFeedView: View {
 
     private var backToTrainingFooter: some View {
         VStack(spacing: 10) {
-            Text("You've seen your crew's latest")
+            Text("You've seen your friends' latest")
                 .font(.system(size: 13, weight: .medium))
                 .foregroundColor(GQColors.textTertiary)
             Button { dismiss() } label: {

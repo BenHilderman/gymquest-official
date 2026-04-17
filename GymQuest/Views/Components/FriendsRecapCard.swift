@@ -2,8 +2,8 @@ import SwiftUI
 
 /// Minimal one-line crew recap — subtle, dismissible, matches Today's
 /// section header language. Not a big card anymore.
-struct CrewRecapCard: View {
-    let recap: CrewWeeklyRecapData
+struct FriendsRecapCard: View {
+    let recap: FriendsWeeklyRecapData
     let onDismiss: () -> Void
 
     var body: some View {
@@ -11,7 +11,7 @@ struct CrewRecapCard: View {
             Image(systemName: "chart.bar.fill")
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(GQGradients.primary)
-            Text("Last week: \(recap.crewDaysTrained)/7 crew days")
+            Text("Last week: \(recap.friendsDaysTrained)/7 friend days")
                 .font(.system(size: 12, weight: .medium))
                 .foregroundColor(GQColors.textSecondary)
             if let top = recap.topMemberName {

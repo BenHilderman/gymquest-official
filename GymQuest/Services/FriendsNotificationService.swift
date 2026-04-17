@@ -11,8 +11,8 @@ import UserNotifications
 /// MVP uses UNUserNotificationCenter (no server). Real deployment adds
 /// Supabase Edge Functions → APNs for cross-device delivery.
 @MainActor
-final class CommunityNotificationService {
-    static let shared = CommunityNotificationService()
+final class FriendsNotificationService {
+    static let shared = FriendsNotificationService()
     private init() {}
 
     /// Set of event IDs already scheduled this session — prevents duplicate
@@ -56,14 +56,14 @@ final class CommunityNotificationService {
         )
     }
 
-    /// "🔥 Your crew trained 5 of 7 days this week"
-    func notifyCrewMilestone(crewDays: Int, totalDays: Int, eventId: String) {
+    /// "🔥 Your friends trained 5 of 7 days this week"
+    func notifyFriendsMilestone(friendsDays: Int, totalDays: Int, eventId: String) {
         guard shouldSchedule(eventId) else { return }
-        guard crewDays >= 5 else { return }
+        guard friendsDays >= 5 else { return }
         schedule(
             id: eventId,
-            title: "Your crew trained \(crewDays) of \(totalDays) days",
-            body: crewDays == totalDays
+            title: "Your friends trained \(friendsDays) of \(totalDays) days",
+            body: friendsDays == totalDays
                 ? "Perfect week — the squad came through"
                 : "One more day and it's a perfect week",
             delay: 0

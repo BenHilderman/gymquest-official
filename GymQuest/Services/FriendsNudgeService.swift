@@ -3,9 +3,9 @@ import Foundation
 /// A single motivational nudge surfaced at the top of Explore. Never
 /// punitive — always anchored in a specific person so it reads as "your
 /// crew is here" instead of "you're falling behind."
-enum CommunityNudge: Identifiable, Equatable {
+enum FriendsNudge: Identifiable, Equatable {
     /// Your crew hit N more training days than you this week.
-    case crewAhead(daysBehind: Int, exampleFriend: String)
+    case friendsAhead(daysBehind: Int, exampleFriend: String)
     /// A friend just finished their workout — prime time to send support.
     case justFinished(friendName: String, workoutType: String, userId: UUID)
     /// You and a friend both trained today — positive reinforcement.
@@ -15,7 +15,7 @@ enum CommunityNudge: Identifiable, Equatable {
 
     var id: String {
         switch self {
-        case .crewAhead(let days, let name): return "crewAhead-\(days)-\(name)"
+        case .friendsAhead(let days, let name): return "friendsAhead-\(days)-\(name)"
         case .justFinished(_, _, let uid): return "justFinished-\(uid.uuidString)"
         case .duoDay(let name): return "duoDay-\(name)"
         case .friendOnStreak(let name, let days): return "friendOnStreak-\(name)-\(days)"
@@ -24,8 +24,8 @@ enum CommunityNudge: Identifiable, Equatable {
 
     var title: String {
         switch self {
-        case .crewAhead(let days, _):
-            return "Your crew is \(days) day\(days == 1 ? "" : "s") ahead this week"
+        case .friendsAhead(let days, _):
+            return "Your friends is \(days) day\(days == 1 ? "" : "s") ahead this week"
         case .justFinished(let name, let type, _):
             return "\(name) just finished \(type.lowercased())"
         case .duoDay(let name):
@@ -37,7 +37,7 @@ enum CommunityNudge: Identifiable, Equatable {
 
     var body: String {
         switch self {
-        case .crewAhead(_, let example):
+        case .friendsAhead(_, let example):
             return "\(example) trained today — keep the rhythm"
         case .justFinished:
             return "Drop a quick 💪 — they'll feel it instantly"
@@ -50,7 +50,7 @@ enum CommunityNudge: Identifiable, Equatable {
 
     var actionLabel: String {
         switch self {
-        case .crewAhead: return "Start workout"
+        case .friendsAhead: return "Start workout"
         case .justFinished, .friendOnStreak: return "Send 💪"
         case .duoDay: return "High-five"
         }
@@ -58,19 +58,19 @@ enum CommunityNudge: Identifiable, Equatable {
 }
 
 @MainActor
-enum CommunityNudgeService {
+enum FriendsNudgeService {
 
     /// Evaluates all rules and returns ordered nudges, most-actionable first.
     /// Dismissed IDs (from the banner's dismiss button) suppress for the
     /// current session.
     static func nudges(
-        rhythm: CrewRhythm,
+        rhythm: FriendsRhythm,
         justFinishedStates: [UserPresenceState],
         profileLookup: [UUID: UserProfile],
         dismissedIds: Set<String>,
         now: Date = Date()
-    ) -> [CommunityNudge] {
-        var result: [CommunityNudge] = []
+    ) -> [FriendsNudge] {
+        var result: [FriendsNudge] = []
 
         // 1. Just-finished — highest priority because time window is short.
         for state in justFinishedStates.prefix(2) {
@@ -91,9 +91,9 @@ enum CommunityNudgeService {
 
         // 4. Crew ahead — gentle gap awareness. Only when user is behind
         //    by at least 2 days so we don't nag on minor gaps.
-        let gap = rhythm.daysTrainedByCrew - rhythm.userDaysTrained
+        let gap = rhythm.daysTrainedByFriends - rhythm.userDaysTrained
         if gap >= 2, let exampleFriend = rhythm.topMember?.name {
-            result.append(.crewAhead(daysBehind: gap, exampleFriend: exampleFriend))
+            result.append(.friendsAhead(daysBehind: gap, exampleFriend: exampleFriend))
         }
 
         return result.filter { !dismissedIds.contains($0.id) }

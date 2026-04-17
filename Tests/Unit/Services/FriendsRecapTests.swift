@@ -2,10 +2,10 @@ import XCTest
 @testable import GymQuest
 
 @MainActor
-final class CrewRecapTests: XCTestCase {
+final class FriendsRecapTests: XCTestCase {
 
     func testRecap_nilWhenNoActivity() {
-        let recap = CrewRecapService.lastWeekRecap(
+        let recap = FriendsRecapService.lastWeekRecap(
             selfId: UUID(),
             myWorkouts: [],
             friendPosts: [],
@@ -23,7 +23,7 @@ final class CrewRecapTests: XCTestCase {
             Workout(date: lastMonday, type: .push),
             Workout(date: cal.date(byAdding: .day, value: 3, to: lastMonday)!, type: .legs)
         ]
-        let recap = CrewRecapService.lastWeekRecap(
+        let recap = FriendsRecapService.lastWeekRecap(
             selfId: selfId,
             myWorkouts: myWorkouts,
             friendPosts: [],
@@ -31,7 +31,7 @@ final class CrewRecapTests: XCTestCase {
             checkIns: []
         )
         XCTAssertEqual(recap?.userDaysTrained, 2)
-        XCTAssertEqual(recap?.crewDaysTrained, 2)
+        XCTAssertEqual(recap?.friendsDaysTrained, 2)
         XCTAssertEqual(recap?.duoDays, 0)   // no one else trained with me
     }
 
@@ -47,7 +47,7 @@ final class CrewRecapTests: XCTestCase {
         }
         let follow = Friend(userId: selfId, odId: friend, odName: "Jake", odUsername: "jake")
 
-        let recap = CrewRecapService.lastWeekRecap(
+        let recap = FriendsRecapService.lastWeekRecap(
             selfId: selfId,
             myWorkouts: [],
             friendPosts: friendPosts,
@@ -69,7 +69,7 @@ final class CrewRecapTests: XCTestCase {
                                 timestamp: aligned, caption: "c")]
         let follow = Friend(userId: selfId, odId: friend, odName: "Sarah", odUsername: "sarah")
 
-        let recap = CrewRecapService.lastWeekRecap(
+        let recap = FriendsRecapService.lastWeekRecap(
             selfId: selfId,
             myWorkouts: myWorkouts,
             friendPosts: friendPosts,
@@ -80,11 +80,11 @@ final class CrewRecapTests: XCTestCase {
     }
 
     func testRecap_headlineReflectsStrongWeek() {
-        let data = CrewWeeklyRecapData(
+        let data = FriendsWeeklyRecapData(
             weekStartDate: Date(), weekEndDate: Date(),
-            crewDaysTrained: 7, userDaysTrained: 4,
+            friendsDaysTrained: 7, userDaysTrained: 4,
             topMemberName: "Jake", topMemberDays: 6,
-            duoDays: 3, totalCheckIns: 12, crewSize: 3
+            duoDays: 3, totalCheckIns: 12, friendsCount: 3
         )
         XCTAssertTrue(data.headline.lowercased().contains("perfect week"))
     }
@@ -92,7 +92,7 @@ final class CrewRecapTests: XCTestCase {
     // MARK: - Helpers
 
     /// Monday of the previous ISO week (for aligning test fixtures to the
-    /// window CrewRecapService measures).
+    /// window FriendsRecapService measures).
     private func lastWeekMonday() -> Date {
         let cal = Calendar.current
         let today = cal.startOfDay(for: Date())
