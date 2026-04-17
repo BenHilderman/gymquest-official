@@ -3281,6 +3281,11 @@ struct SettingsView: View {
     @State private var experienceLevel: ExperienceLevel = .intermediate
     @State private var selectedEquipment: Set<EquipmentType> = []
 
+    @FocusState private var usernameFocused: Bool
+    @State private var pendingUsername: String = ""
+    @State private var showingUsernameConfirmAlert = false
+    @State private var showingUsernameBlockedAlert = false
+
     @StateObject private var authService = AuthService()
     @AppStorage("appAppearance") private var appAppearance: String = AppAppearance.light.rawValue
     @AppStorage("hapticFeedbackEnabled") private var hapticEnabled = true
@@ -3293,115 +3298,39 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 6) {
-
-                // MARK: Account
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Account")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(GQColors.textPrimary)
-                    settingsTextField(title: "Name", text: $name)
-                    settingsTextField(title: "Username", text: $username)
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .homeSocialCard(cornerRadius: 16)
-
-                settingsDivider
-
-                // MARK: Preferences
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Preferences")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(GQColors.textPrimary)
-
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Theme")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundColor(GQColors.textPrimary)
-                        settingsPillPicker(
-                            items: AppAppearance.allCases.map { $0.rawValue },
-                            selection: $appAppearance
-                        )
-                    }
-
-                    #if canImport(UIKit)
-                    settingsToggleRow(
-                        title: "Haptic Feedback",
-                        subtitle: hapticEnabled ? "Vibration on taps and actions" : "No vibration on interactions",
-                        isOn: $hapticEnabled
-                    )
-                    #endif
-
-                    settingsToggleRow(
-                        title: "Public Profile",
-                        subtitle: profile.isProfilePublic ? "Anyone can see your posts" : "Only mutual friends",
-                        isOn: Binding(
-                            get: { profile.isProfilePublic },
-                            set: { newValue in
-                                profile.isProfilePublic = newValue
-                                try? modelContext.save()
-                            }
-                        )
-                    )
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
-                .homeSocialCard(cornerRadius: 16)
-
-                settingsDivider
-
-                // MARK: Links
-
-                VStack(spacing: 0) {
-                    settingsNavRow(icon: "figure.arms.open", title: "Body Measurements", subtitle: "Track weight, body fat & more", color: GQColors.textSecondary) {
-                        BodyMeasurementsView(profile: profile)
-                    }
-                    Divider().padding(.leading, 70)
-                    settingsNavRow(icon: "heart.fill", title: "Apple Health & Watch", subtitle: "Sync data & integrations", color: GQColors.textSecondary) {
-                        IntegrationsView(profile: profile)
-                    }
-                    Divider().padding(.leading, 70)
-                    settingsNavRow(icon: "waveform", title: "Music", subtitle: "Spotify & Apple Music", color: GQColors.textSecondary) {
-                        IntegrationsView(profile: profile)
-                    }
-                    Divider().padding(.leading, 70)
-                    settingsNavRow(icon: "person.2.fill", title: "Squads", subtitle: "Teams & challenges", color: GQColors.textSecondary) {
-                        SquadView(profile: profile)
-                    }
-                    Divider().padding(.leading, 70)
-                    settingsNavRow(icon: "bell.badge", title: "Notifications", subtitle: "Reminders & alerts", color: GQColors.textSecondary) {
-                        NotificationSettingsView()
-                    }
-                }
-                .homeSocialCard(cornerRadius: 16)
-
-                settingsDivider
-
-                // MARK: Founder Dashboard
-                //
-                // Memo 5 KPI surface. The three gold metrics (A24, W→P, D7)
-                // plus Unprompted Return Rate and action-from-feed count.
-                // Visible in Settings so you can check the numbers on-device
-                // without needing a backend dashboard.
-                FounderDashboardSection()
-                    .homeSocialCard(cornerRadius: 16)
-
-                settingsDivider
-
-                // Sign Out
-                Button {
-                    showingLogoutAlert = true
-                } label: {
-                    Text("Sign Out")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(GQColors.textTertiary)
-                }
-                .buttonStyle(.plain)
+        settingsScroll
+            .modifier(SettingsAutoSaveModifier(
+                profile: profile,
+                modelContext: modelContext,
+                name: $name,
+                aiProvider: $aiProvider,
+                apiKey: $apiKey,
+                ollamaModel: $ollamaModel,
+                ollamaHost: $ollamaHost,
+                gymName: $gymName,
+                preferredDuration: $preferredDuration,
+                experienceLevel: $experienceLevel,
+                selectedEquipment: $selectedEquipment,
+                usernameFocused: $usernameFocused,
+                onUsernameFocusLost: { attemptUsernameChange() }
+            ))
+            .alert("Change username?", isPresented: $showingUsernameConfirmAlert) {
+                Button("Cancel", role: .cancel) { username = profile.username }
+                Button("Change") { commitUsernameChange() }
+            } message: {
+                Text("You can change your username up to twice every 14 days. You'll use \(recentUsernameChangeDates().count + 1) of 2 changes.")
             }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 100)
+            .alert("Can't change username", isPresented: $showingUsernameBlockedAlert) {
+                Button("OK", role: .cancel) { username = profile.username }
+            } message: {
+                Text(usernameBlockedMessage)
+            }
+    }
+
+    @ViewBuilder
+    private var settingsScroll: some View {
+        ScrollView {
+            settingsContent
         }
         .scrollContentBackground(.hidden)
         .gqPageBackground()
@@ -3423,33 +3352,6 @@ struct SettingsView: View {
                             .font(.system(size: 17))
                     }
                     .foregroundColor(GQColors.textPrimary)
-                }
-            }
-            ToolbarItem(placement: .confirmationAction) {
-                Button {
-                    profile.name = name
-                    profile.username = username.isEmpty ? name.lowercased().replacingOccurrences(of: " ", with: "") : username
-                    profile.aiProvider = aiProvider
-                    profile.apiKey = apiKey
-                    if !apiKey.isEmpty {
-                        AIKeychain.save(key: apiKey, userId: profile.id.uuidString)
-                    }
-                    profile.ollamaModel = ollamaModel
-                    profile.ollamaHost = ollamaHost
-                    profile.gymName = gymName
-                    profile.preferredWorkoutDuration = preferredDuration
-                    profile.experienceLevel = experienceLevel
-                    profile.availableEquipment = Array(selectedEquipment)
-                    do {
-                        try modelContext.save()
-                        dismiss()
-                    } catch {
-                        showingSaveError = true
-                    }
-                } label: {
-                    Text("Save")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(GQGradients.primary)
                 }
             }
         }
@@ -3486,6 +3388,186 @@ struct SettingsView: View {
             experienceLevel = profile.experienceLevel ?? .intermediate
             selectedEquipment = Set(profile.availableEquipment)
         }
+    }
+
+    @ViewBuilder
+    private var settingsContent: some View {
+        VStack(spacing: 6) {
+            accountSection
+            settingsDivider
+            preferencesSection
+            settingsDivider
+            linksSection
+            settingsDivider
+            FounderDashboardSection()
+                .homeSocialCard(cornerRadius: 16)
+            settingsDivider
+            Button {
+                showingLogoutAlert = true
+            } label: {
+                Text("Sign Out")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 16)
+        .padding(.bottom, 100)
+    }
+
+    @ViewBuilder
+    private var accountSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Account")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(GQColors.textPrimary)
+            settingsTextField(title: "Name", text: $name)
+            usernameField
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .homeSocialCard(cornerRadius: 16)
+    }
+
+    @ViewBuilder
+    private var preferencesSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Preferences")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(GQColors.textPrimary)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Theme")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(GQColors.textPrimary)
+                settingsPillPicker(
+                    items: AppAppearance.allCases.map { $0.rawValue },
+                    selection: $appAppearance
+                )
+            }
+
+            #if canImport(UIKit)
+            settingsToggleRow(
+                title: "Haptic Feedback",
+                subtitle: hapticEnabled ? "Vibration on taps and actions" : "No vibration on interactions",
+                isOn: $hapticEnabled
+            )
+            #endif
+
+            settingsToggleRow(
+                title: "Public Profile",
+                subtitle: profile.isProfilePublic ? "Anyone can see your posts" : "Only mutual friends",
+                isOn: Binding(
+                    get: { profile.isProfilePublic },
+                    set: { newValue in
+                        profile.isProfilePublic = newValue
+                        try? modelContext.save()
+                    }
+                )
+            )
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .homeSocialCard(cornerRadius: 16)
+    }
+
+    @ViewBuilder
+    private var linksSection: some View {
+        VStack(spacing: 0) {
+            settingsNavRow(icon: "figure.arms.open", title: "Body Measurements", subtitle: "Track weight, body fat & more", color: GQColors.textSecondary) {
+                BodyMeasurementsView(profile: profile)
+            }
+            Divider().padding(.leading, 70)
+            settingsNavRow(icon: "heart.fill", title: "Apple Health & Watch", subtitle: "Sync data & integrations", color: GQColors.textSecondary) {
+                IntegrationsView(profile: profile)
+            }
+            Divider().padding(.leading, 70)
+            settingsNavRow(icon: "waveform", title: "Music", subtitle: "Spotify & Apple Music", color: GQColors.textSecondary) {
+                IntegrationsView(profile: profile)
+            }
+            Divider().padding(.leading, 70)
+            settingsNavRow(icon: "person.2.fill", title: "Squads", subtitle: "Teams & challenges", color: GQColors.textSecondary) {
+                SquadView(profile: profile)
+            }
+            Divider().padding(.leading, 70)
+            settingsNavRow(icon: "bell.badge", title: "Notifications", subtitle: "Reminders & alerts", color: GQColors.textSecondary) {
+                NotificationSettingsView()
+            }
+        }
+        .homeSocialCard(cornerRadius: 16)
+    }
+
+    // MARK: - Username field & rate limit
+
+    private var usernameField: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text("Username")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(GQColors.textTertiary)
+            TextField("Username", text: $username)
+                .focused($usernameFocused)
+                .autocorrectionDisabled(true)
+                #if os(iOS)
+                .textInputAutocapitalization(.never)
+                #endif
+                .textFieldStyle(.plain)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(GQColors.cardBackground)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(GQColors.borderDefault, lineWidth: 1)
+                        )
+                )
+                .submitLabel(.done)
+                .onSubmit {
+                    usernameFocused = false
+                }
+        }
+    }
+
+    private var usernameChangeKey: String {
+        "usernameChangeTimestamps_\(profile.id.uuidString)"
+    }
+
+    private func recentUsernameChangeDates() -> [Date] {
+        let raw = UserDefaults.standard.array(forKey: usernameChangeKey) as? [Double] ?? []
+        let cutoff = Date().addingTimeInterval(-14 * 86_400)
+        return raw.map(Date.init(timeIntervalSince1970:)).filter { $0 >= cutoff }
+    }
+
+    private var usernameBlockedMessage: String {
+        let dates = recentUsernameChangeDates().sorted()
+        guard let earliest = dates.first else {
+            return "You've reached the limit of 2 changes in 14 days."
+        }
+        let unlock = earliest.addingTimeInterval(14 * 86_400)
+        let days = max(1, Calendar.current.dateComponents([.day], from: Date(), to: unlock).day ?? 1)
+        return "You've reached the limit of 2 changes in 14 days. Try again in \(days) day\(days == 1 ? "" : "s")."
+    }
+
+    private func attemptUsernameChange() {
+        let trimmed = username.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed != profile.username else {
+            username = profile.username
+            return
+        }
+        if recentUsernameChangeDates().count >= 2 {
+            showingUsernameBlockedAlert = true
+        } else {
+            pendingUsername = trimmed
+            showingUsernameConfirmAlert = true
+        }
+    }
+
+    private func commitUsernameChange() {
+        profile.username = pendingUsername
+        username = pendingUsername
+        let updated = (recentUsernameChangeDates() + [Date()]).map { $0.timeIntervalSince1970 }
+        UserDefaults.standard.set(updated, forKey: usernameChangeKey)
+        try? modelContext.save()
     }
 
     @ViewBuilder
@@ -3741,6 +3823,75 @@ struct SettingsView: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - Settings Auto-Save Modifier
+//
+// Splits the onChange chain out of SettingsView.body so the type-checker
+// doesn't time out on the single expression.
+
+private struct SettingsAutoSaveModifier: ViewModifier {
+    let profile: UserProfile
+    let modelContext: ModelContext
+    @Binding var name: String
+    @Binding var aiProvider: AIProvider
+    @Binding var apiKey: String
+    @Binding var ollamaModel: String
+    @Binding var ollamaHost: String
+    @Binding var gymName: String
+    @Binding var preferredDuration: Int
+    @Binding var experienceLevel: ExperienceLevel
+    @Binding var selectedEquipment: Set<EquipmentType>
+    var usernameFocused: FocusState<Bool>.Binding
+    let onUsernameFocusLost: () -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .onChange(of: name) { _, newValue in
+                profile.name = newValue
+                try? modelContext.save()
+            }
+            .onChange(of: aiProvider) { _, newValue in
+                profile.aiProvider = newValue
+                try? modelContext.save()
+            }
+            .onChange(of: apiKey) { _, newValue in
+                profile.apiKey = newValue
+                if !newValue.isEmpty {
+                    AIKeychain.save(key: newValue, userId: profile.id.uuidString)
+                }
+                try? modelContext.save()
+            }
+            .onChange(of: ollamaModel) { _, newValue in
+                profile.ollamaModel = newValue
+                try? modelContext.save()
+            }
+            .onChange(of: ollamaHost) { _, newValue in
+                profile.ollamaHost = newValue
+                try? modelContext.save()
+            }
+            .onChange(of: gymName) { _, newValue in
+                profile.gymName = newValue
+                try? modelContext.save()
+            }
+            .onChange(of: preferredDuration) { _, newValue in
+                profile.preferredWorkoutDuration = newValue
+                try? modelContext.save()
+            }
+            .onChange(of: experienceLevel) { _, newValue in
+                profile.experienceLevel = newValue
+                try? modelContext.save()
+            }
+            .onChange(of: selectedEquipment) { _, newValue in
+                profile.availableEquipment = Array(newValue)
+                try? modelContext.save()
+            }
+            .onChange(of: usernameFocused.wrappedValue) { wasFocused, isFocused in
+                if wasFocused && !isFocused {
+                    onUsernameFocusLost()
+                }
+            }
     }
 }
 

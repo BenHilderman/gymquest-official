@@ -12,6 +12,9 @@
 import SwiftUI
 import SwiftData
 import Supabase
+#if canImport(UIKit)
+import UIKit
+#endif
 #if canImport(GoogleSignIn)
 import GoogleSignIn
 #endif
@@ -147,6 +150,12 @@ struct LiftAIApp: App {
             ExerciseMastery.self,
             ConfidenceRating.self
         ])
+
+        #if canImport(UIKit)
+        let cursorTint = UIColor(GQColors.textPrimary)
+        UITextField.appearance().tintColor = cursorTint
+        UITextView.appearance().tintColor = cursorTint
+        #endif
 
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
