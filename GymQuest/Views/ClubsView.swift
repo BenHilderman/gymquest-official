@@ -2565,7 +2565,7 @@ struct ClubDetailView: View {
                 .padding(.vertical, 40)
             } else {
                 ForEach(posts) { post in
-                    ClubPostCard(post: post)
+                    ClubPostCard(post: post, currentUserId: profile.id)
                 }
             }
         }
@@ -2823,7 +2823,13 @@ struct ClubDetailView: View {
 
 struct ClubPostCard: View {
     let post: ClubPost
+    let currentUserId: UUID?
     @State private var liked: Bool = false
+
+    init(post: ClubPost, currentUserId: UUID? = nil) {
+        self.post = post
+        self.currentUserId = currentUserId
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -2901,6 +2907,16 @@ struct ClubPostCard: View {
                 }
 
                 Spacer()
+
+                // Copy-to-Train surfaces only for posts that carry a workout
+                // AND when we know who the current viewer is AND it's not
+                // their own post (no self-copy).
+                if let workoutId = post.workoutId,
+                   let uid = currentUserId,
+                   post.authorId != uid {
+                    let _ = workoutId  // referenced for future Train-view hydration
+                    CopyToTrainButton(postId: post.id, userId: uid)
+                }
             }
             .buttonStyle(.plain)
         }

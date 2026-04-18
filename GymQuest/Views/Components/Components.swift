@@ -1747,6 +1747,65 @@ struct StatBlock: View {
     }
 }
 
+// MARK: - Copy to Train button
+//
+// One-tap "save this member's workout to my Train queue" primitive used inside
+// ClubPostCard (and later Friends/Discover feeds). Saves a `SavedWorkout` row
+// in the `.train` collection keyed by `postId`, then flashes a tiny toast.
+// No model lookup is done here — callers pass the originating post's id; the
+// Train view hydrates the workout when rendering. This keeps the copy action
+// O(1) and offline-safe.
+
+struct CopyToTrainButton: View {
+    let postId: UUID
+    let userId: UUID
+    @Environment(\.modelContext) private var modelContext
+    @Query private var existingSaves: [SavedWorkout]
+
+    @State private var justAdded = false
+
+    private var isInTrain: Bool {
+        existingSaves.contains { $0.postId == postId && $0.userId == userId && $0.collection == .train }
+    }
+
+    var body: some View {
+        Button {
+            copy()
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: justAdded ? "checkmark.circle.fill" : (isInTrain ? "bookmark.fill" : "bookmark"))
+                    .font(.system(size: 12, weight: .semibold))
+                Text(justAdded ? "Added" : (isInTrain ? "In Train" : "Copy to Train"))
+                    .font(.system(size: 12, weight: .semibold))
+            }
+            .foregroundColor(.white)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(Capsule().fill(GQGradients.primary))
+        }
+        .buttonStyle(.plain)
+        .disabled(isInTrain)
+    }
+
+    private func copy() {
+        guard !isInTrain else { return }
+        SavedWorkoutService.toggle(
+            postId: postId,
+            userId: userId,
+            collection: .train,
+            in: modelContext,
+            existing: existingSaves
+        )
+        #if canImport(UIKit)
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        #endif
+        withAnimation(.easeInOut(duration: 0.2)) { justAdded = true }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
+            withAnimation(.easeInOut(duration: 0.2)) { justAdded = false }
+        }
+    }
+}
+
 #Preview {
     CardContainer {
         Text("Preview")

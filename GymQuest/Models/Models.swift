@@ -3321,6 +3321,10 @@ final class ClubChallenge {
     var endDate: Date
     var participantIds: [UUID]
     var createdAt: Date
+    /// JSON-encoded `[String: Int]` where key is `userId.uuidString` and value
+    /// is that user's cumulative progress toward `goalTarget`. Nil = no one
+    /// has logged yet. Small-cardinality OK for MVP (normalize if > 1k users).
+    var perUserProgressData: Data?
 
     init(
         id: UUID = UUID(),
@@ -3333,7 +3337,8 @@ final class ClubChallenge {
         startDate: Date = Date(),
         endDate: Date = Calendar.current.date(byAdding: .day, value: 7, to: Date()) ?? Date(),
         participantIds: [UUID] = [],
-        createdAt: Date = Date()
+        createdAt: Date = Date(),
+        perUserProgressData: Data? = nil
     ) {
         self.id = id
         self.clubId = clubId
@@ -3346,6 +3351,7 @@ final class ClubChallenge {
         self.endDate = endDate
         self.participantIds = participantIds
         self.createdAt = createdAt
+        self.perUserProgressData = perUserProgressData
     }
 
     var progress: Double {
@@ -3359,6 +3365,41 @@ final class ClubChallenge {
 
     var isActive: Bool {
         Date() >= startDate && Date() <= endDate
+    }
+
+    // MARK: - Per-user progress helpers
+
+    /// Decoded `[userId: progress]` map for leaderboards. Empty when nothing has
+    /// been logged yet.
+    var perUserProgress: [UUID: Int] {
+        guard let data = perUserProgressData,
+              let raw = try? JSONDecoder().decode([String: Int].self, from: data) else {
+            return [:]
+        }
+        var out: [UUID: Int] = [:]
+        for (k, v) in raw {
+            if let id = UUID(uuidString: k) { out[id] = v }
+        }
+        return out
+    }
+
+    func setUserProgress(userId: UUID, value: Int) {
+        var map = perUserProgress.reduce(into: [String: Int]()) { $0[$1.key.uuidString] = $1.value }
+        map[userId.uuidString] = max(0, value)
+        perUserProgressData = try? JSONEncoder().encode(map)
+    }
+
+    func incrementUserProgress(userId: UUID, delta: Int = 1) {
+        let current = perUserProgress[userId] ?? 0
+        setUserProgress(userId: userId, value: current + delta)
+    }
+
+    /// Top N users by progress, sorted descending. Returns `(userId, progress)`.
+    func leaderboard(limit: Int = 3) -> [(userId: UUID, progress: Int)] {
+        perUserProgress
+            .sorted { $0.value > $1.value }
+            .prefix(limit)
+            .map { (userId: $0.key, progress: $0.value) }
     }
 }
 
