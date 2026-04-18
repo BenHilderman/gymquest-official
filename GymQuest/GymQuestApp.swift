@@ -234,15 +234,23 @@ struct LiftAIApp: App {
                     }
                     .onOpenURL { url in
                         if url.scheme == "liftai", let host = url.host {
-                            let tab: FeedFilter? = switch host {
-                            case "social", "discover": .discover
-                            case "friends": .friends
-                            case "clubs": .clubs
-                            default: nil
-                            }
-                            if let tab {
+                            // Club invite: liftai://club-invite/<uuid>?code=<inviteCode>
+                            if host == ClubInviteService.host,
+                               let invite = ClubInviteService.parse(url: url) {
+                                appState.pendingClubInvite = invite
                                 appState.selectedTab = .feed
-                                NotificationCenter.default.post(name: .navigateToFeedTab, object: tab)
+                                NotificationCenter.default.post(name: .navigateToFeedTab, object: FeedFilter.clubs)
+                            } else {
+                                let tab: FeedFilter? = switch host {
+                                case "social", "discover": .discover
+                                case "friends": .friends
+                                case "clubs": .clubs
+                                default: nil
+                                }
+                                if let tab {
+                                    appState.selectedTab = .feed
+                                    NotificationCenter.default.post(name: .navigateToFeedTab, object: tab)
+                                }
                             }
                         }
                         #if canImport(GoogleSignIn)
@@ -266,6 +274,10 @@ struct LiftAIApp: App {
 @MainActor
 class AppState: ObservableObject {
     @Published var selectedTab: Tab = .today
+    /// Set by `liftai://club-invite/<id>` deep links; consumed by the Clubs
+    /// feed to auto-open the target club (and auto-join for squads with a
+    /// valid invite code).
+    @Published var pendingClubInvite: ClubInviteService.Invite?
     @Published var showingLogWorkout = false
     @Published var showingAddExercise = false
     @Published var showingStats = false

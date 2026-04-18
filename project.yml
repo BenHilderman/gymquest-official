@@ -175,6 +175,7 @@ targets:
       - path: GymQuest/Services/ProgressiveOverloadService.swift
       - path: GymQuest/Services/PlanScheduleService.swift
       - path: GymQuest/Services/ClubService.swift
+      - path: GymQuest/Services/ClubInviteService.swift
       - path: GymQuest/Services/SquadService.swift
 
       - path: GymQuest/Services/LearningService.swift

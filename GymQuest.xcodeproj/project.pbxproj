@@ -37,6 +37,7 @@
 		05AD5096B00EABB4933E0834 /* AIKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8672F37BBE492D55D0E0066 /* AIKeychain.swift */; };
 		061A06BE58F5EA8F834E72D6 /* VoiceNotePlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B527642EC7251CB9552C712 /* VoiceNotePlayerView.swift */; };
 		065EBD7E53FE227D330E971D /* LearningService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD721DF9B7BB614DC186930A /* LearningService.swift */; };
+		069BC57822876A07BFCD707C /* ClubInviteService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B074404B2A3FD8D16B0E7A5C /* ClubInviteService.swift */; };
 		06B269F4A6A5F205837636AD /* StravaService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA29A88BAC9E5F193441B98B /* StravaService.swift */; };
 		06FE7904A001B798CF075083 /* 0308.gif in Resources */ = {isa = PBXBuildFile; fileRef = 41ED4D3279DFC11F6529BE53 /* 0308.gif */; };
 		076FDBEA5D3F3E6A8446E4AF /* DiscoverCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF7B2998C3AED49A391BF630 /* DiscoverCard.swift */; };
@@ -68,6 +69,7 @@
 		0F0AF3DA094F46A737E00DD4 /* ClipPreloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F672FCEF01D0D408E762AED /* ClipPreloader.swift */; };
 		0F1C62567A9FDCC40E308413 /* form_content_sample.json in Resources */ = {isa = PBXBuildFile; fileRef = C0621641A70CB1A3CE0970E9 /* form_content_sample.json */; };
 		0F48AA0405C07EE065C25834 /* StatsFeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27331576C3EA75AC0B8C5373 /* StatsFeedView.swift */; };
+		0F81EF486C5F1858FC0DFCF9 /* ClubInviteService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B074404B2A3FD8D16B0E7A5C /* ClubInviteService.swift */; };
 		0F8DFB7557BE54C444EDA31A /* WatchSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A69C4F64D8FF8FA5B3FAE665 /* WatchSummaryView.swift */; };
 		0F9ED08CEBCFD919BED16CC3 /* 0120.gif in Resources */ = {isa = PBXBuildFile; fileRef = EA841549F3546DD065E3BA06 /* 0120.gif */; };
 		0FDB9826BBF58768622F5816 /* ActiveWorkoutViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6990C23D8D49C35631ACEC4 /* ActiveWorkoutViewModelTests.swift */; };
@@ -265,6 +267,7 @@
 		4001D627E668BECD5C00B187 /* PaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94D491D0630741C52DC1E958 /* PaywallView.swift */; };
 		400F1F9B59CBEABA478CAEEB /* ProgressiveOverloadService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F69D3B74A854A6ACC91B7C7D /* ProgressiveOverloadService.swift */; };
 		40903F51F5F93028FE6AE641 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 59D3AF1CDF5BEC6B6C53D745 /* PrivacyInfo.xcprivacy */; };
+		40980ACF6E209A7EC29F3A65 /* ClubInviteService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B074404B2A3FD8D16B0E7A5C /* ClubInviteService.swift */; };
 		40F099AAB00C251285825B5A /* 0577.gif in Resources */ = {isa = PBXBuildFile; fileRef = AAA153E6168B9303D0168084 /* 0577.gif */; };
 		40F3A1E5F225C555134D4316 /* run_this_town.jpg in Resources */ = {isa = PBXBuildFile; fileRef = FDFEBBAE1C4B0604D79EB683 /* run_this_town.jpg */; };
 		41501CB6CD12F11082AA779E /* FormContentSeeder.swift in Sources */ = {isa = PBXBuildFile; fileRef = F43AA149FB554759CC2451A7 /* FormContentSeeder.swift */; };
@@ -1334,6 +1337,7 @@
 		AF093E90D1A3988A38F09B5C /* 0580.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = 0580.gif; sourceTree = "<group>"; };
 		AF7B2998C3AED49A391BF630 /* DiscoverCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscoverCard.swift; sourceTree = "<group>"; };
 		AFDE64DCB367EF2E7B97879B /* NotificationSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationSettingsView.swift; sourceTree = "<group>"; };
+		B074404B2A3FD8D16B0E7A5C /* ClubInviteService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClubInviteService.swift; sourceTree = "<group>"; };
 		B086BC2BE82606CBA3047348 /* VideoThumbnailService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoThumbnailService.swift; sourceTree = "<group>"; };
 		B0B804404486E1C13453122F /* ExploreView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExploreView.swift; sourceTree = "<group>"; };
 		B0E829D2366BDA48CA902897 /* TopSectionVariants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopSectionVariants.swift; sourceTree = "<group>"; };
@@ -1658,6 +1662,7 @@
 				F2CB109373E443E95FA26418 /* AuthService.swift */,
 				BCDF82A5969FBD2C73629835 /* ChallengeService.swift */,
 				6F672FCEF01D0D408E762AED /* ClipPreloader.swift */,
+				B074404B2A3FD8D16B0E7A5C /* ClubInviteService.swift */,
 				A731B0EEE255B8254FFC5F37 /* ClubService.swift */,
 				DE6DBAEC96F07B141018F623 /* ClubsSeeder.swift */,
 				DD68706BDEFEC6E3D22A4862 /* DemoVideoMetadata.swift */,
@@ -3050,6 +3055,7 @@
 				56B80BDE635859BDE391EAEE /* CheckInPromptSheet.swift in Sources */,
 				DCAEBB969C9D1D33DC0D2DF8 /* CheckInTile.swift in Sources */,
 				0F0AF3DA094F46A737E00DD4 /* ClipPreloader.swift in Sources */,
+				0F81EF486C5F1858FC0DFCF9 /* ClubInviteService.swift in Sources */,
 				EAFFB410076AF3335E08459E /* ClubService.swift in Sources */,
 				469D837688F789F11BD19886 /* ClubsSeeder.swift in Sources */,
 				ED6AB331F2FD5D4CAB7BA203 /* ClubsShelf.swift in Sources */,
@@ -3260,6 +3266,7 @@
 				8EDE266390D761681DC8002B /* AlbumArtService.swift in Sources */,
 				7B934F5FB62E777B9414A2B9 /* AnalyticsService.swift in Sources */,
 				CE026D27C8039E90D87435B0 /* ChallengeService.swift in Sources */,
+				069BC57822876A07BFCD707C /* ClubInviteService.swift in Sources */,
 				2A2442C5BD27AACB2F0B5202 /* ClubService.swift in Sources */,
 				2EFDA42EE12C52D881E7474B /* DesignSystem.swift in Sources */,
 				C90E6B9FA9E7163584899252 /* DiscoverSeeder.swift in Sources */,
@@ -3332,6 +3339,7 @@
 				4F904DFE56A7BB93FA148CA6 /* CheckInPromptSheet.swift in Sources */,
 				F751AEF1B34A6A2782045BD4 /* CheckInTile.swift in Sources */,
 				681503CE7D3B52F8AA887D7D /* ClipPreloader.swift in Sources */,
+				40980ACF6E209A7EC29F3A65 /* ClubInviteService.swift in Sources */,
 				F1B3D2571F5D6F7A8528E4F8 /* ClubService.swift in Sources */,
 				143BEAD612B0C91E01CA0582 /* ClubsSeeder.swift in Sources */,
 				606F23B4E84C3640F74239BF /* ClubsShelf.swift in Sources */,
