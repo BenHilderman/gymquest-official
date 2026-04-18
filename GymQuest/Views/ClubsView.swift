@@ -1721,8 +1721,7 @@ struct ClubDetailView: View {
     @Query private var allChallenges: [ClubChallenge]
     @Query private var allMemberships: [ClubMembership]
     @Query private var allEvents: [ClubEvent]
-    @Query private var allPods: [Pod]
-    @Query private var allPodMemberships: [PodMembership]
+    @Query private var allClubMemberships: [ClubMembership]
 
     let club: Club
     let profile: UserProfile
@@ -1766,13 +1765,15 @@ struct ClubDetailView: View {
             .sorted { $0.date < $1.date }
     }
 
-    private var clubPods: [Pod] {
-        allPods.filter { $0.clubId == club.id }
+    /// Squad-kind Clubs that nest under this community club.
+    private var clubSquads: [Club] {
+        allClubs.filter { $0.kind == .squad && $0.parentClubId == club.id }
     }
 
-    private var userPodInClub: Pod? {
-        let userPodIds = Set(allPodMemberships.filter { $0.userId == profile.id }.map(\.podId))
-        return clubPods.first { userPodIds.contains($0.id) }
+    /// The user's own squad inside this community club (if they belong to one).
+    private var userSquadInClub: Club? {
+        let userSquadIds = Set(allClubMemberships.filter { $0.userId == profile.id }.map(\.clubId))
+        return clubSquads.first { userSquadIds.contains($0.id) }
     }
 
     var body: some View {
@@ -2332,34 +2333,34 @@ struct ClubDetailView: View {
         }
     }
 
-    // MARK: - Pods Section
+    // MARK: - Squads Section (ClubKind.squad nested under this community Club)
 
     @ViewBuilder
     private var clubPodsSection: some View {
         VStack(spacing: 16) {
-            // User's current pod in this club
-            if let myPod = userPodInClub {
+            // User's current squad in this club
+            if let mySquad = userSquadInClub {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
                         Image(systemName: "target")
                             .foregroundStyle(GQGradients.primary)
-                        Text("Your Pod")
+                        Text("Your Squad")
                             .font(.system(size: 15, weight: .semibold))
                             .foregroundColor(GQColors.textPrimary)
                         Spacer()
                     }
 
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(myPod.name)
+                        Text(mySquad.name)
                             .font(.system(size: 16, weight: .bold))
                             .foregroundColor(GQColors.textPrimary)
 
-                        Text("\(myPod.memberCount)/\(myPod.maxMembers) members · \(myPod.weeklyWorkoutTarget)×/week target · \(myPod.streakWeeks) week streak")
+                        Text("\(mySquad.memberIds.count)/\(mySquad.maxMembers ?? 6) members · \(mySquad.weeklyWorkoutTarget ?? 3)×/week target · \(mySquad.streakWeeks ?? 0) week streak")
                             .font(.system(size: 13))
                             .foregroundColor(GQColors.textSecondary)
 
-                        if !myPod.summary.isEmpty {
-                            Text(myPod.summary)
+                        if !mySquad.clubDescription.isEmpty {
+                            Text(mySquad.clubDescription)
                                 .font(.system(size: 13))
                                 .foregroundColor(GQColors.textTertiary)
                         }
@@ -2376,17 +2377,17 @@ struct ClubDetailView: View {
                 )
             }
 
-            // Other pods in this club
-            let otherPods = clubPods.filter { $0.id != userPodInClub?.id }
-            if otherPods.isEmpty && userPodInClub == nil {
+            // Other squads in this club
+            let otherSquads = clubSquads.filter { $0.id != userSquadInClub?.id }
+            if otherSquads.isEmpty && userSquadInClub == nil {
                 VStack(spacing: 10) {
                     Image(systemName: "person.3.fill")
                         .font(.system(size: 30))
                         .foregroundColor(GQColors.textTertiary)
-                    Text("No Pods Yet")
+                    Text("No Squads Yet")
                         .font(.system(size: 15, weight: .medium))
                         .foregroundColor(GQColors.textSecondary)
-                    Text("Pods are small accountability groups. Create one to get started.")
+                    Text("Squads are small accountability groups. Create one to get started.")
                         .font(.system(size: 13))
                         .foregroundColor(GQColors.textTertiary)
                         .multilineTextAlignment(.center)
@@ -2394,8 +2395,8 @@ struct ClubDetailView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 30)
             } else {
-                ForEach(otherPods, id: \.id) { pod in
-                    podRow(pod)
+                ForEach(otherSquads, id: \.id) { squad in
+                    squadRow(squad)
                 }
             }
         }
@@ -2403,7 +2404,7 @@ struct ClubDetailView: View {
     }
 
     @ViewBuilder
-    private func podRow(_ pod: Pod) -> some View {
+    private func squadRow(_ squad: Club) -> some View {
         HStack(spacing: 12) {
             Image(systemName: "person.3.fill")
                 .font(.system(size: 16))
@@ -2412,21 +2413,21 @@ struct ClubDetailView: View {
                 .background(GQColors.deepBlue.opacity(0.1), in: Circle())
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(pod.name)
+                Text(squad.name)
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(GQColors.textPrimary)
 
-                Text("\(pod.memberCount)/\(pod.maxMembers) · \(pod.podLevel.rawValue) · \(pod.weeklyWorkoutTarget)×/wk")
+                Text("\(squad.memberIds.count)/\(squad.maxMembers ?? 6) · \(squad.clubLevel?.rawValue ?? "Any") · \(squad.weeklyWorkoutTarget ?? 3)×/wk")
                     .font(.system(size: 13))
                     .foregroundColor(GQColors.textSecondary)
             }
 
             Spacer()
 
-            if !pod.isFull && !pod.memberIds.contains(profile.id) {
+            if !squad.isFull && !squad.memberIds.contains(profile.id) {
                 Button("Join") {
-                    pod.memberIds.append(profile.id)
-                    let membership = PodMembership(podId: pod.id, userId: profile.id)
+                    squad.memberIds.append(profile.id)
+                    let membership = ClubMembership(userId: profile.id, clubId: squad.id)
                     modelContext.insert(membership)
                     try? modelContext.save()
                 }
@@ -2435,7 +2436,7 @@ struct ClubDetailView: View {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 6)
                 .background(GQGradients.primary, in: Capsule())
-            } else if pod.isFull {
+            } else if squad.isFull {
                 Text("Full")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(GQColors.textTertiary)

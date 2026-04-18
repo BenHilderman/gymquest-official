@@ -70,9 +70,7 @@ struct LiftAIApp: App {
             WorkoutCard.self,
             PRMoment.self,
             FistBump.self,
-            Pod.self,
-            PodMembership.self,
-            PodCheckIn.self,
+            ClubCheckIn.self,
             AccountabilityNudge.self,
             ComebackPlan.self,
             Challenge.self,
@@ -158,6 +156,20 @@ struct LiftAIApp: App {
         #endif
 
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+
+        // Schema version — bump when @Model types are added/removed or their
+        // stored properties change in ways SwiftData can't auto-migrate.
+        // Pre-launch policy: on bump, nuke the local store so demo data reseeds
+        // cleanly. Replace with a versioned migration plan before real users land.
+        let currentSchemaVersion = 2  // v2: Pod → Club.squad merge
+        let storedVersion = UserDefaults.standard.integer(forKey: "schemaVersion")
+        if storedVersion < currentSchemaVersion {
+            let base = URL.applicationSupportDirectory
+            for name in ["default.store", "default.store-shm", "default.store-wal"] {
+                try? FileManager.default.removeItem(at: base.appending(path: name))
+            }
+            UserDefaults.standard.set(currentSchemaVersion, forKey: "schemaVersion")
+        }
 
         do {
             container = try ModelContainer(for: schema, configurations: [modelConfiguration])

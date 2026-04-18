@@ -23,7 +23,7 @@ enum TestModelContainer {
         WorkoutCard.self,
         PRMoment.self,
         FistBump.self,
-        Pod.self,
+        ClubCheckIn.self,
         Reaction.self,
         Squad.self,
         SquadChallenge.self,

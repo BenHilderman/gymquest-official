@@ -190,7 +190,6 @@ struct ContentView: View {
             let ctx = modelContext
             AnalyticsService.shared.configure(modelContext: ctx)
             MomentumService.shared.configure(modelContext: ctx)
-            PodService.shared.configure(modelContext: ctx)
             ChallengeService.shared.configure(modelContext: ctx)
             PermissionsService.shared.configure(modelContext: ctx)
             NotificationService.shared.configure(modelContext: ctx)

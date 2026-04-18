@@ -1157,7 +1157,7 @@ struct WorkoutCompletionView: View {
                         // visibility picker
                         HStack(spacing: 12) {
                             ShareOptionButton(
-                                title: "Pod",
+                                title: "Squad",
                                 icon: "person.3.fill",
                                 isSelected: selectedVisibility == .pod
                             ) {

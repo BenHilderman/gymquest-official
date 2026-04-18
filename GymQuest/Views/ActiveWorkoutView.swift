@@ -3935,9 +3935,7 @@ struct WorkoutSessionCompletionSheet: View {
         // Post-save hooks
         MomentumService.shared.recordWorkoutCompleted(userId: profile.id)
         ChallengeService.shared.updateProgress(userId: profile.id, workout: workout)
-        if let pod = PodService.shared.getPrimaryPod(userId: profile.id) {
-            PodService.shared.checkIn(podId: pod.id, userId: profile.id, type: .done, workoutId: workout.id)
-        }
+        // TODO(phase 3): restore squad check-in via ClubService when squad APIs land
         PremiumGateService.shared.decrementFreeTrial(userId: profile.id)
 
         try? modelContext.save()
@@ -4058,9 +4056,7 @@ struct WorkoutSessionCompletionSheet: View {
         // Post-save hooks
         MomentumService.shared.recordWorkoutCompleted(userId: profile.id)
         ChallengeService.shared.updateProgress(userId: profile.id, workout: workout)
-        if let pod = PodService.shared.getPrimaryPod(userId: profile.id) {
-            PodService.shared.checkIn(podId: pod.id, userId: profile.id, type: .done, workoutId: workout.id)
-        }
+        // TODO(phase 3): restore squad check-in via ClubService when squad APIs land
         PremiumGateService.shared.decrementFreeTrial(userId: profile.id)
 
         try? modelContext.save()

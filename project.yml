@@ -173,7 +173,6 @@ targets:
       - path: GymQuest/Services/FeedContentService.swift
       - path: GymQuest/Services/SocialActivityService.swift
       - path: GymQuest/Services/ProgressiveOverloadService.swift
-      - path: GymQuest/Services/PodService.swift
       - path: GymQuest/Services/PlanScheduleService.swift
       - path: GymQuest/Services/ClubService.swift
       - path: GymQuest/Services/SquadService.swift

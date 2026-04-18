@@ -2319,32 +2319,33 @@ enum ConsistencyState: String, Codable, CaseIterable {
     case rebuilding = "Rebuilding"
 }
 
-// MARK: - Pod Lifecycle State (System 2)
+// MARK: - Club Kind + Lifecycle (squad = small, community = large)
 
-enum PodLifecycleState: String, Codable {
+/// Two flavors of Club. `squad` is the small, invite-based, streak-tracking
+/// accountability cohort (formerly the Pod concept). `community` is the
+/// large location/interest-based club (gyms, universities, run clubs).
+/// Note: `ClubKind.squad` is a different namespace from the standalone
+/// `Squad` @Model class used by the separate WeeklyGoal system — they
+/// coexist without Swift-level collision.
+enum ClubKind: String, Codable, CaseIterable {
+    case squad = "Squad"
+    case community = "Community"
+}
+
+enum ClubLifecycleState: String, Codable {
     case forming = "Forming"
     case active = "Active"
     case stale = "Stale"
     case dead = "Dead"
 }
 
-enum PodLevel: String, Codable, CaseIterable {
+enum ClubLevel: String, Codable, CaseIterable {
     case beginner = "Beginner"
     case intermediate = "Intermediate"
     case advanced = "Advanced"
 }
 
-enum PodVisibility: String, Codable {
-    case open = "Open"
-    case inviteOnly = "Invite Only"
-}
-
-enum PodRole: String, Codable {
-    case member = "Member"
-    case leader = "Leader"
-}
-
-enum PodCheckInType: String, Codable, CaseIterable {
+enum ClubCheckInType: String, Codable, CaseIterable {
     case trainingNow = "Training Now"
     case done = "Done"
     case needPush = "Need a Push"
@@ -2391,124 +2392,12 @@ enum ChallengeScope: String, Codable {
     case club = "Club"
 }
 
-@Model
-final class Pod {
-    var id: UUID
-    var clubId: UUID?
-    var name: String
-    var summary: String
-    var inviteCode: String
-    var creatorId: UUID
-    var memberIds: [UUID]
-    var level: String
-    var schedulePreference: String
-    var trainingStyle: String
-    var maxMembers: Int
-    var weeklyWorkoutTarget: Int
-    var streakWeeks: Int
-    var visibility: String
-    var lifecycle: String
-    var lastActivityDate: Date?
-    var autoCreated: Bool
-    var createdAt: Date
-
-    init(
-        id: UUID = UUID(),
-        clubId: UUID? = nil,
-        name: String = "",
-        summary: String = "",
-        inviteCode: String = "",
-        creatorId: UUID = UUID(),
-        memberIds: [UUID] = [],
-        level: PodLevel = .beginner,
-        schedulePreference: String = "Flexible",
-        trainingStyle: String = "General",
-        maxMembers: Int = 6,
-        weeklyWorkoutTarget: Int = 3,
-        streakWeeks: Int = 0,
-        visibility: PodVisibility = .open,
-        lifecycleState: PodLifecycleState = .forming,
-        lastActivityDate: Date? = nil,
-        autoCreated: Bool = false,
-        createdAt: Date = Date()
-    ) {
-        self.id = id
-        self.clubId = clubId
-        self.name = name
-        self.summary = summary
-        self.inviteCode = inviteCode.isEmpty ? Pod.generateCode() : inviteCode
-        self.creatorId = creatorId
-        self.memberIds = memberIds
-        self.level = level.rawValue
-        self.schedulePreference = schedulePreference
-        self.trainingStyle = trainingStyle
-        self.maxMembers = maxMembers
-        self.weeklyWorkoutTarget = weeklyWorkoutTarget
-        self.streakWeeks = streakWeeks
-        self.visibility = visibility.rawValue
-        self.lifecycle = lifecycleState.rawValue
-        self.lastActivityDate = lastActivityDate
-        self.autoCreated = autoCreated
-        self.createdAt = createdAt
-    }
-
-    var podLevel: PodLevel { PodLevel(rawValue: level) ?? .beginner }
-    var podVisibility: PodVisibility { PodVisibility(rawValue: visibility) ?? .open }
-    var lifecycleState: PodLifecycleState {
-        get { PodLifecycleState(rawValue: lifecycle) ?? .forming }
-        set { lifecycle = newValue.rawValue }
-    }
-    var isFull: Bool { memberIds.count >= maxMembers }
-    var memberCount: Int { memberIds.count }
-
-    static func generateCode() -> String {
-        let chars = Array("ABCDEFGHJKLMNPQRSTUVWXYZ23456789")
-        return String((0..<6).compactMap { _ in chars.randomElement() })
-    }
-}
-
-// MARK: - Pod Membership
+// MARK: - Club Check-In (per-day squad check-in; was PodCheckIn)
 
 @Model
-final class PodMembership {
+final class ClubCheckIn {
     var id: UUID
-    var podId: UUID
-    var userId: UUID
-    var role: String
-    var joinedAt: Date
-    var weeklyCompletedWorkouts: Int
-    var currentStreak: Int
-    var isPrimaryPod: Bool
-
-    init(
-        id: UUID = UUID(),
-        podId: UUID = UUID(),
-        userId: UUID = UUID(),
-        role: PodRole = .member,
-        joinedAt: Date = Date(),
-        weeklyCompletedWorkouts: Int = 0,
-        currentStreak: Int = 0,
-        isPrimaryPod: Bool = true
-    ) {
-        self.id = id
-        self.podId = podId
-        self.userId = userId
-        self.role = role.rawValue
-        self.joinedAt = joinedAt
-        self.weeklyCompletedWorkouts = weeklyCompletedWorkouts
-        self.currentStreak = currentStreak
-        self.isPrimaryPod = isPrimaryPod
-    }
-
-    var podRole: PodRole { PodRole(rawValue: role) ?? .member }
-}
-
-// MARK: - Pod Check-In
-
-@Model
-final class PodCheckIn {
-    var id: UUID
-    var podId: UUID
+    var clubId: UUID
     var userId: UUID
     var type: String
     var workoutId: UUID?
@@ -2517,15 +2406,15 @@ final class PodCheckIn {
 
     init(
         id: UUID = UUID(),
-        podId: UUID = UUID(),
+        clubId: UUID = UUID(),
         userId: UUID = UUID(),
-        type: PodCheckInType = .done,
+        type: ClubCheckInType = .done,
         workoutId: UUID? = nil,
         message: String? = nil,
         createdAt: Date = Date()
     ) {
         self.id = id
-        self.podId = podId
+        self.clubId = clubId
         self.userId = userId
         self.type = type.rawValue
         self.workoutId = workoutId
@@ -2533,7 +2422,7 @@ final class PodCheckIn {
         self.createdAt = createdAt
     }
 
-    var checkInType: PodCheckInType { PodCheckInType(rawValue: type) ?? .done }
+    var checkInType: ClubCheckInType { ClubCheckInType(rawValue: type) ?? .done }
 }
 
 // MARK: - Accountability Nudge
@@ -3050,10 +2939,17 @@ enum ClubCategory: String, Codable, CaseIterable {
     }
 }
 
-/// Club (gyms, universities, rec centers)
+/// Club — the single social-group primitive. `kind` controls flavor:
+///   - `.squad` = small, invite-based, streak-tracking accountability cohort
+///               (formerly the `Pod` concept). `inviteCode`, `weeklyWorkoutTarget`,
+///               `streakWeeks`, `lifecycle`, `maxMembers`, `autoCreated`, `level`
+///               are expected to be non-nil on squads, nil on communities.
+///   - `.community` = large, location/interest-based (gyms, universities, run clubs).
+///                    Squad-only fields stay nil.
 @Model
 final class Club {
     var id: UUID
+    var kind: ClubKind = ClubKind.community  // discriminator; default community for legacy compat
     var name: String                    // e.g., "The ARC - Queen's University"
     var clubDescription: String
     var location: String?               // e.g., "Kingston, ON"
@@ -3074,10 +2970,20 @@ final class Club {
     var lastActivityDate: Date?
     var isListedInDiscovery: Bool
 
+    // Squad-only fields (optional; nil on .community clubs).
+    var inviteCode: String?
+    var weeklyWorkoutTarget: Int?
+    var streakWeeks: Int?
+    var lifecycle: String?           // ClubLifecycleState rawValue
+    var maxMembers: Int?
+    var autoCreated: Bool?
+    var level: String?               // ClubLevel rawValue
+
     var resolvedCategory: ClubCategory { category ?? .generalFitness }
 
     init(
         id: UUID = UUID(),
+        kind: ClubKind = .community,
         name: String = "",
         clubDescription: String = "",
         location: String? = nil,
@@ -3096,9 +3002,17 @@ final class Club {
         parentClubId: UUID? = nil,
         category: ClubCategory? = nil,
         lastActivityDate: Date? = nil,
-        isListedInDiscovery: Bool = false
+        isListedInDiscovery: Bool = false,
+        inviteCode: String? = nil,
+        weeklyWorkoutTarget: Int? = nil,
+        streakWeeks: Int? = nil,
+        lifecycleState: ClubLifecycleState? = nil,
+        maxMembers: Int? = nil,
+        autoCreated: Bool? = nil,
+        level: ClubLevel? = nil
     ) {
         self.id = id
+        self.kind = kind
         self.name = name
         self.clubDescription = clubDescription
         self.location = location
@@ -3118,6 +3032,18 @@ final class Club {
         self.category = category
         self.lastActivityDate = lastActivityDate
         self.isListedInDiscovery = isListedInDiscovery
+        // Squad-only: auto-generate invite code if kind is squad and none provided
+        if kind == .squad {
+            self.inviteCode = (inviteCode?.isEmpty == false) ? inviteCode : Club.generateInviteCode()
+        } else {
+            self.inviteCode = inviteCode
+        }
+        self.weeklyWorkoutTarget = weeklyWorkoutTarget
+        self.streakWeeks = streakWeeks
+        self.lifecycle = lifecycleState?.rawValue
+        self.maxMembers = maxMembers
+        self.autoCreated = autoCreated
+        self.level = level?.rawValue
     }
 
     var isOpen: Bool {
@@ -3126,6 +3052,21 @@ final class Club {
 
     var isChannel: Bool {
         parentClubId != nil
+    }
+
+    var isSquad: Bool { kind == .squad }
+
+    // Squad-flavor helpers
+    var clubLevel: ClubLevel? { level.flatMap(ClubLevel.init) }
+    var lifecycleState: ClubLifecycleState? {
+        get { lifecycle.flatMap(ClubLifecycleState.init) }
+        set { lifecycle = newValue?.rawValue }
+    }
+    var isFull: Bool { maxMembers.map { memberIds.count >= $0 } ?? false }
+
+    static func generateInviteCode() -> String {
+        let chars = Array("ABCDEFGHJKLMNPQRSTUVWXYZ23456789")
+        return String((0..<6).compactMap { _ in chars.randomElement() })
     }
 }
 
@@ -3217,6 +3158,10 @@ final class ClubMembership {
     var role: ClubRole
     var workoutPartnerStatus: WorkoutPartnerStatus
     var joinedAt: Date
+    // Squad-flavor tracking (was PodMembership)
+    var weeklyCompletedWorkouts: Int = 0
+    var currentStreak: Int = 0
+    var isPrimaryClub: Bool = false
 
     init(
         id: UUID = UUID(),
@@ -3224,7 +3169,10 @@ final class ClubMembership {
         clubId: UUID = UUID(),
         role: ClubRole = .member,
         workoutPartnerStatus: WorkoutPartnerStatus = .notLooking,
-        joinedAt: Date = Date()
+        joinedAt: Date = Date(),
+        weeklyCompletedWorkouts: Int = 0,
+        currentStreak: Int = 0,
+        isPrimaryClub: Bool = false
     ) {
         self.id = id
         self.userId = userId
@@ -3232,6 +3180,9 @@ final class ClubMembership {
         self.role = role
         self.workoutPartnerStatus = workoutPartnerStatus
         self.joinedAt = joinedAt
+        self.weeklyCompletedWorkouts = weeklyCompletedWorkouts
+        self.currentStreak = currentStreak
+        self.isPrimaryClub = isPrimaryClub
     }
 }
 

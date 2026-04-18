@@ -137,9 +137,9 @@ final class FeatureFlags: ObservableObject {
         didSet { save("recoveryAdvisorEnabled", value: recoveryAdvisorEnabled) }
     }
 
-    /// Pod accountability system (System 2)
-    @Published var podSystemEnabled: Bool {
-        didSet { save("podSystemEnabled", value: podSystemEnabled) }
+    /// Squad accountability system (was Pod; persisted key retained for back-compat)
+    @Published var squadSystemEnabled: Bool {
+        didSet { save("podSystemEnabled", value: squadSystemEnabled) }
     }
 
     /// Premium gate system (soft paywall triggers)
@@ -200,7 +200,7 @@ final class FeatureFlags: ObservableObject {
         self.formCheckCameraEnabled = defaults.object(forKey: prefix + "formCheckCameraEnabled") as? Bool ?? false
         self.voiceCoachEnabled = defaults.object(forKey: prefix + "voiceCoachEnabled") as? Bool ?? false
         self.recoveryAdvisorEnabled = defaults.object(forKey: prefix + "recoveryAdvisorEnabled") as? Bool ?? true
-        self.podSystemEnabled = defaults.object(forKey: prefix + "podSystemEnabled") as? Bool ?? true
+        self.squadSystemEnabled = defaults.object(forKey: prefix + "podSystemEnabled") as? Bool ?? true
         self.premiumGateEnabled = defaults.object(forKey: prefix + "premiumGateEnabled") as? Bool ?? false
         self.challengeEngineEnabled = defaults.object(forKey: prefix + "challengeEngineEnabled") as? Bool ?? true
         self.supabaseSyncEnabled = defaults.object(forKey: prefix + "supabaseSyncEnabled") as? Bool ?? true

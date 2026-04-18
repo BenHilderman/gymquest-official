@@ -278,18 +278,18 @@ class PermissionsService: ObservableObject {
     private func sharePod(_ userA: UUID, _ userB: UUID) -> Bool {
         guard let ctx = modelContext else { return false }
 
-        let predicateA = #Predicate<PodMembership> { $0.userId == userA }
-        let descriptorA = FetchDescriptor<PodMembership>(predicate: predicateA)
+        let predicateA = #Predicate<ClubMembership> { $0.userId == userA }
+        let descriptorA = FetchDescriptor<ClubMembership>(predicate: predicateA)
 
-        let predicateB = #Predicate<PodMembership> { $0.userId == userB }
-        let descriptorB = FetchDescriptor<PodMembership>(predicate: predicateB)
+        let predicateB = #Predicate<ClubMembership> { $0.userId == userB }
+        let descriptorB = FetchDescriptor<ClubMembership>(predicate: predicateB)
 
         guard let podsA = try? ctx.fetch(descriptorA),
               let podsB = try? ctx.fetch(descriptorB) else { return false }
 
-        let podIdsA = Set(podsA.map(\.podId))
-        let podIdsB = Set(podsB.map(\.podId))
-        return !podIdsA.isDisjoint(with: podIdsB)
+        let clubIdsA = Set(podsA.map(\.clubId))
+        let clubIdsB = Set(podsB.map(\.clubId))
+        return !clubIdsA.isDisjoint(with: clubIdsB)
     }
 
     /// Returns true when both users share at least one club.

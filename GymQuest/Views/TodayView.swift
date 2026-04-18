@@ -20,9 +20,8 @@ struct TodayView: View {
 
     @Query(filter: #Predicate<TrainingPlan> { $0.isActive }) private var activePlans: [TrainingPlan]
 
-    // Pod & accountability data
-    @Query private var allPodMemberships: [PodMembership]
-    @Query private var allPods: [Pod]
+    // Squad / Club & accountability data
+    @Query private var allClubMemberships: [ClubMembership]
     @Query private var allMomentumStates: [UserMomentumState]
     @Query private var allClubs: [Club]
 
@@ -54,25 +53,26 @@ struct TodayView: View {
         case progress = "Progress"
     }
 
-    // MARK: - Pod / Challenge Computed Props
+    // MARK: - Squad / Challenge Computed Props
 
-    private var primaryPodMembership: PodMembership? {
-        allPodMemberships.first { $0.userId == profile.id && $0.isPrimaryPod }
+    private var primaryClubMembership: ClubMembership? {
+        allClubMemberships.first { $0.userId == profile.id && $0.isPrimaryClub }
     }
 
-    private var primaryPod: Pod? {
-        guard let membership = primaryPodMembership else { return nil }
-        return allPods.first { $0.id == membership.podId }
+    /// The user's primary squad — a Club with kind == .squad.
+    private var primarySquad: Club? {
+        guard let membership = primaryClubMembership else { return nil }
+        return allClubs.first { $0.id == membership.clubId && $0.kind == .squad }
     }
 
     private var userMomentum: UserMomentumState? {
         allMomentumStates.first { $0.userId == profile.id }
     }
 
-
+    /// Parent community club of the squad (via parentClubId), if any.
     private var primaryClub: Club? {
-        guard let clubId = primaryPod?.clubId else { return nil }
-        return allClubs.first { $0.id == clubId }
+        guard let parentId = primarySquad?.parentClubId else { return nil }
+        return allClubs.first { $0.id == parentId }
     }
 
 
@@ -174,7 +174,7 @@ struct TodayView: View {
             MomentumService.shared.checkInactivity(userId: profile.id)
             consistencyState = MomentumService.shared.evaluateState(userId: profile.id)
             ChallengeService.shared.autoEnroll(userId: profile.id, consistencyState: consistencyState)
-            PodService.shared.evaluateLifecycles()
+            // TODO(phase 3): port Pod lifecycle evaluation to ClubService for .squad kind
 
             if let activePlan = activePlans.first {
                 PlanScheduleService.shared.resolveMissedDays(planId: activePlan.id)
@@ -1854,20 +1854,20 @@ struct TodayView: View {
         appState.startWorkout(type: type, exercises: [])
     }
 
-    // MARK: - Pod Row
+    // MARK: - Squad Row
 
     @ViewBuilder
     private var podOrOnboardingCard: some View {
-        if let pod = primaryPod {
-            podRow(pod)
+        if let squad = primarySquad {
+            squadRow(squad)
         } else if allClubs.isEmpty {
-            podPromptRow(title: "Join a Club", subtitle: "Train with others")
+            squadPromptRow(title: "Join a Club", subtitle: "Train with others")
         } else {
-            podPromptRow(title: "Join a Club", subtitle: "Train with others")
+            squadPromptRow(title: "Join a Club", subtitle: "Train with others")
         }
     }
 
-    private func podPromptRow(title: String, subtitle: String) -> some View {
+    private func squadPromptRow(title: String, subtitle: String) -> some View {
         HStack(spacing: 14) {
             ZStack {
                 Circle()
@@ -1909,9 +1909,9 @@ struct TodayView: View {
         }
     }
 
-    private func podRow(_ pod: Pod) -> some View {
+    private func squadRow(_ squad: Club) -> some View {
         let completed = userMomentum?.currentWeekCompleted ?? workoutsThisWeek
-        let target = pod.weeklyWorkoutTarget
+        let target = squad.weeklyWorkoutTarget ?? 3
         let fraction = CGFloat(completed) / CGFloat(max(target, 1))
         let remaining = max(target - completed, 0)
 
@@ -1936,7 +1936,7 @@ struct TodayView: View {
             .frame(width: 38, height: 38)
 
             VStack(alignment: .leading, spacing: 3) {
-                Text(pod.name)
+                Text(squad.name)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(GQColors.textPrimary)
                 Text(remaining > 0 ? "\(remaining) more this week" : "Goal complete")
