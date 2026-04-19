@@ -594,7 +594,6 @@ struct ExploreView: View {
             Divider().overlay(GQColors.adaptiveOverlay(0.04))
         }
         .padding(.top, 4)
-        .padding(.bottom, 4)
         .onAppear { livePulse = true }
     }
 
