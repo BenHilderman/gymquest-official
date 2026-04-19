@@ -657,7 +657,7 @@ struct ClubFeedView: View {
                     if club.isVerified {
                         Image(systemName: "checkmark.seal.fill")
                             .font(.system(size: 12))
-                            .foregroundColor(.white.opacity(0.9))
+                            .foregroundColor(GQColors.textPrimary)
                     }
                 }
                 Text("\(club.memberCount == 1 ? "1 member" : "\(club.memberCount) members")\(club.location.map { " · \($0)" } ?? "")")
@@ -719,11 +719,11 @@ struct ClubFeedView: View {
             HStack(spacing: 10) {
                 ZStack {
                     Circle()
-                        .fill(cat.color.opacity(0.18))
+                        .fill(GQColors.deepBlue.opacity(0.15))
                         .frame(width: 34, height: 34)
                     Image(systemName: cat.icon)
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(cat.color)
+                        .foregroundStyle(GQGradients.primary)
                 }
                 Text(cat.rawValue)
                     .font(.system(size: 14, weight: .semibold))
@@ -738,7 +738,7 @@ struct ClubFeedView: View {
                     .fill(GQColors.surfaceBase)
                     .overlay(
                         RoundedRectangle(cornerRadius: 14)
-                            .stroke(isSelected ? cat.color.opacity(0.55) : GQColors.borderDefault.opacity(0.4),
+                            .stroke(isSelected ? GQColors.deepBlue.opacity(0.55) : GQColors.borderDefault.opacity(0.4),
                                     lineWidth: isSelected ? 1.5 : 0.5)
                     )
             )
@@ -1483,12 +1483,12 @@ struct ClubCard: View {
                         .clipShape(Circle())
                 } else {
                     Circle()
-                        .fill(cat.color.opacity(0.15))
+                        .fill(GQColors.deepBlue.opacity(0.12))
                         .frame(width: 50, height: 50)
                         .overlay(
                             Image(systemName: cat.icon)
                                 .font(.system(size: 20))
-                                .foregroundColor(cat.color)
+                                .foregroundStyle(GQGradients.primary)
                         )
                 }
 
@@ -1777,7 +1777,7 @@ struct SearchClubsSheet: View {
                                 .foregroundColor(filterCategory == cat ? .white : GQColors.textSecondary)
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 6)
-                                .background(filterCategory == cat ? cat.color.opacity(0.35) : GQColors.adaptiveOverlay(0.08))
+                                .background(filterCategory == cat ? GQColors.deepBlue.opacity(0.25) : GQColors.adaptiveOverlay(0.08))
                                 .cornerRadius(16)
                             }
                             .buttonStyle(.plain)
@@ -1845,12 +1845,12 @@ struct ClubSearchRow: View {
         let cat = club.resolvedCategory
         HStack(spacing: 12) {
             Circle()
-                .fill(cat.color.opacity(0.2))
+                .fill(GQColors.deepBlue.opacity(0.15))
                 .frame(width: 44, height: 44)
                 .overlay(
                     Image(systemName: cat.icon)
                         .font(.system(size: 18))
-                        .foregroundColor(cat.color)
+                        .foregroundStyle(GQGradients.primary)
                 )
 
             VStack(alignment: .leading, spacing: 2) {
@@ -1885,7 +1885,7 @@ struct ClubSearchRow: View {
                     .foregroundColor(GQColors.textTertiary)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
-                    .background(Color.white.opacity(0.1))
+                    .background(GQColors.adaptiveOverlay(0.08))
                     .cornerRadius(8)
             } else {
                 Button(action: onJoin) {
@@ -1900,7 +1900,7 @@ struct ClubSearchRow: View {
                 .buttonStyle(.plain)
             }
         }
-        .listRowBackground(Color.white.opacity(0.05))
+        .listRowBackground(GQColors.adaptiveOverlay(0.04))
     }
 }
 
@@ -1992,8 +1992,7 @@ struct ClubDetailView: View {
                 }
             }
             .gqPageBackground()
-            .preferredColorScheme(.dark)
-            .navigationTitle("Club")
+            .navigationTitle(club.name)
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
@@ -2039,35 +2038,26 @@ struct ClubDetailView: View {
                     .frame(width: 88, height: 88)
                     .clipShape(Circle())
                     .overlay(
-                        Circle()
-                            .stroke(cat.color, lineWidth: 3)
+                        Circle().strokeBorder(GQGradients.primary, lineWidth: 2.5)
                     )
             } else {
                 Circle()
-                    .fill(cat.color.opacity(0.15))
+                    .fill(GQGradients.primary.opacity(0.12))
                     .frame(width: 88, height: 88)
                     .overlay(
                         Image(systemName: cat.icon)
-                            .font(.system(size: 36))
-                            .foregroundColor(cat.color)
-                    )
-                    .overlay(
-                        Circle()
-                            .stroke(cat.color.opacity(0.3), lineWidth: 2)
+                            .font(.system(size: 34, weight: .semibold))
+                            .foregroundStyle(GQGradients.primary)
                     )
             }
             #else
             Circle()
-                .fill(cat.color.opacity(0.15))
+                .fill(GQGradients.primary.opacity(0.12))
                 .frame(width: 88, height: 88)
                 .overlay(
                     Image(systemName: cat.icon)
-                        .font(.system(size: 36))
-                        .foregroundColor(cat.color)
-                )
-                .overlay(
-                    Circle()
-                        .stroke(cat.color.opacity(0.3), lineWidth: 2)
+                        .font(.system(size: 34, weight: .semibold))
+                        .foregroundStyle(GQGradients.primary)
                 )
             #endif
 
@@ -2085,7 +2075,7 @@ struct ClubDetailView: View {
             if !club.clubDescription.isEmpty {
                 Text(club.clubDescription)
                     .font(.system(size: 15, weight: .regular))
-                    .foregroundColor(Color.white.opacity(0.75))
+                    .foregroundColor(GQColors.textSecondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 24)
             }
@@ -2096,7 +2086,7 @@ struct ClubDetailView: View {
                         .font(.headline)
                     Text("Members")
                         .font(.caption)
-                        .foregroundColor(.gray)
+                        .foregroundColor(GQColors.textTertiary)
                 }
 
                 if let location = club.location {
@@ -2105,7 +2095,7 @@ struct ClubDetailView: View {
                             .font(.headline)
                         Text(location)
                             .font(.caption)
-                            .foregroundColor(.gray)
+                            .foregroundColor(GQColors.textTertiary)
                     }
                 }
             }
@@ -2131,24 +2121,17 @@ struct ClubDetailView: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .background(
-                        LinearGradient(
-                            colors: [GQColors.deepBlue.opacity(0.6), GQColors.textSecondary.opacity(0.5)],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .cornerRadius(10)
+                    .background(GQGradients.primary, in: RoundedRectangle(cornerRadius: 12))
             }
             .buttonStyle(.plain)
             .padding(.horizontal, 16)
         } else if club.pendingRequestIds.contains(profile.id) {
             Text("Request Pending")
                 .font(.system(size: 14, weight: .medium))
-                .foregroundColor(.gray)
+                .foregroundColor(GQColors.textTertiary)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
-                .background(Color.white.opacity(0.05))
+                .background(GQColors.adaptiveOverlay(0.04))
                 .cornerRadius(10)
                 .padding(.horizontal, 16)
         } else if isMember && club.creatorId != profile.id {
@@ -2200,7 +2183,7 @@ struct ClubDetailView: View {
                     ForEach(activeNames, id: \.self) { name in
                         VStack(spacing: 6) {
                             Circle()
-                                .fill(Color.white.opacity(0.1))
+                                .fill(GQColors.adaptiveOverlay(0.08))
                                 .frame(width: 44, height: 44)
                                 .overlay(
                                     Text(String(name.prefix(1)))
@@ -2211,12 +2194,12 @@ struct ClubDetailView: View {
                                     Circle()
                                         .fill(GQColors.deepBlue)
                                         .frame(width: 12, height: 12)
-                                        .overlay(Circle().stroke(Color.black, lineWidth: 2))
+                                        .overlay(Circle().stroke(GQColors.background, lineWidth: 2))
                                         .offset(x: 15, y: 15)
                                 )
                             Text(name)
                                 .font(.system(size: 11))
-                                .foregroundColor(.gray)
+                                .foregroundColor(GQColors.textTertiary)
                                 .lineLimit(1)
                         }
                         .frame(width: 60)
@@ -2257,10 +2240,10 @@ struct ClubDetailView: View {
                                     .lineLimit(1)
                                 Text("\(posts.count) posts")
                                     .font(.system(size: 10))
-                                    .foregroundColor(.gray)
+                                    .foregroundColor(GQColors.textTertiary)
                             }
                             .frame(width: 110, height: 80)
-                            .background(selectedChannelId == nil ? GQColors.deepBlue.opacity(0.3) : Color.white.opacity(0.06))
+                            .background(selectedChannelId == nil ? GQColors.deepBlue.opacity(0.3) : GQColors.adaptiveOverlay(0.05))
                             .cornerRadius(12)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12)
@@ -2286,10 +2269,10 @@ struct ClubDetailView: View {
                                         .lineLimit(1)
                                     Text("\(channel.memberCount) members")
                                         .font(.system(size: 10))
-                                        .foregroundColor(.gray)
+                                        .foregroundColor(GQColors.textTertiary)
                                 }
                                 .frame(width: 110, height: 80)
-                                .background(isSelected ? GQColors.deepBlue.opacity(0.3) : Color.white.opacity(0.06))
+                                .background(isSelected ? GQColors.deepBlue.opacity(0.3) : GQColors.adaptiveOverlay(0.05))
                                 .cornerRadius(12)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 12)
@@ -2359,11 +2342,11 @@ struct ClubDetailView: View {
         HStack {
             Text("\(challenge.currentProgress) / \(challenge.goalTarget) \(challenge.goalType.rawValue.lowercased())")
                 .font(.system(size: 12))
-                .foregroundColor(.gray)
+                .foregroundColor(GQColors.textTertiary)
             Spacer()
             Text("\(challenge.participantIds.count) participating")
                 .font(.system(size: 12))
-                .foregroundColor(.gray)
+                .foregroundColor(GQColors.textTertiary)
         }
     }
 
@@ -2508,7 +2491,7 @@ struct ClubDetailView: View {
                 .buttonStyle(.plain)
             }
         }
-        .background(Color.white.opacity(0.05))
+        .background(GQColors.adaptiveOverlay(0.04))
         .cornerRadius(10)
         .padding(.horizontal, 16)
     }
@@ -2759,10 +2742,10 @@ struct ClubDetailView: View {
                         .foregroundColor(.gray.opacity(0.5))
                     Text("No posts yet")
                         .font(.subheadline)
-                        .foregroundColor(.gray)
+                        .foregroundColor(GQColors.textTertiary)
                     Text("Be the first to share something!")
                         .font(.caption)
-                        .foregroundColor(.gray)
+                        .foregroundColor(GQColors.textTertiary)
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 40)
@@ -2807,7 +2790,7 @@ struct ClubDetailView: View {
                             .foregroundColor(.white)
                         Text("\(entry.sets) sets")
                             .font(.system(size: 12))
-                            .foregroundColor(.gray)
+                            .foregroundColor(GQColors.textTertiary)
                     }
 
                     Spacer()
@@ -2818,7 +2801,7 @@ struct ClubDetailView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
-                .background(index < 3 ? Color.white.opacity(0.04) : Color.clear)
+                .background(index < 3 ? GQColors.adaptiveOverlay(0.03) : Color.clear)
                 .cornerRadius(10)
             }
 
@@ -2835,11 +2818,11 @@ struct ClubDetailView: View {
                     Spacer()
                     Image(systemName: "chevron.right")
                         .font(.caption)
-                        .foregroundColor(.gray)
+                        .foregroundColor(GQColors.textTertiary)
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
-                .background(Color.white.opacity(0.06))
+                .background(GQColors.adaptiveOverlay(0.05))
                 .cornerRadius(12)
             }
             .padding(.horizontal, 16)
@@ -2871,7 +2854,7 @@ struct ClubDetailView: View {
                     .foregroundColor(showPartnerOnly ? GQColors.textSecondary : .gray)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
-                    .background(showPartnerOnly ? GQColors.textSecondary.opacity(0.15) : Color.white.opacity(0.05))
+                    .background(showPartnerOnly ? GQColors.textSecondary.opacity(0.15) : GQColors.adaptiveOverlay(0.04))
                     .cornerRadius(8)
                 }
                 .buttonStyle(.plain)
@@ -2901,7 +2884,7 @@ struct ClubDetailView: View {
                         HStack(spacing: 6) {
                             Text(member.role)
                                 .font(.system(size: 12))
-                                .foregroundColor(.gray)
+                                .foregroundColor(GQColors.textTertiary)
 
                             if member.lookingForPartner {
                                 Text("Looking for partner")
@@ -3074,7 +3057,7 @@ struct ClubPostCard: View {
             // Content
             Text(post.content)
                 .font(.system(size: 14))
-                .foregroundColor(.white.opacity(0.9))
+                .foregroundColor(GQColors.textPrimary)
 
             // Actions
             HStack(spacing: 20) {
@@ -3124,7 +3107,7 @@ struct ClubPostCard: View {
             .buttonStyle(.plain)
         }
         .padding(14)
-        .background(Color.white.opacity(0.05))
+        .background(GQColors.adaptiveOverlay(0.04))
         .cornerRadius(12)
         .padding(.horizontal, 16)
     }

@@ -315,18 +315,18 @@ struct ClubEventCard: View {
             HStack(spacing: 8) {
                 Image(systemName: event.eventType.icon)
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(event.eventType.color)
+                    .foregroundStyle(GQGradients.primary)
                     .frame(width: 32, height: 32)
-                    .background(event.eventType.color.opacity(0.15))
+                    .background(GQGradients.primary.opacity(0.12))
                     .clipShape(Circle())
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(event.title)
                         .font(.system(size: 15, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(GQColors.textPrimary)
                     Text(event.eventType.rawValue)
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(event.eventType.color)
+                        .foregroundColor(GQColors.textSecondary)
                 }
 
                 Spacer()
@@ -336,11 +336,12 @@ struct ClubEventCard: View {
                 } label: {
                     Text(isAttending ? "Going" : (isFull ? "Full" : "RSVP"))
                         .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(isAttending ? .white : GQColors.textSecondary)
+                        .foregroundColor(isAttending ? .white : GQColors.textPrimary)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 6)
-                        .background(isAttending ? GQColors.textSecondary : GQColors.textSecondary.opacity(0.15))
-                        .cornerRadius(16)
+                        .background(
+                            Capsule().fill(isAttending ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQColors.adaptiveOverlay(0.08)))
+                        )
                 }
                 .buttonStyle(.plain)
                 .disabled(isFull && !isAttending)
@@ -399,12 +400,7 @@ struct ClubEventCard: View {
             }
         }
         .padding(14)
-        .background(Color.white.opacity(0.05))
-        .cornerRadius(14)
-        .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .stroke(Color.white.opacity(0.08), lineWidth: 1)
-        )
+        .homeSocialCard(cornerRadius: 14)
     }
 
     private func toggleRSVP() {
