@@ -590,10 +590,12 @@ struct ExploreView: View {
 
             Divider().overlay(GQColors.adaptiveOverlay(0.04))
 
-            // Friends row: tight spacing to feel like a single strip of people.
+            // Friends row: tight spacing, flows edge-to-edge so the last
+            // cell gets partially clipped at the right — Instagram Stories
+            // pattern that signals "scroll for more."
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 5) {
-                    ForEach(cachedFriendsMembers.prefix(6)) { member in
+                    ForEach(cachedFriendsMembers) { member in
                         Button {
                             #if canImport(UIKit)
                             UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -605,8 +607,23 @@ struct ExploreView: View {
                         .buttonStyle(.plain)
                     }
                 }
-                .padding(.vertical, 4)  // prevents circle stroke clipping
+                .padding(.horizontal, 16)   // content inset
+                .padding(.vertical, 4)      // prevents circle stroke clipping
             }
+            .padding(.horizontal, -16)      // negate parent padding so the
+                                            // scrollview extends edge-to-edge
+            .mask(
+                // Subtle fade at the right edge as a visible hint that more
+                // friends exist past the fold. No fade on the left.
+                LinearGradient(
+                    stops: [
+                        .init(color: .black, location: 0.0),
+                        .init(color: .black, location: 0.94),
+                        .init(color: .black.opacity(0.0), location: 1.0)
+                    ],
+                    startPoint: .leading, endPoint: .trailing
+                )
+            )
         }
         .padding(.horizontal, 16)
         .padding(.top, 4)
