@@ -124,7 +124,7 @@ struct ExploreView: View {
         .gqPageBackground()
         .safeAreaInset(edge: .top, spacing: 0) {
             pinnedHeader
-                .background(.ultraThinMaterial)
+                .background(GQColors.background)
         }
         .refreshable {
             if let current = cachedHeroPick { shuffleHero(currentId: current.id) }
@@ -565,31 +565,36 @@ struct ExploreView: View {
 
     // MARK: - Pinned header (tabs + Discover filter chips)
 
-    /// Pinned nav tab row. Sticky Discover chips (LazyVStack section
-    /// header) land flush below this via .ultraThinMaterial on both, so
-    /// when scrolled they read as one continuous bar.
+    /// Pinned nav tab row + divider (original layout). Sits on a solid
+    /// GQColors.background — same shade as the bottom tab bar — so it
+    /// reads as a real bar, not a translucent overlay.
     private var pinnedHeader: some View {
-        HStack(spacing: 20) {
-            Spacer()
-            Button("Friends", action: { presentingFriendsFeed = true })
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(GQGradients.primary)
-            Button("Shorts", action: { shortsEntryPostId = shortsClips.first?.id; presentingShorts = true })
-                .font(.system(size: 13, weight: .regular))
-                .foregroundColor(GQColors.textTertiary)
-            Button("Clubs", action: { presentingClubs = true })
-                .font(.system(size: 13, weight: .regular))
-                .foregroundColor(GQColors.textTertiary)
-            Button(action: { withAnimation { showSearchOverlay.toggle() } }) {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(GQColors.textPrimary)
+        VStack(spacing: 8) {
+            HStack(spacing: 20) {
+                Spacer()
+                Button("Friends", action: { presentingFriendsFeed = true })
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(GQGradients.primary)
+                Button("Shorts", action: { shortsEntryPostId = shortsClips.first?.id; presentingShorts = true })
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundColor(GQColors.textTertiary)
+                Button("Clubs", action: { presentingClubs = true })
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundColor(GQColors.textTertiary)
+                Button(action: { withAnimation { showSearchOverlay.toggle() } }) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(GQColors.textPrimary)
+                }
+                Spacer()
             }
-            Spacer()
+            .buttonStyle(.plain)
+            .padding(.horizontal, 16)
+
+            Divider().overlay(GQColors.adaptiveOverlay(0.04))
         }
-        .buttonStyle(.plain)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
+        .padding(.top, 4)
+        .padding(.bottom, 4)
         .onAppear { livePulse = true }
     }
 
@@ -908,21 +913,11 @@ struct ExploreView: View {
 
     @ViewBuilder
     private var discoverSection: some View {
-        // "Discover" title scrolls away normally — only the chips pin.
-        HStack(alignment: .firstTextBaseline) {
-            Image(systemName: "sparkle.magnifyingglass")
-                .font(.system(size: 14))
-                .foregroundStyle(GQGradients.primary)
-            Text("Discover")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(GQColors.textPrimary)
-            Spacer()
-        }
-        .padding(.horizontal, 16)
-
-        // Section with a sticky header = just the filter chips. When
-        // scrolled past, they pin flush below the top nav (both use
-        // .ultraThinMaterial) so the two read as one continuous bar.
+        // Section with sticky header — Discover title + filter chips. At
+        // rest this sits in its natural position after the hero. When
+        // scrolled past, the whole header pins flush below the top nav.
+        // Solid background (not material) so it doesn't show content
+        // bleeding through once pinned.
         Section {
             DiscoverGrid(
                 items: cachedDiscoverItems,
@@ -939,9 +934,22 @@ struct ExploreView: View {
             )
             .frame(minHeight: 600)
         } header: {
-            discoverFilterChips
-                .padding(.vertical, 8)
-                .background(.ultraThinMaterial)
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .firstTextBaseline) {
+                    Image(systemName: "sparkle.magnifyingglass")
+                        .font(.system(size: 14))
+                        .foregroundStyle(GQGradients.primary)
+                    Text("Discover")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(GQColors.textPrimary)
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+
+                discoverFilterChips
+            }
+            .padding(.vertical, 8)
+            .background(GQColors.background)
         }
     }
 
