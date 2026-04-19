@@ -956,7 +956,7 @@ struct ExploreView: View {
 
                 discoverFilterChips
             }
-            .padding(.top, 10)
+            .padding(.top, 4)
             .padding(.bottom, 8)
             .background(GQColors.background)
         }
