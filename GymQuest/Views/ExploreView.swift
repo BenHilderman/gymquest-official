@@ -570,25 +570,34 @@ struct ExploreView: View {
 
     // MARK: - Pinned header (tabs + Discover filter chips)
 
-    /// Pinned nav tab row + divider. iOS-style segmented control for
-    /// Friends/Shorts/Clubs, with search + dev-flask as trailing icons.
-    /// Sits on solid GQColors.background so it reads as a real bar,
-    /// not a translucent overlay.
+    /// Pinned nav tab row + divider (original layout). Sits on a solid
+    /// GQColors.background — same shade as the bottom tab bar — so it
+    /// reads as a real bar, not a translucent overlay.
     private var pinnedHeader: some View {
         VStack(spacing: 8) {
-            HStack(spacing: 10) {
-                segmentedTabs
+            HStack(spacing: 20) {
                 Spacer()
+                Button("Friends", action: { presentingFriendsFeed = true })
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(GQGradients.primary)
+                Button("Shorts", action: { shortsEntryPostId = shortsClips.first?.id; presentingShorts = true })
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundColor(GQColors.textTertiary)
+                Button("Clubs", action: { presentingClubs = true })
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundColor(GQColors.textTertiary)
                 Button(action: { withAnimation { showSearchOverlay.toggle() } }) {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 14, weight: .medium))
                         .foregroundColor(GQColors.textPrimary)
                 }
+                // Dev-only: open the feed-header variants playground.
                 Button(action: { presentingVariants = true }) {
                     Image(systemName: "flask")
                         .font(.system(size: 13, weight: .medium))
                         .foregroundColor(GQColors.textTertiary)
                 }
+                Spacer()
             }
             .buttonStyle(.plain)
             .padding(.horizontal, 16)
@@ -597,47 +606,6 @@ struct ExploreView: View {
         }
         .padding(.top, 4)
         .onAppear { livePulse = true }
-    }
-
-    /// Custom iOS-style segmented control. "Friends" is the always-active
-    /// segment (this view IS the Friends page); tapping Shorts/Clubs
-    /// routes to those presentations.
-    private var segmentedTabs: some View {
-        HStack(spacing: 2) {
-            segmentButton("Friends", isActive: true) {
-                // Already here — no-op on primary tap.
-            }
-            segmentButton("Shorts", isActive: false) {
-                shortsEntryPostId = shortsClips.first?.id
-                presentingShorts = true
-            }
-            segmentButton("Clubs", isActive: false) {
-                presentingClubs = true
-            }
-        }
-        .padding(3)
-        .background(
-            RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .fill(GQColors.adaptiveOverlay(0.08))
-        )
-    }
-
-    @ViewBuilder
-    private func segmentButton(_ title: String, isActive: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(isActive ? GQColors.textPrimary : GQColors.textSecondary)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 5)
-                .frame(maxWidth: .infinity)
-                .background(
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .fill(isActive ? Color.white : Color.clear)
-                        .shadow(color: isActive ? .black.opacity(0.06) : .clear, radius: 2, y: 1)
-                )
-        }
-        .buttonStyle(.plain)
     }
 
     /// Horizontal strip of Discover filter chips. Extracted so it can live
