@@ -944,15 +944,11 @@ struct ExploreView: View {
             )
             .frame(minHeight: 600)
         } header: {
+            // Fully opaque sticky header — solid GQColors.background
+            // across the whole area so no scrolled content bleeds through
+            // when pinned. Hairline sits at the very top (flush with the
+            // nav bar's divider on pin), title + chips below.
             VStack(spacing: 0) {
-                // Transparent strip above the hairline — hero's drop
-                // shadow renders through here freely. Slimmed to 2pt
-                // so the hairline lands closer to the vertical center
-                // of the visible gap between the hero and the title.
-                Color.clear.frame(height: 2)
-
-                // Hairline depth cue between the hero and the Discover
-                // content. Pins flush under the nav bar's divider.
                 Rectangle()
                     .fill(GQColors.adaptiveOverlay(0.08))
                     .frame(height: 0.5)
@@ -971,13 +967,10 @@ struct ExploreView: View {
 
                     discoverFilterChips
                 }
-                // Inner padding above title bumped 4→8 so the title's
-                // Y position is unchanged even though the hairline moved
-                // up. Net: Discover stays put, hairline re-centers.
                 .padding(.top, 8)
                 .padding(.bottom, 8)
-                .background(GQColors.background)
             }
+            .background(GQColors.background)
         }
     }
 
