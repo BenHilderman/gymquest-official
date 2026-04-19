@@ -539,27 +539,39 @@ struct ClubFeedView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 16) {
+            VStack(spacing: 20) {
                 searchBar
 
-                categoryAndToggleRow
-
-                if clubViewMode == .list {
-                    listModeContent
+                if !searchText.isEmpty {
+                    // Focused search: show a single flat list of matching clubs
+                    searchResultsSection
                 } else {
-                    mapModeContent
+                    featuredCarousel
+                    categoriesGrid
+                    if !yourClubs.isEmpty { yourClubsShelf }
+                    nearbySection
                 }
 
-                Spacer(minLength: 100)
+                createClubButton
+
+                Spacer(minLength: 60)
             }
-            .padding(.top, 8)
+            .padding(.top, 4)
         }
         .scrollContentBackground(.hidden)
         .background(GQColors.background.ignoresSafeArea())
         .navigationTitle("Clubs")
         .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { showingCreateClub = true } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(GQGradients.primary)
+                }
+            }
+        }
         .refreshable {
-            // Pull-to-refresh triggers SwiftData @Query re-evaluation
             try? await Task.sleep(for: .milliseconds(300))
         }
         .onAppear {
@@ -571,6 +583,230 @@ struct ClubFeedView: View {
         }
         .sheet(item: $selectedClub) { club in
             ClubDetailView(club: club, profile: profile)
+        }
+    }
+
+    // MARK: - Featured carousel
+
+    /// Big horizontal cards — recommended/nearby clubs with cover art and
+    /// gradient wash. First thing users see → discovery-forward.
+    private var featuredClubs: [Club] {
+        // Prefer non-member, non-channel clubs with location; fall back to any.
+        let withLocation = recommendedClubs
+            .filter { $0.location != nil && $0.parentClubId == nil }
+        let pool = withLocation.isEmpty
+            ? recommendedClubs.filter { $0.parentClubId == nil }
+            : withLocation
+        return Array(pool
+            .sorted { ($0.memberCount, ($0.lastActivityDate ?? .distantPast)) > ($1.memberCount, ($1.lastActivityDate ?? .distantPast)) }
+            .prefix(5))
+    }
+
+    @ViewBuilder
+    private var featuredCarousel: some View {
+        if !featuredClubs.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("FEATURED")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(GQColors.textTertiary)
+                    .tracking(0.6)
+                    .padding(.horizontal, 20)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(featuredClubs) { club in
+                            featuredCard(club)
+                                .onTapGesture { selectedClub = club }
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func featuredCard(_ club: Club) -> some View {
+        let accent = club.resolvedCategory.color
+        ZStack(alignment: .bottomLeading) {
+            // Cover: use imageData when present, otherwise a clean category
+            // gradient. App-Store-style dual-gradient ensures text stays legible.
+            Group {
+                #if canImport(UIKit)
+                if let data = club.imageData, let img = UIImage(data: data) {
+                    Image(uiImage: img).resizable().aspectRatio(contentMode: .fill)
+                } else {
+                    LinearGradient(colors: [accent.opacity(0.85), accent.opacity(0.55)],
+                                   startPoint: .topLeading, endPoint: .bottomTrailing)
+                }
+                #else
+                LinearGradient(colors: [accent.opacity(0.85), accent.opacity(0.55)],
+                               startPoint: .topLeading, endPoint: .bottomTrailing)
+                #endif
+            }
+
+            LinearGradient(colors: [.clear, .black.opacity(0.55)],
+                           startPoint: .top, endPoint: .bottom)
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 4) {
+                    Text(club.name)
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(.white)
+                        .lineLimit(2)
+                    if club.isVerified {
+                        Image(systemName: "checkmark.seal.fill")
+                            .font(.system(size: 12))
+                            .foregroundColor(.white.opacity(0.9))
+                    }
+                }
+                Text("\(club.memberCount == 1 ? "1 member" : "\(club.memberCount) members")\(club.location.map { " · \($0)" } ?? "")")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.white.opacity(0.85))
+                    .lineLimit(1)
+            }
+            .padding(14)
+        }
+        .frame(width: 280, height: 160)
+        .clipShape(RoundedRectangle(cornerRadius: 18))
+    }
+
+    // MARK: - Categories grid
+
+    /// Curated set of top-level categories shown as colorful 2-col tiles.
+    /// Tapping a tile filters the Nearby list below (scrolls into view).
+    private var browseCategories: [ClubCategory] {
+        [.running, .weightlifting, .yoga, .basketball, .hiit, .crossfit]
+    }
+
+    @ViewBuilder
+    private var categoriesGrid: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("BROWSE")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(GQColors.textTertiary)
+                    .tracking(0.6)
+                Spacer()
+                if selectedCategory != nil {
+                    Button("Clear") {
+                        withAnimation(.easeInOut(duration: 0.2)) { selectedCategory = nil }
+                    }
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(GQGradients.primary)
+                }
+            }
+            .padding(.horizontal, 20)
+
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)],
+                      spacing: 10) {
+                ForEach(browseCategories, id: \.self) { cat in
+                    categoryTile(cat)
+                }
+            }
+            .padding(.horizontal, 16)
+        }
+    }
+
+    @ViewBuilder
+    private func categoryTile(_ cat: ClubCategory) -> some View {
+        let isSelected = selectedCategory == cat
+        Button {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                selectedCategory = isSelected ? nil : cat
+            }
+        } label: {
+            HStack(spacing: 10) {
+                ZStack {
+                    Circle()
+                        .fill(cat.color.opacity(0.18))
+                        .frame(width: 34, height: 34)
+                    Image(systemName: cat.icon)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(cat.color)
+                }
+                Text(cat.rawValue)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(GQColors.textPrimary)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(GQColors.surfaceBase)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(isSelected ? cat.color.opacity(0.55) : GQColors.borderDefault.opacity(0.4),
+                                    lineWidth: isSelected ? 1.5 : 0.5)
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Your clubs shelf (compact horizontal)
+
+    @ViewBuilder
+    private var yourClubsShelf: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("YOUR CLUBS")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(GQColors.textTertiary)
+                    .tracking(0.6)
+                Spacer()
+                Text("\(yourClubs.count)")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+            .padding(.horizontal, 20)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 14) {
+                    ForEach(yourClubs) { club in
+                        Button { selectedClub = club } label: {
+                            VStack(spacing: 8) {
+                                clubAvatar(club, size: 60)
+                                Text(club.name)
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(GQColors.textPrimary)
+                                    .lineLimit(2)
+                                    .multilineTextAlignment(.center)
+                                    .frame(width: 72)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+        }
+    }
+
+    // MARK: - Search results section
+
+    @ViewBuilder
+    private var searchResultsSection: some View {
+        let matches = (yourClubs + recommendedClubs).filter { matchesSearch($0) }
+        if matches.isEmpty {
+            VStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 24))
+                    .foregroundColor(GQColors.textTertiary)
+                Text("No clubs match \"\(searchText)\"")
+                    .font(.system(size: 13))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 40)
+        } else {
+            VStack(spacing: 10) {
+                ForEach(matches) { club in
+                    recommendedClubCard(club)
+                }
+            }
         }
     }
 
