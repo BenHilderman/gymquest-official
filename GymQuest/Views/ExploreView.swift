@@ -55,6 +55,7 @@ struct ExploreView: View {
     @State private var visibleVideoId: String?
     @State private var livePulse: Bool = false
     @State private var presentedClub: Club?
+    @State private var presentingClubs: Bool = false
 
     /// Nudge IDs the user dismissed this session — suppressed from the
     /// banner. Day-keyed so "friendsAhead-2-Jake" doesn't nag every open.
@@ -159,6 +160,16 @@ struct ExploreView: View {
         }
         .navigationDestination(item: $presentedClub) { _ in
             ClubFeedView(profile: profile)
+        }
+        .fullScreenCover(isPresented: $presentingClubs) {
+            NavigationStack {
+                ClubFeedView(profile: profile)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button("Done") { presentingClubs = false }
+                        }
+                    }
+            }
         }
     }
 
@@ -557,7 +568,7 @@ struct ExploreView: View {
                 Button("Shorts", action: { shortsEntryPostId = shortsClips.first?.id; presentingShorts = true })
                     .font(.system(size: 13, weight: .regular))
                     .foregroundColor(GQColors.textTertiary)
-                Button("Clubs", action: { presentedClub = myClubs.first })
+                Button("Clubs", action: { presentingClubs = true })
                     .font(.system(size: 13, weight: .regular))
                     .foregroundColor(GQColors.textTertiary)
                 Button(action: { withAnimation { showSearchOverlay.toggle() } }) {
