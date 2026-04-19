@@ -611,15 +611,15 @@ struct ExploreView: View {
     private func topFriendCell(_ member: FriendsMember) -> some View {
         let isLive: Bool = { if case .live = member.status { return true }; return false }()
         let isInactive: Bool = { if case .inactive = member.status { return true }; return false }()
-        let avatarSize: CGFloat = 44
-        let ringSize: CGFloat = 50
-        let cellWidth: CGFloat = 68
+        let avatarSize: CGFloat = 36
+        let ringSize: CGFloat = 42
+        let cellWidth: CGFloat = 58
 
-        return VStack(spacing: 6) {
+        return VStack(spacing: 4) {
             ZStack {
                 if isLive {
                     Circle()
-                        .stroke(GQColors.success, lineWidth: 2)
+                        .stroke(GQColors.success, lineWidth: 1.5)
                         .frame(width: ringSize, height: ringSize)
                 }
 
@@ -631,8 +631,8 @@ struct ExploreView: View {
                 if isLive {
                     Circle()
                         .fill(GQColors.success)
-                        .frame(width: 10, height: 10)
-                        .overlay(Circle().stroke(GQColors.background, lineWidth: 2))
+                        .frame(width: 8, height: 8)
+                        .overlay(Circle().stroke(GQColors.background, lineWidth: 1.5))
                         .scaleEffect(livePulse ? 1.2 : 1.0)
                         .animation(
                             .easeInOut(duration: 1.4).repeatForever(autoreverses: true),
@@ -643,13 +643,13 @@ struct ExploreView: View {
             }
 
             Text(friendFirstName(member))
-                .font(.system(size: 11, weight: .semibold))
+                .font(.system(size: 10, weight: .semibold))
                 .foregroundColor(GQColors.textPrimary)
                 .lineLimit(1)
                 .truncationMode(.tail)
 
             Text(member.statusText)
-                .font(.system(size: 10, weight: .medium))
+                .font(.system(size: 9, weight: .medium))
                 .foregroundColor(GQColors.textTertiary)
                 .lineLimit(1)
                 .truncationMode(.tail)
@@ -679,7 +679,7 @@ struct ExploreView: View {
         ZStack {
             Circle().fill(GQGradients.primary)
             Text(String(member.name.prefix(1)).uppercased())
-                .font(.system(size: 17, weight: .semibold, design: .rounded))
+                .font(.system(size: 14, weight: .semibold, design: .rounded))
                 .foregroundColor(.white)
         }
     }
