@@ -592,7 +592,7 @@ struct ExploreView: View {
 
             // Friends row: tight spacing to feel like a single strip of people.
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
+                HStack(spacing: 2) {
                     ForEach(cachedFriendsMembers.prefix(6)) { member in
                         Button {
                             #if canImport(UIKit)
@@ -618,9 +618,9 @@ struct ExploreView: View {
         let isInactive: Bool = { if case .inactive = member.status { return true }; return false }()
         let avatarSize: CGFloat = 36
         let ringSize: CGFloat = 42
-        let cellWidth: CGFloat = 58
+        let cellWidth: CGFloat = 54
 
-        return VStack(spacing: 4) {
+        return VStack(spacing: 3) {
             ZStack {
                 if isLive {
                     Circle()
@@ -654,11 +654,11 @@ struct ExploreView: View {
                 .truncationMode(.tail)
 
             Text(member.statusText)
-                .font(.system(size: 9, weight: .medium))
+                .font(.system(size: 8, weight: .medium))
                 .foregroundColor(GQColors.textTertiary)
                 .lineLimit(1)
                 .truncationMode(.tail)
-                .minimumScaleFactor(0.85)
+                .minimumScaleFactor(0.9)
         }
         .frame(width: cellWidth)
     }
