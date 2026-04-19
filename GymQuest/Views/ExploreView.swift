@@ -56,6 +56,7 @@ struct ExploreView: View {
     @State private var livePulse: Bool = false
     @State private var presentedClub: Club?
     @State private var presentingClubs: Bool = false
+    @State private var presentingVariants: Bool = false
 
     /// Nudge IDs the user dismissed this session — suppressed from the
     /// banner. Day-keyed so "friendsAhead-2-Jake" doesn't nag every open.
@@ -176,6 +177,9 @@ struct ExploreView: View {
                         }
                     }
             }
+        }
+        .sheet(isPresented: $presentingVariants) {
+            FeedVariantsView()
         }
     }
 
@@ -586,6 +590,12 @@ struct ExploreView: View {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 14, weight: .medium))
                         .foregroundColor(GQColors.textPrimary)
+                }
+                // Dev-only: open the feed-header variants playground.
+                Button(action: { presentingVariants = true }) {
+                    Image(systemName: "flask")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(GQColors.textTertiary)
                 }
                 Spacer()
             }
