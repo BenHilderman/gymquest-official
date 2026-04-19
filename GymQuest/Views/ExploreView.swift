@@ -935,11 +935,11 @@ struct ExploreView: View {
             .frame(minHeight: 600)
         } header: {
             VStack(spacing: 0) {
-                // Transparent strip above the solid area — the hero's
-                // drop shadow renders through here freely. When the
-                // section pins, this strip is invisible against the
-                // page background (same color) so there's no visual gap.
-                Color.clear.frame(height: 6)
+                // Transparent strip above the hairline — hero's drop
+                // shadow renders through here freely. Slimmed to 2pt
+                // so the hairline lands closer to the vertical center
+                // of the visible gap between the hero and the title.
+                Color.clear.frame(height: 2)
 
                 // Hairline depth cue between the hero and the Discover
                 // content. Pins flush under the nav bar's divider.
@@ -961,7 +961,10 @@ struct ExploreView: View {
 
                     discoverFilterChips
                 }
-                .padding(.top, 4)
+                // Inner padding above title bumped 4→8 so the title's
+                // Y position is unchanged even though the hairline moved
+                // up. Net: Discover stays put, hairline re-centers.
+                .padding(.top, 8)
                 .padding(.bottom, 8)
                 .background(GQColors.background)
             }
