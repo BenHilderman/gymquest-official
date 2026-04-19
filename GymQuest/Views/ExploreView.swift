@@ -935,6 +935,14 @@ struct ExploreView: View {
             .frame(minHeight: 600)
         } header: {
             VStack(alignment: .leading, spacing: 8) {
+                // Hairline separator at the top of the section — gives a
+                // subtle depth cue between the hero card above and the
+                // Discover header below. When pinned, overlays flush
+                // with the nav bar's divider for continuity.
+                Rectangle()
+                    .fill(GQColors.adaptiveOverlay(0.08))
+                    .frame(height: 0.5)
+
                 HStack(alignment: .firstTextBaseline) {
                     Image(systemName: "sparkle.magnifyingglass")
                         .font(.system(size: 14))
@@ -948,7 +956,7 @@ struct ExploreView: View {
 
                 discoverFilterChips
             }
-            .padding(.top, 2)
+            .padding(.top, 10)
             .padding(.bottom, 8)
             .background(GQColors.background)
         }
