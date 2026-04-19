@@ -470,15 +470,24 @@ struct ClubFeedView: View {
     @Query private var allClubs: [Club]
     @Query private var allClubPosts: [ClubPost]
     @Query private var allChallenges: [ClubChallenge]
+    @Query private var allEvents: [ClubEvent]
+    @Query private var presenceStates: [UserPresenceState]
 
     let profile: UserProfile
 
     @State private var showingCreateClub = false
     @State private var selectedClub: Club?
+    @State private var selectedEvent: ClubEvent?
     @State private var selectedCategory: ClubCategory? = nil
     @State private var clubViewMode: ClubViewMode = .list
     @State private var searchText: String = ""
     @State private var selectedMapClub: Club? = nil
+
+    // Demo "user location" — Kingston, ON. Replace with CoreLocation once
+    // the real auth flow lands. Keeping the haversine helper lets us
+    // compute meaningful distances for any seeded club coord.
+    private let userLat: Double = 44.225
+    private let userLon: Double = -76.490
 
     // MARK: - Computed Properties
 
@@ -535,6 +544,53 @@ struct ClubFeedView: View {
         return filtered.filter { $0.latitude != nil && $0.longitude != nil }
     }
 
+    // MARK: - Local + events helpers
+
+    /// Upcoming events sorted by soonest-first. Honors category filter.
+    private var upcomingEvents: [ClubEvent] {
+        let now = Date()
+        let clubIds = Set(searchFilteredRecommended.map(\.id) + yourClubs.map(\.id))
+        return allEvents
+            .filter { $0.date > now && clubIds.contains($0.clubId) }
+            .sorted { $0.date < $1.date }
+    }
+
+    /// Next upcoming event for a given club (or nil).
+    private func nextEvent(for club: Club) -> ClubEvent? {
+        let now = Date()
+        return allEvents
+            .filter { $0.clubId == club.id && $0.date > now }
+            .min(by: { $0.date < $1.date })
+    }
+
+    /// Haversine distance in km from demo user location to a coord.
+    private func distanceKm(lat: Double, lon: Double) -> Double {
+        let r = 6371.0
+        let dLat = (lat - userLat) * .pi / 180
+        let dLon = (lon - userLon) * .pi / 180
+        let a = sin(dLat / 2) * sin(dLat / 2)
+            + cos(userLat * .pi / 180) * cos(lat * .pi / 180)
+              * sin(dLon / 2) * sin(dLon / 2)
+        return r * 2 * atan2(sqrt(a), sqrt(1 - a))
+    }
+
+    /// Formatted "2.1 mi" / "under 1 mi" / "ft" string. Falls back to nil
+    /// when the club has no coordinates.
+    private func distanceString(for club: Club) -> String? {
+        guard let lat = club.latitude, let lon = club.longitude else { return nil }
+        let km = distanceKm(lat: lat, lon: lon)
+        let mi = km * 0.6213711922
+        if mi < 0.1 { return "here" }
+        if mi < 1 { return String(format: "%.1f mi", mi) }
+        return "\(Int(mi.rounded())) mi"
+    }
+
+    /// How many of this club's members are currently training (live).
+    private func liveCount(for club: Club) -> Int {
+        let ids = Set(club.memberIds)
+        return presenceStates.filter { ids.contains($0.userId) && $0.status == .training }.count
+    }
+
     // MARK: - Body
 
     var body: some View {
@@ -546,7 +602,7 @@ struct ClubFeedView: View {
                     // Focused search: show a single flat list of matching clubs
                     searchResultsSection
                 } else {
-                    featuredCarousel
+                    upcomingEventsRail    // "happening near you" — top priority
                     categoriesGrid
                     if !yourClubs.isEmpty { yourClubsShelf }
                     nearbySection
@@ -586,7 +642,155 @@ struct ClubFeedView: View {
         }
     }
 
-    // MARK: - Featured carousel
+    // MARK: - Upcoming events rail (local-first discovery)
+
+    /// Horizontal rail of upcoming events from any club (not just yours)
+    /// so the Clubs page reads as "what's happening near me" first,
+    /// "a directory of clubs" second. Empty state is a soft CTA card.
+    @ViewBuilder
+    private var upcomingEventsRail: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("HAPPENING NEAR YOU")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(GQColors.textTertiary)
+                    .tracking(0.6)
+                Spacer()
+                if !upcomingEvents.isEmpty {
+                    Text("\(upcomingEvents.count)")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(GQColors.textTertiary)
+                }
+            }
+            .padding(.horizontal, 20)
+
+            if upcomingEvents.isEmpty {
+                upcomingEventsEmptyCard
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        ForEach(upcomingEvents.prefix(10)) { event in
+                            upcomingEventCard(event)
+                                .onTapGesture {
+                                    if let club = allClubs.first(where: { $0.id == event.clubId }) {
+                                        selectedClub = club
+                                    }
+                                }
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func upcomingEventCard(_ event: ClubEvent) -> some View {
+        let club = allClubs.first(where: { $0.id == event.clubId })
+        let isGoing = event.attendeeIds.contains(profile.id)
+
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                ZStack {
+                    Circle()
+                        .fill(GQGradients.primary.opacity(0.12))
+                        .frame(width: 32, height: 32)
+                    Image(systemName: event.eventType.icon)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(GQGradients.primary)
+                }
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(eventDayLabel(event.date))
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(GQGradients.primary)
+                        .tracking(0.4)
+                    Text(event.date.formatted(date: .omitted, time: .shortened))
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(GQColors.textPrimary)
+                }
+
+                Spacer(minLength: 0)
+            }
+
+            Text(event.title)
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(GQColors.textPrimary)
+                .lineLimit(2)
+
+            if let club {
+                Text(club.name)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(GQColors.textSecondary)
+                    .lineLimit(1)
+            }
+
+            HStack(spacing: 6) {
+                if let loc = event.location ?? club?.location, !loc.isEmpty {
+                    Image(systemName: "mappin")
+                        .font(.system(size: 10, weight: .semibold))
+                    Text(loc)
+                        .font(.system(size: 11, weight: .medium))
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 0)
+                HStack(spacing: 3) {
+                    Image(systemName: "person.2.fill")
+                        .font(.system(size: 9, weight: .semibold))
+                    Text("\(event.attendeeIds.count)")
+                        .font(.system(size: 11, weight: .semibold))
+                }
+                .foregroundColor(isGoing ? .white : GQColors.textTertiary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(
+                    Capsule().fill(isGoing ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQColors.adaptiveOverlay(0.06)))
+                )
+            }
+            .foregroundColor(GQColors.textTertiary)
+        }
+        .padding(12)
+        .frame(width: 220, alignment: .leading)
+        .homeSocialCard(cornerRadius: 14)
+    }
+
+    @ViewBuilder
+    private var upcomingEventsEmptyCard: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(GQGradients.primary.opacity(0.12))
+                    .frame(width: 40, height: 40)
+                Image(systemName: "calendar.badge.plus")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(GQGradients.primary)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text("No events near you yet")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(GQColors.textPrimary)
+                Text("Join a club or start one — meet up in person.")
+                    .font(.system(size: 12))
+                    .foregroundColor(GQColors.textTertiary)
+                    .lineLimit(2)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(12)
+        .homeSocialCard(cornerRadius: 14)
+        .padding(.horizontal, 16)
+    }
+
+    private func eventDayLabel(_ date: Date) -> String {
+        let cal = Calendar.current
+        if cal.isDateInToday(date) { return "TODAY" }
+        if cal.isDateInTomorrow(date) { return "TOMORROW" }
+        let fmt = DateFormatter()
+        fmt.dateFormat = "EEE, MMM d"
+        return fmt.string(from: date).uppercased()
+    }
+
+    // MARK: - Featured carousel (legacy, no longer rendered — kept for reference)
 
     /// Big horizontal cards — recommended/nearby clubs with cover art and
     /// gradient wash. First thing users see → discovery-forward.
@@ -1342,10 +1546,13 @@ struct ClubFeedView: View {
 
     @ViewBuilder
     private func recommendedClubCard(_ club: Club) -> some View {
-        HStack(spacing: 12) {
+        let live = liveCount(for: club)
+        let next = nextEvent(for: club)
+
+        return HStack(alignment: .top, spacing: 12) {
             clubAvatar(club, size: 44)
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 4) {
                     Text(club.name)
                         .font(.system(size: 16, weight: .semibold))
@@ -1357,10 +1564,37 @@ struct ClubFeedView: View {
                             .foregroundStyle(GQGradients.primary)
                     }
                 }
-                Text(subtitle(for: club))
-                    .font(.system(size: 13))
-                    .foregroundColor(GQColors.textTertiary)
-                    .lineLimit(1)
+
+                // Meta: distance · members  (·  live)
+                HStack(spacing: 6) {
+                    Text(cardMeta(for: club))
+                        .font(.system(size: 12))
+                        .foregroundColor(GQColors.textTertiary)
+                        .lineLimit(1)
+                    if live > 0 {
+                        HStack(spacing: 3) {
+                            Circle()
+                                .fill(GQColors.success)
+                                .frame(width: 6, height: 6)
+                            Text("\(live) training now")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundColor(GQColors.success)
+                        }
+                    }
+                }
+
+                // Next event teaser
+                if let next {
+                    HStack(spacing: 5) {
+                        Image(systemName: "calendar")
+                            .font(.system(size: 10, weight: .semibold))
+                        Text("\(eventDayLabel(next.date)) · \(next.title)")
+                            .font(.system(size: 11, weight: .semibold))
+                            .lineLimit(1)
+                    }
+                    .foregroundStyle(GQGradients.primary)
+                    .padding(.top, 1)
+                }
             }
 
             Spacer(minLength: 8)
@@ -1388,8 +1622,13 @@ struct ClubFeedView: View {
         .padding(.horizontal, 16)
     }
 
-    private func subtitle(for club: Club) -> String {
+    /// Row metadata: distance (when coords) + members. Falls back to
+    /// "Online · N members" for virtual clubs.
+    private func cardMeta(for club: Club) -> String {
         let members = memberCountText(club.memberCount)
+        if let d = distanceString(for: club) {
+            return "\(d) · \(members)"
+        }
         if let loc = club.location, !loc.isEmpty {
             return "\(loc) · \(members)"
         }
