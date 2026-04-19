@@ -546,13 +546,52 @@ struct ClubFeedView: View {
 
     // MARK: - Local + events helpers
 
-    /// Upcoming events sorted by soonest-first. Honors category filter.
+    /// Upcoming events across ALL visible clubs (yours + recommended),
+    /// used by the catch-all HAPPENING NEAR YOU rail when nothing is in
+    /// the user's clubs specifically.
     private var upcomingEvents: [ClubEvent] {
         let now = Date()
         let clubIds = Set(searchFilteredRecommended.map(\.id) + yourClubs.map(\.id))
         return allEvents
             .filter { $0.date > now && clubIds.contains($0.clubId) }
             .sorted { $0.date < $1.date }
+    }
+
+    /// Upcoming events only in clubs the user is a member of.
+    /// Drives the "IN YOUR CLUBS" events rail — prioritized at the top.
+    private var upcomingEventsInMyClubs: [ClubEvent] {
+        let now = Date()
+        let myIds = Set(yourClubs.map(\.id))
+        return allEvents
+            .filter { $0.date > now && myIds.contains($0.clubId) }
+            .sorted { $0.date < $1.date }
+    }
+
+    /// Upcoming events in clubs the user has NOT joined yet (discovery).
+    private var upcomingEventsNearby: [ClubEvent] {
+        let now = Date()
+        let myIds = Set(yourClubs.map(\.id))
+        let visibleIds = Set(searchFilteredRecommended.map(\.id))
+        return allEvents
+            .filter { $0.date > now && visibleIds.contains($0.clubId) && !myIds.contains($0.clubId) }
+            .sorted { $0.date < $1.date }
+    }
+
+    /// Members of the user's clubs who are currently training.
+    /// Drives the ACTIVE NOW horizontal avatar rail under Your Clubs.
+    private var activeMembersInMyClubs: [(userId: UUID, name: String, workoutType: String?, clubName: String)] {
+        let myClubMemberships = yourClubs.flatMap { club in
+            club.memberIds.filter { $0 != profile.id }.map { ($0, club.name) }
+        }
+        let byUser = Dictionary(uniqueKeysWithValues: myClubMemberships.map { ($0.0, $0.1) })
+        return presenceStates
+            .filter { $0.status == .training && byUser[$0.userId] != nil }
+            .compactMap { state in
+                guard let clubName = byUser[state.userId] else { return nil }
+                let name = SocialSeeder.fakeUsers.first(where: { $0.id == state.userId })?.name
+                    ?? "Member"
+                return (state.userId, name, state.workoutTypeRaw, clubName)
+            }
     }
 
     /// Next upcoming event for a given club (or nil).
@@ -655,11 +694,13 @@ struct ClubFeedView: View {
             VStack(spacing: 16) {
                 rightNowCard
                 if !yourClubs.isEmpty { yourClubsShelf }
+                activeNowRail
                 searchBar
 
                 if !searchText.isEmpty {
                     searchResultsSection
                 } else {
+                    eventsInYourClubsRail
                     upcomingEventsRail
                     categoriesGrid
                     nearbySection
@@ -774,44 +815,139 @@ struct ClubFeedView: View {
         return "Tap to see what's happening"
     }
 
-    // MARK: - Upcoming events rail (local-first discovery)
+    // MARK: - Active now rail (members in your clubs training right now)
 
-    /// Horizontal rail of upcoming events from any club (not just yours)
-    /// so the Clubs page reads as "what's happening near me" first,
-    /// "a directory of clubs" second. Empty state is a soft CTA card.
     @ViewBuilder
-    private var upcomingEventsRail: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("HAPPENING NEAR YOU")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(GQColors.textTertiary)
-                    .tracking(0.6)
-                Spacer()
-                if !upcomingEvents.isEmpty {
-                    Text("\(upcomingEvents.count)")
+    private var activeNowRail: some View {
+        if !activeMembersInMyClubs.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Circle()
+                        .fill(GQColors.success)
+                        .frame(width: 8, height: 8)
+                    Text("ACTIVE NOW IN YOUR CLUBS")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(GQColors.textTertiary)
+                        .tracking(0.6)
+                    Spacer()
+                    Text("\(activeMembersInMyClubs.count)")
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundColor(GQColors.textTertiary)
                 }
-            }
-            .padding(.horizontal, 20)
+                .padding(.horizontal, 20)
 
-            if upcomingEvents.isEmpty {
-                upcomingEventsEmptyCard
-            } else {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
-                        ForEach(upcomingEvents.prefix(10)) { event in
-                            upcomingEventCard(event)
-                                .onTapGesture {
-                                    if let club = allClubs.first(where: { $0.id == event.clubId }) {
-                                        selectedClub = club
-                                    }
-                                }
+                        ForEach(activeMembersInMyClubs.prefix(10), id: \.userId) { member in
+                            activeMemberCell(member)
                         }
                     }
                     .padding(.horizontal, 16)
                 }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func activeMemberCell(_ m: (userId: UUID, name: String, workoutType: String?, clubName: String)) -> some View {
+        VStack(spacing: 5) {
+            ZStack {
+                Circle()
+                    .stroke(GQColors.success, lineWidth: 1.5)
+                    .frame(width: 44, height: 44)
+                Circle()
+                    .fill(GQGradients.primary)
+                    .frame(width: 38, height: 38)
+                    .overlay(
+                        Text(String(m.name.prefix(1)).uppercased())
+                            .font(.system(size: 14, weight: .semibold, design: .rounded))
+                            .foregroundColor(.white)
+                    )
+                Circle()
+                    .fill(GQColors.success)
+                    .frame(width: 9, height: 9)
+                    .overlay(Circle().stroke(GQColors.background, lineWidth: 1.5))
+                    .frame(width: 44, height: 44, alignment: .bottomTrailing)
+            }
+            Text(m.name.components(separatedBy: " ").first ?? m.name)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundColor(GQColors.textPrimary)
+                .lineLimit(1)
+            Text((m.workoutType?.capitalized) ?? "Training")
+                .font(.system(size: 9, weight: .medium))
+                .foregroundColor(GQColors.textTertiary)
+                .lineLimit(1)
+        }
+        .frame(width: 58)
+    }
+
+    // MARK: - Events rails (my clubs first, nearby second)
+
+    /// Events in clubs the user is already in — top-priority section
+    /// so they never miss a meetup.
+    @ViewBuilder
+    private var eventsInYourClubsRail: some View {
+        if !upcomingEventsInMyClubs.isEmpty {
+            eventsRail(
+                title: "IN YOUR CLUBS",
+                events: Array(upcomingEventsInMyClubs.prefix(10))
+            )
+        }
+    }
+
+    /// Events in nearby / recommended clubs — discovery hook.
+    /// Empty state shows the CTA card when BOTH rails are empty.
+    @ViewBuilder
+    private var upcomingEventsRail: some View {
+        if !upcomingEventsNearby.isEmpty {
+            eventsRail(
+                title: "NEARBY EVENTS",
+                events: Array(upcomingEventsNearby.prefix(10))
+            )
+        } else if upcomingEventsInMyClubs.isEmpty {
+            // Nothing anywhere — show the empty-state CTA so the page
+            // never reads as broken.
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text("HAPPENING NEAR YOU")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(GQColors.textTertiary)
+                        .tracking(0.6)
+                    Spacer()
+                }
+                .padding(.horizontal, 20)
+                upcomingEventsEmptyCard
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func eventsRail(title: String, events: [ClubEvent]) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(title)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(GQColors.textTertiary)
+                    .tracking(0.6)
+                Spacer()
+                Text("\(events.count)")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+            .padding(.horizontal, 20)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(events) { event in
+                        upcomingEventCard(event)
+                            .onTapGesture {
+                                if let club = allClubs.first(where: { $0.id == event.clubId }) {
+                                    selectedClub = club
+                                }
+                            }
+                    }
+                }
+                .padding(.horizontal, 16)
             }
         }
     }
@@ -1009,10 +1145,12 @@ struct ClubFeedView: View {
 
     // MARK: - Categories grid
 
-    /// Curated set of top-level categories shown as colorful 2-col tiles.
-    /// Tapping a tile filters the Nearby list below (scrolls into view).
+    /// Full-width browse menu. Ordered so activity-based categories come
+    /// first, then sports, then specialty. Users can scroll to see all.
     private var browseCategories: [ClubCategory] {
-        [.running, .weightlifting, .yoga, .basketball, .hiit, .crossfit]
+        [.running, .weightlifting, .yoga, .hiit, .crossfit, .cycling,
+         .swimming, .climbing, .basketball, .soccer, .tennis, .martialArts,
+         .dance, .volleyball, .generalFitness]
     }
 
     @ViewBuilder
