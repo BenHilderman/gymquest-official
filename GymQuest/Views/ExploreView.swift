@@ -934,31 +934,37 @@ struct ExploreView: View {
             )
             .frame(minHeight: 600)
         } header: {
-            VStack(alignment: .leading, spacing: 8) {
-                // Hairline separator at the top of the section — gives a
-                // subtle depth cue between the hero card above and the
-                // Discover header below. When pinned, overlays flush
-                // with the nav bar's divider for continuity.
+            VStack(spacing: 0) {
+                // Transparent strip above the solid area — the hero's
+                // drop shadow renders through here freely. When the
+                // section pins, this strip is invisible against the
+                // page background (same color) so there's no visual gap.
+                Color.clear.frame(height: 6)
+
+                // Hairline depth cue between the hero and the Discover
+                // content. Pins flush under the nav bar's divider.
                 Rectangle()
                     .fill(GQColors.adaptiveOverlay(0.08))
                     .frame(height: 0.5)
 
-                HStack(alignment: .firstTextBaseline) {
-                    Image(systemName: "sparkle.magnifyingglass")
-                        .font(.system(size: 14))
-                        .foregroundStyle(GQGradients.primary)
-                    Text("Discover")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(GQColors.textPrimary)
-                    Spacer()
-                }
-                .padding(.horizontal, 16)
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(alignment: .firstTextBaseline) {
+                        Image(systemName: "sparkle.magnifyingglass")
+                            .font(.system(size: 14))
+                            .foregroundStyle(GQGradients.primary)
+                        Text("Discover")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(GQColors.textPrimary)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 16)
 
-                discoverFilterChips
+                    discoverFilterChips
+                }
+                .padding(.top, 4)
+                .padding(.bottom, 8)
+                .background(GQColors.background)
             }
-            .padding(.top, 4)
-            .padding(.bottom, 8)
-            .background(GQColors.background)
         }
     }
 
