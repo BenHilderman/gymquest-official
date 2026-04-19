@@ -608,59 +608,92 @@ struct ExploreView: View {
     private func topFriendCell(_ member: FriendsMember) -> some View {
         let isLive: Bool = { if case .live = member.status { return true }; return false }()
         let isInactive: Bool = { if case .inactive = member.status { return true }; return false }()
+        let avatarSize: CGFloat = 44
+        let ringSize: CGFloat = 48
 
-        return VStack(spacing: 3) {
+        return VStack(spacing: 6) {
             ZStack {
                 // Only live members get a ring — thin green. Recent + inactive
-                // render as plain avatars. One signal, Apple-clean.
+                // are plain. One signal, Apple-clean.
                 if isLive {
                     Circle()
-                        .stroke(Color.green, lineWidth: 1.5)
-                        .frame(width: 38, height: 38)
+                        .stroke(GQColors.success, lineWidth: 2)
+                        .frame(width: ringSize, height: ringSize)
                 }
 
-                // Avatar
-                Circle()
-                    .fill(GQGradients.primary)
-                    .frame(width: 32, height: 32)
+                avatarImage(member)
+                    .frame(width: avatarSize, height: avatarSize)
+                    .clipShape(Circle())
                     .opacity(isInactive ? 0.55 : 1.0)
-                    .overlay(
-                        Text(String(member.name.prefix(1)).uppercased())
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(.white)
-                            .opacity(isInactive ? 0.75 : 1.0)
-                    )
 
-                // Pulsing green dot for live members
                 if isLive {
                     Circle()
-                        .fill(Color.green)
-                        .frame(width: 10, height: 10)
-                        .overlay(Circle().stroke(GQColors.background, lineWidth: 1.5))
-                        .scaleEffect(livePulse ? 1.3 : 1.0)
-                        .opacity(livePulse ? 0.6 : 1.0)
+                        .fill(GQColors.success)
+                        .frame(width: 11, height: 11)
+                        .overlay(Circle().stroke(GQColors.background, lineWidth: 2))
+                        .scaleEffect(livePulse ? 1.25 : 1.0)
                         .animation(
                             .easeInOut(duration: 1.5).repeatForever(autoreverses: true),
                             value: livePulse
                         )
-                        .frame(width: 38, height: 38, alignment: .bottomTrailing)
+                        .frame(width: ringSize, height: ringSize, alignment: .bottomTrailing)
                 }
             }
 
-            // Name
             Text(friendFirstName(member))
-                .font(.system(size: 10, weight: .semibold))
+                .font(.system(size: 11, weight: .semibold))
                 .foregroundColor(GQColors.textPrimary)
                 .lineLimit(1)
-                .frame(maxWidth: 46)
+                .frame(maxWidth: 56)
 
-            // Workout type + time
             Text(member.statusText)
-                .font(.system(size: 8, weight: .medium))
+                .font(.system(size: 9, weight: .medium))
                 .foregroundColor(GQColors.textTertiary)
                 .lineLimit(1)
-                .frame(maxWidth: 46)
+                .frame(maxWidth: 56)
         }
+    }
+
+    /// Soft avatar: real photo if present, otherwise a stable pastel fill
+    /// keyed off the user's id + dark initials. No more stark purple blobs.
+    @ViewBuilder
+    private func avatarImage(_ member: FriendsMember) -> some View {
+        #if canImport(UIKit)
+        if let data = member.avatarData, let img = UIImage(data: data) {
+            Image(uiImage: img)
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+        } else {
+            initialsAvatar(member)
+        }
+        #else
+        initialsAvatar(member)
+        #endif
+    }
+
+    @ViewBuilder
+    private func initialsAvatar(_ member: FriendsMember) -> some View {
+        ZStack {
+            Circle().fill(avatarBackgroundColor(for: member.id))
+            Text(String(member.name.prefix(1)).uppercased())
+                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                .foregroundColor(GQColors.textPrimary.opacity(0.85))
+        }
+    }
+
+    /// Stable per-user pastel tint — picks one of a curated palette from
+    /// GQColors so initials avatars feel native to the design system
+    /// instead of the hard purple of GQGradients.primary.
+    private func avatarBackgroundColor(for id: UUID) -> Color {
+        let palette: [Color] = [
+            GQColors.surfaceSecondary,
+            GQColors.deepBlue.opacity(0.14),
+            GQColors.mint.opacity(0.18),
+            GQColors.terracotta.opacity(0.18),
+            GQColors.textSecondary.opacity(0.14)
+        ]
+        let idx = abs(id.hashValue) % palette.count
+        return palette[idx]
     }
 
     /// Tap a crew member → opens the full Friends feed so the user
