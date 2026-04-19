@@ -223,29 +223,33 @@ struct ExploreView: View {
             if liveIds.contains(friendId) {
                 let state = liveNowStates.first(where: { $0.userId == friendId })
                 let type = state?.workoutTypeRaw?.capitalized ?? "Training"
+                let mins = state?.minutesIn ?? 0
                 return FriendsMember(
                     id: friendId, name: name, username: username, avatarData: avatarData,
                     status: .live(workoutType: state?.workoutTypeRaw),
-                    statusText: type
+                    statusText: "\(type) · \(mins)m"
                 )
             }
 
             if let post = latestPost[friendId], post.timestamp >= weekAgo {
                 let type = post.workoutType?.capitalized ?? "Workout"
+                let ago = RelativeDateString.compact(from: post.timestamp)
                 return FriendsMember(
                     id: friendId, name: name, username: username, avatarData: avatarData,
                     status: .recent,
-                    statusText: type
+                    statusText: "\(type) · \(ago)"
                 )
             }
 
             let lastDate = latestPost[friendId]?.timestamp
             if lastDate == nil || lastDate! < inactiveThreshold {
-                let type = latestPost[friendId]?.workoutType?.capitalized ?? ""
+                let ago = lastDate.map { RelativeDateString.compact(from: $0) } ?? "—"
+                let type = latestPost[friendId]?.workoutType?.capitalized
+                let text: String = type.map { "\($0) · \(ago)" } ?? ago
                 return FriendsMember(
                     id: friendId, name: name, username: username, avatarData: avatarData,
                     status: .inactive,
-                    statusText: type
+                    statusText: text
                 )
             }
 
@@ -607,30 +611,31 @@ struct ExploreView: View {
     private func topFriendCell(_ member: FriendsMember) -> some View {
         let isLive: Bool = { if case .live = member.status { return true }; return false }()
         let isInactive: Bool = { if case .inactive = member.status { return true }; return false }()
-        let avatarSize: CGFloat = 36
-        let ringSize: CGFloat = 40
+        let avatarSize: CGFloat = 44
+        let ringSize: CGFloat = 50
+        let cellWidth: CGFloat = 68
 
-        return VStack(spacing: 5) {
+        return VStack(spacing: 6) {
             ZStack {
                 if isLive {
                     Circle()
-                        .stroke(GQColors.success, lineWidth: 1.5)
+                        .stroke(GQColors.success, lineWidth: 2)
                         .frame(width: ringSize, height: ringSize)
                 }
 
                 avatarImage(member)
                     .frame(width: avatarSize, height: avatarSize)
                     .clipShape(Circle())
-                    .opacity(isInactive ? 0.5 : 1.0)
+                    .opacity(isInactive ? 0.55 : 1.0)
 
                 if isLive {
                     Circle()
                         .fill(GQColors.success)
-                        .frame(width: 9, height: 9)
-                        .overlay(Circle().stroke(GQColors.background, lineWidth: 1.5))
-                        .scaleEffect(livePulse ? 1.25 : 1.0)
+                        .frame(width: 10, height: 10)
+                        .overlay(Circle().stroke(GQColors.background, lineWidth: 2))
+                        .scaleEffect(livePulse ? 1.2 : 1.0)
                         .animation(
-                            .easeInOut(duration: 1.5).repeatForever(autoreverses: true),
+                            .easeInOut(duration: 1.4).repeatForever(autoreverses: true),
                             value: livePulse
                         )
                         .frame(width: ringSize, height: ringSize, alignment: .bottomTrailing)
@@ -638,20 +643,24 @@ struct ExploreView: View {
             }
 
             Text(friendFirstName(member))
-                .font(.system(size: 10, weight: .semibold))
+                .font(.system(size: 11, weight: .semibold))
                 .foregroundColor(GQColors.textPrimary)
                 .lineLimit(1)
-                .frame(maxWidth: 50)
+                .truncationMode(.tail)
 
             Text(member.statusText)
-                .font(.system(size: 9, weight: .medium))
+                .font(.system(size: 10, weight: .medium))
                 .foregroundColor(GQColors.textTertiary)
                 .lineLimit(1)
-                .frame(maxWidth: 50)
+                .truncationMode(.tail)
+                .minimumScaleFactor(0.85)
         }
+        .frame(width: cellWidth)
     }
 
-    /// Avatar: real photo if present, else soft brand-purple initials circle.
+    /// Avatar: real photo when present, else a solid brand-gradient circle
+    /// with white bold initials — Apple Messages style, one color, high
+    /// contrast, no washed-out pastel vibe.
     @ViewBuilder
     private func avatarImage(_ member: FriendsMember) -> some View {
         #if canImport(UIKit)
@@ -668,11 +677,10 @@ struct ExploreView: View {
     @ViewBuilder
     private func initialsAvatar(_ member: FriendsMember) -> some View {
         ZStack {
-            Circle().fill(GQGradients.primary.opacity(0.22))
-            Circle().stroke(GQGradients.primary.opacity(0.28), lineWidth: 1)
+            Circle().fill(GQGradients.primary)
             Text(String(member.name.prefix(1)).uppercased())
-                .font(.system(size: 14, weight: .bold, design: .rounded))
-                .foregroundColor(GQColors.deepBlue)
+                .font(.system(size: 17, weight: .semibold, design: .rounded))
+                .foregroundColor(.white)
         }
     }
 
