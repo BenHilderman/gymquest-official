@@ -595,16 +595,15 @@ struct ClubFeedView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 20) {
+            VStack(spacing: 16) {
+                if !yourClubs.isEmpty { yourClubsShelf }
                 searchBar
 
                 if !searchText.isEmpty {
-                    // Focused search: show a single flat list of matching clubs
                     searchResultsSection
                 } else {
-                    upcomingEventsRail    // "happening near you" — top priority
+                    upcomingEventsRail
                     categoriesGrid
-                    if !yourClubs.isEmpty { yourClubsShelf }
                     nearbySection
                 }
 
@@ -612,12 +611,12 @@ struct ClubFeedView: View {
 
                 Spacer(minLength: 60)
             }
-            .padding(.top, 4)
+            .padding(.top, 8)
         }
         .scrollContentBackground(.hidden)
         .background(GQColors.background.ignoresSafeArea())
         .navigationTitle("Clubs")
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button { showingCreateClub = true } label: {
@@ -1019,22 +1018,27 @@ struct ClubFeedView: View {
     // MARK: - Search Bar
 
     private var searchBar: some View {
-        HStack(spacing: 10) {
-            HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 14))
-                    .foregroundColor(GQColors.textTertiary)
-                TextField("Search clubs...", text: $searchText)
-                    .font(.system(size: 15))
-                    .foregroundColor(GQColors.textPrimary)
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 14))
+                .foregroundColor(GQColors.textTertiary)
+            TextField("Search clubs, locations, activities", text: $searchText)
+                .font(.system(size: 15))
+                .foregroundColor(GQColors.textPrimary)
+                .submitLabel(.search)
+            if !searchText.isEmpty {
+                Button { searchText = "" } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 14))
+                        .foregroundColor(GQColors.textTertiary)
+                }
+                .buttonStyle(.plain)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .background(GQColors.adaptiveOverlay(0.08))
-            .cornerRadius(12)
-
-            viewModeToggle
         }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(GQColors.adaptiveOverlay(0.08))
+        .cornerRadius(12)
         .padding(.horizontal, 16)
     }
 

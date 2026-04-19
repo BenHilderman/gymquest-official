@@ -168,15 +168,8 @@ struct ExploreView: View {
         .navigationDestination(item: $presentedClub) { _ in
             ClubFeedView(profile: profile)
         }
-        .fullScreenCover(isPresented: $presentingClubs) {
-            NavigationStack {
-                ClubFeedView(profile: profile)
-                    .toolbar {
-                        ToolbarItem(placement: .topBarLeading) {
-                            Button("Done") { presentingClubs = false }
-                        }
-                    }
-            }
+        .navigationDestination(isPresented: $presentingClubs) {
+            ClubFeedView(profile: profile)
         }
         .sheet(isPresented: $presentingVariants) {
             FeedVariantsView()
