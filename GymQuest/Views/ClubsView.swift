@@ -591,11 +591,69 @@ struct ClubFeedView: View {
         return presenceStates.filter { ids.contains($0.userId) && $0.status == .training }.count
     }
 
+    /// Does this club have an event scheduled for today?
+    private func hasEventToday(_ club: Club) -> Bool {
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: Date())
+        guard let tomorrow = cal.date(byAdding: .day, value: 1, to: today) else { return false }
+        return allEvents.contains { $0.clubId == club.id && $0.date >= today && $0.date < tomorrow }
+    }
+
+    /// How many of the user's followed friends are members of this club.
+    /// Drives the "Marcus + 2 friends are in" chip on recommended rows.
+    private func friendsInClub(_ club: Club) -> Int {
+        // Since we don't have explicit Friend-graph access here yet, use
+        // SocialSeeder's fakeUsers as a demo stand-in for "people I follow".
+        let followedIds = Set(SocialSeeder.fakeUsers.prefix(5).map(\.id))
+        return club.memberIds.filter { followedIds.contains($0) }.count
+    }
+
+    private func firstFriendNameInClub(_ club: Club) -> String? {
+        let followedIds = Set(SocialSeeder.fakeUsers.prefix(5).map(\.id))
+        if let match = club.memberIds.first(where: { followedIds.contains($0) }) {
+            return SocialSeeder.fakeUsers.first(where: { $0.id == match })?.name
+                .components(separatedBy: " ").first
+        }
+        return nil
+    }
+
+    @ViewBuilder
+    private func yourClubAvatar(_ club: Club) -> some View {
+        let live = liveCount(for: club)
+        let eventToday = hasEventToday(club)
+
+        ZStack {
+            clubAvatar(club, size: 60)
+
+            // Activity badges: green = live members, amber = event today.
+            // Max one visible at a time (live wins) to keep the shelf clean.
+            if live > 0 {
+                Circle()
+                    .fill(GQColors.success)
+                    .frame(width: 14, height: 14)
+                    .overlay(Circle().stroke(GQColors.background, lineWidth: 2))
+                    .frame(width: 60, height: 60, alignment: .bottomTrailing)
+            } else if eventToday {
+                Circle()
+                    .fill(Color.orange)
+                    .frame(width: 14, height: 14)
+                    .overlay(
+                        Image(systemName: "calendar")
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundColor(.white)
+                    )
+                    .overlay(Circle().stroke(GQColors.background, lineWidth: 2))
+                    .frame(width: 60, height: 60, alignment: .bottomTrailing)
+            }
+        }
+    }
+
     // MARK: - Body
 
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
+                rightNowCard
                 if !yourClubs.isEmpty { yourClubsShelf }
                 searchBar
 
@@ -639,6 +697,81 @@ struct ClubFeedView: View {
         .sheet(item: $selectedClub) { club in
             ClubDetailView(club: club, profile: profile)
         }
+    }
+
+    // MARK: - Right-now summary card (addictive morning-digest)
+
+    /// Live count across all clubs the user is in. Friends who are in the
+    /// same clubs get special mention because social proof → stickiness.
+    private var liveInMyClubs: Int {
+        let memberIds = Set(yourClubs.flatMap { $0.memberIds }).subtracting([profile.id])
+        return presenceStates.filter { memberIds.contains($0.userId) && $0.status == .training }.count
+    }
+
+    /// Count of events today across all clubs.
+    private var eventsTodayCount: Int {
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: Date())
+        guard let tomorrow = cal.date(byAdding: .day, value: 1, to: today) else { return 0 }
+        return allEvents.filter { $0.date >= today && $0.date < tomorrow }.count
+    }
+
+    @ViewBuilder
+    private var rightNowCard: some View {
+        let live = liveInMyClubs
+        let eventsToday = eventsTodayCount
+
+        if live > 0 || eventsToday > 0 {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(GQGradients.primary.opacity(0.14))
+                        .frame(width: 38, height: 38)
+                    Image(systemName: live > 0 ? "figure.strengthtraining.traditional" : "calendar")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(GQGradients.primary)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(rightNowHeadline(live: live, eventsToday: eventsToday))
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(GQColors.textPrimary)
+                        .lineLimit(1)
+                    Text(rightNowSubtitle(live: live, eventsToday: eventsToday))
+                        .font(.system(size: 11))
+                        .foregroundColor(GQColors.textTertiary)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 0)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+            .padding(12)
+            .homeSocialCard(cornerRadius: 14)
+            .padding(.horizontal, 16)
+            .onTapGesture {
+                if live > 0, let club = yourClubs.first { selectedClub = club }
+                else if eventsToday > 0, let first = upcomingEvents.first,
+                        let club = allClubs.first(where: { $0.id == first.clubId }) {
+                    selectedClub = club
+                }
+            }
+        }
+    }
+
+    private func rightNowHeadline(live: Int, eventsToday: Int) -> String {
+        if live > 0 { return "\(live) training now in your clubs" }
+        if eventsToday == 1 { return "1 event today in your clubs" }
+        return "\(eventsToday) events today in your clubs"
+    }
+
+    private func rightNowSubtitle(live: Int, eventsToday: Int) -> String {
+        if live > 0 && eventsToday > 0 { return "Plus \(eventsToday) event\(eventsToday == 1 ? "" : "s") happening today" }
+        if live > 0 { return "Tap in to cheer or join them" }
+        return "Tap to see what's happening"
     }
 
     // MARK: - Upcoming events rail (local-first discovery)
@@ -914,6 +1047,7 @@ struct ClubFeedView: View {
     @ViewBuilder
     private func categoryTile(_ cat: ClubCategory) -> some View {
         let isSelected = selectedCategory == cat
+        let count = allClubs.filter { $0.resolvedCategory == cat && $0.parentClubId == nil }.count
         Button {
             withAnimation(.easeInOut(duration: 0.2)) {
                 selectedCategory = isSelected ? nil : cat
@@ -928,14 +1062,21 @@ struct ClubFeedView: View {
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(GQGradients.primary)
                 }
-                Text(cat.rawValue)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(GQColors.textPrimary)
-                    .lineLimit(1)
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(cat.rawValue)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(GQColors.textPrimary)
+                        .lineLimit(1)
+                    if count > 0 {
+                        Text("\(count) nearby")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(GQColors.textTertiary)
+                    }
+                }
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 12)
+            .padding(.vertical, 10)
             .background(
                 RoundedRectangle(cornerRadius: 14)
                     .fill(isSelected ? AnyShapeStyle(GQGradients.primary.opacity(0.10)) : AnyShapeStyle(GQColors.surfaceBase))
@@ -973,7 +1114,7 @@ struct ClubFeedView: View {
                     ForEach(yourClubs) { club in
                         Button { selectedClub = club } label: {
                             VStack(spacing: 8) {
-                                clubAvatar(club, size: 60)
+                                yourClubAvatar(club)
                                 Text(club.name)
                                     .font(.system(size: 12, weight: .semibold))
                                     .foregroundColor(GQColors.textPrimary)
@@ -1552,6 +1693,7 @@ struct ClubFeedView: View {
     private func recommendedClubCard(_ club: Club) -> some View {
         let live = liveCount(for: club)
         let next = nextEvent(for: club)
+        let friends = friendsInClub(club)
 
         return HStack(alignment: .top, spacing: 12) {
             clubAvatar(club, size: 44)
@@ -1567,6 +1709,19 @@ struct ClubFeedView: View {
                             .font(.system(size: 12))
                             .foregroundStyle(GQGradients.primary)
                     }
+                }
+
+                // Friend-in-club social proof chip — highest-priority
+                // liveness signal, above the meta line so it's skimmable.
+                if friends > 0, let name = firstFriendNameInClub(club) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "person.2.fill")
+                            .font(.system(size: 9, weight: .semibold))
+                        Text(friends == 1 ? "\(name) is in" : "\(name) + \(friends - 1) friend\(friends - 1 == 1 ? "" : "s") are in")
+                            .font(.system(size: 11, weight: .semibold))
+                            .lineLimit(1)
+                    }
+                    .foregroundStyle(GQGradients.primary)
                 }
 
                 // Meta: distance · members  (·  live)
