@@ -592,7 +592,7 @@ struct ExploreView: View {
 
             // Friends row: tight spacing to feel like a single strip of people.
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 2) {
+                HStack(spacing: 5) {
                     ForEach(cachedFriendsMembers.prefix(6)) { member in
                         Button {
                             #if canImport(UIKit)
@@ -621,6 +621,8 @@ struct ExploreView: View {
         let cellWidth: CGFloat = 54
 
         return VStack(spacing: 3) {
+            // ZStack is locked to ringSize so the column below (name +
+            // status) starts at the same Y for every cell — live or not.
             ZStack {
                 if isLive {
                     Circle()
@@ -646,6 +648,7 @@ struct ExploreView: View {
                         .frame(width: ringSize, height: ringSize, alignment: .bottomTrailing)
                 }
             }
+            .frame(width: ringSize, height: ringSize)
 
             Text(friendFirstName(member))
                 .font(.system(size: 10, weight: .semibold))
