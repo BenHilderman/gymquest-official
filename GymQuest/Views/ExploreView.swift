@@ -606,25 +606,33 @@ struct ExploreView: View {
     }
 
     private func topFriendCell(_ member: FriendsMember) -> some View {
-        VStack(spacing: 3) {
+        let isLive: Bool = { if case .live = member.status { return true }; return false }()
+        let isInactive: Bool = { if case .inactive = member.status { return true }; return false }()
+
+        return VStack(spacing: 3) {
             ZStack {
-                // Ring (green = live, purple = recent, gray = inactive)
-                Circle()
-                    .stroke(friendDotColor(member), lineWidth: 2)
-                    .frame(width: 38, height: 38)
+                // Only live members get a ring — thin green. Recent + inactive
+                // render as plain avatars. One signal, Apple-clean.
+                if isLive {
+                    Circle()
+                        .stroke(Color.green, lineWidth: 1.5)
+                        .frame(width: 38, height: 38)
+                }
 
                 // Avatar
                 Circle()
                     .fill(GQGradients.primary)
-                    .frame(width: 30, height: 30)
+                    .frame(width: 32, height: 32)
+                    .opacity(isInactive ? 0.55 : 1.0)
                     .overlay(
                         Text(String(member.name.prefix(1)).uppercased())
-                            .font(.system(size: 11, weight: .bold))
+                            .font(.system(size: 12, weight: .bold))
                             .foregroundColor(.white)
+                            .opacity(isInactive ? 0.75 : 1.0)
                     )
 
                 // Pulsing green dot for live members
-                if case .live = member.status {
+                if isLive {
                     Circle()
                         .fill(Color.green)
                         .frame(width: 10, height: 10)
@@ -652,14 +660,6 @@ struct ExploreView: View {
                 .foregroundColor(GQColors.textTertiary)
                 .lineLimit(1)
                 .frame(maxWidth: 46)
-        }
-    }
-
-    private func friendDotColor(_ member: FriendsMember) -> Color {
-        switch member.status {
-        case .live: return .green
-        case .recent: return .purple
-        case .inactive: return .gray.opacity(0.25)
         }
     }
 
