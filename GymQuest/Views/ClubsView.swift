@@ -1982,14 +1982,14 @@ struct ClubDetailView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 20) {
+                VStack(spacing: 14) {
                     detailHeader
                     joinButton
-                    howThisClubWorksCard
                     clubSectionPicker
                     sectionContent
                     Spacer(minLength: 40)
                 }
+                .padding(.top, 8)
             }
             .gqPageBackground()
             .navigationTitle(club.name)
@@ -2028,79 +2028,83 @@ struct ClubDetailView: View {
     @ViewBuilder
     private var detailHeader: some View {
         let cat = club.resolvedCategory
-        VStack(spacing: 12) {
+        HStack(alignment: .top, spacing: 14) {
+            // Avatar — matches Today's icon-on-tinted-circle language
             #if canImport(UIKit)
-            if let imageData = club.imageData,
-               let uiImage = UIImage(data: imageData) {
+            if let imageData = club.imageData, let uiImage = UIImage(data: imageData) {
                 Image(uiImage: uiImage)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
-                    .frame(width: 88, height: 88)
+                    .frame(width: 54, height: 54)
                     .clipShape(Circle())
-                    .overlay(
-                        Circle().strokeBorder(GQGradients.primary, lineWidth: 2.5)
-                    )
             } else {
                 Circle()
                     .fill(GQGradients.primary.opacity(0.12))
-                    .frame(width: 88, height: 88)
+                    .frame(width: 54, height: 54)
                     .overlay(
                         Image(systemName: cat.icon)
-                            .font(.system(size: 34, weight: .semibold))
+                            .font(.system(size: 22, weight: .semibold))
                             .foregroundStyle(GQGradients.primary)
                     )
             }
             #else
             Circle()
                 .fill(GQGradients.primary.opacity(0.12))
-                .frame(width: 88, height: 88)
+                .frame(width: 54, height: 54)
                 .overlay(
                     Image(systemName: cat.icon)
-                        .font(.system(size: 34, weight: .semibold))
+                        .font(.system(size: 22, weight: .semibold))
                         .foregroundStyle(GQGradients.primary)
                 )
             #endif
 
-            HStack(spacing: 4) {
-                Text(club.name)
-                    .font(.title2)
-                    .fontWeight(.bold)
-
-                if club.isVerified {
-                    Image(systemName: "checkmark.seal.fill")
-                        .foregroundColor(GQColors.textSecondary)
-                }
-            }
-
-            if !club.clubDescription.isEmpty {
-                Text(club.clubDescription)
-                    .font(.system(size: 15, weight: .regular))
-                    .foregroundColor(GQColors.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 24)
-            }
-
-            HStack(spacing: 20) {
-                VStack {
-                    Text("\(club.memberCount)")
-                        .font(.headline)
-                    Text("Members")
-                        .font(.caption)
-                        .foregroundColor(GQColors.textTertiary)
-                }
-
-                if let location = club.location {
-                    VStack {
-                        Image(systemName: "mappin.circle.fill")
-                            .font(.headline)
-                        Text(location)
-                            .font(.caption)
-                            .foregroundColor(GQColors.textTertiary)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 5) {
+                    Text(club.name)
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(GQColors.textPrimary)
+                        .lineLimit(2)
+                    if club.isVerified {
+                        Image(systemName: "checkmark.seal.fill")
+                            .font(.system(size: 13))
+                            .foregroundStyle(GQGradients.primary)
                     }
                 }
+
+                if !club.clubDescription.isEmpty {
+                    Text(club.clubDescription)
+                        .font(.system(size: 13))
+                        .foregroundColor(GQColors.textSecondary)
+                        .lineLimit(3)
+                }
+
+                HStack(spacing: 10) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "person.2.fill")
+                            .font(.system(size: 10, weight: .semibold))
+                        Text(club.memberCount == 1 ? "1 member" : "\(club.memberCount) members")
+                            .font(.system(size: 12, weight: .medium))
+                    }
+                    .foregroundColor(GQColors.textTertiary)
+
+                    if let location = club.location {
+                        HStack(spacing: 4) {
+                            Image(systemName: "mappin")
+                                .font(.system(size: 10, weight: .semibold))
+                            Text(location)
+                                .font(.system(size: 12, weight: .medium))
+                                .lineLimit(1)
+                        }
+                        .foregroundColor(GQColors.textTertiary)
+                    }
+                }
+                .padding(.top, 2)
             }
+            Spacer(minLength: 0)
         }
-        .padding(.top, 12)
+        .padding(14)
+        .homeSocialCard(cornerRadius: 16)
+        .padding(.horizontal, 16)
     }
 
     // MARK: - Join Button
@@ -2167,14 +2171,14 @@ struct ClubDetailView: View {
             return user.name
         }.prefix(4).map { $0 }
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 4) {
+            HStack(spacing: 6) {
                 Circle()
-                    .fill(GQColors.deepBlue)
+                    .fill(GQColors.success)
                     .frame(width: 8, height: 8)
-                Text("WHO'S WORKING OUT")
-                    .font(.system(size: 11, weight: .bold))
+                Text("TRAINING NOW")
+                    .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(GQColors.textTertiary)
-                    .tracking(1)
+                    .tracking(0.8)
             }
             .padding(.horizontal, 16)
 
@@ -2182,27 +2186,30 @@ struct ClubDetailView: View {
                 HStack(spacing: 12) {
                     ForEach(activeNames, id: \.self) { name in
                         VStack(spacing: 6) {
-                            Circle()
-                                .fill(GQColors.adaptiveOverlay(0.08))
-                                .frame(width: 44, height: 44)
-                                .overlay(
-                                    Text(String(name.prefix(1)))
-                                        .font(.system(size: 16, weight: .bold))
-                                        .foregroundColor(.white)
-                                )
-                                .overlay(
-                                    Circle()
-                                        .fill(GQColors.deepBlue)
-                                        .frame(width: 12, height: 12)
-                                        .overlay(Circle().stroke(GQColors.background, lineWidth: 2))
-                                        .offset(x: 15, y: 15)
-                                )
+                            ZStack {
+                                Circle()
+                                    .stroke(GQColors.success, lineWidth: 1.5)
+                                    .frame(width: 44, height: 44)
+                                Circle()
+                                    .fill(GQGradients.primary)
+                                    .frame(width: 38, height: 38)
+                                    .overlay(
+                                        Text(String(name.prefix(1)))
+                                            .font(.system(size: 15, weight: .semibold, design: .rounded))
+                                            .foregroundColor(.white)
+                                    )
+                                Circle()
+                                    .fill(GQColors.success)
+                                    .frame(width: 10, height: 10)
+                                    .overlay(Circle().stroke(GQColors.background, lineWidth: 1.5))
+                                    .frame(width: 44, height: 44, alignment: .bottomTrailing)
+                            }
                             Text(name)
-                                .font(.system(size: 11))
-                                .foregroundColor(GQColors.textTertiary)
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundColor(GQColors.textPrimary)
                                 .lineLimit(1)
                         }
-                        .frame(width: 60)
+                        .frame(width: 58)
                     }
                 }
                 .padding(.horizontal, 16)
@@ -2471,29 +2478,34 @@ struct ClubDetailView: View {
 
     @ViewBuilder
     private var clubSectionPicker: some View {
-        HStack(spacing: 0) {
-            ForEach(ClubSection.allCases, id: \.self) { section in
-                Button {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        selectedSection = section
-                        if section != .members { showPartnerOnly = false }
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(ClubSection.allCases, id: \.self) { section in
+                    let isSelected = selectedSection == section
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            selectedSection = section
+                            if section != .members { showPartnerOnly = false }
+                        }
+                    } label: {
+                        Text(section.rawValue)
+                            .font(.system(size: 13, weight: isSelected ? .semibold : .medium))
+                            .foregroundColor(isSelected ? .white : GQColors.textSecondary)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 7)
+                            .background(
+                                Capsule().fill(
+                                    isSelected
+                                        ? AnyShapeStyle(GQGradients.primary)
+                                        : AnyShapeStyle(GQColors.adaptiveOverlay(0.05))
+                                )
+                            )
                     }
-                } label: {
-                    Text(section.rawValue)
-                        .font(.system(size: 13, weight: selectedSection == section ? .bold : .medium))
-                        .foregroundColor(selectedSection == section ? .white : .gray)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(
-                            selectedSection == section ? GQColors.deepBlue.opacity(0.2) : Color.clear
-                        )
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
+            .padding(.horizontal, 16)
         }
-        .background(GQColors.adaptiveOverlay(0.04))
-        .cornerRadius(10)
-        .padding(.horizontal, 16)
     }
 
     // MARK: - Section Content
@@ -2736,19 +2748,21 @@ struct ClubDetailView: View {
     private var clubFeedSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             if posts.isEmpty {
-                VStack(spacing: 12) {
+                VStack(spacing: 10) {
                     Image(systemName: "text.bubble")
-                        .font(.system(size: 40))
-                        .foregroundColor(.gray.opacity(0.5))
+                        .font(.system(size: 28, weight: .light))
+                        .foregroundStyle(GQGradients.primary.opacity(0.7))
                     Text("No posts yet")
-                        .font(.subheadline)
-                        .foregroundColor(GQColors.textTertiary)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(GQColors.textPrimary)
                     Text("Be the first to share something!")
-                        .font(.caption)
+                        .font(.system(size: 12))
                         .foregroundColor(GQColors.textTertiary)
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 40)
+                .padding(.vertical, 28)
+                .homeSocialCard(cornerRadius: 14)
+                .padding(.horizontal, 16)
             } else {
                 ForEach(posts) { post in
                     ClubPostCard(post: post, currentUserId: profile.id)
