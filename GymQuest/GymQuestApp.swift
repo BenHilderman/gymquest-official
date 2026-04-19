@@ -288,7 +288,7 @@ struct LiftAIApp: App {
 // basically the brain of the app
 @MainActor
 class AppState: ObservableObject {
-    @Published var selectedTab: Tab = .today
+    @Published var selectedTab: Tab = .feed
     /// Set by `liftai://club-invite/<id>` deep links; consumed by the Clubs
     /// feed to auto-open the target club (and auto-join for squads with a
     /// valid invite code).
