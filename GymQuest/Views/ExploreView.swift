@@ -943,6 +943,13 @@ struct ExploreView: View {
                 }
             )
             .frame(minHeight: 600)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(GQColors.surfaceBase)
+                    .shadow(color: .black.opacity(0.06), radius: 8, y: 2)
+            )
+            .padding(.horizontal, 12)
         } header: {
             // Fully opaque sticky header — solid GQColors.background
             // across the whole area so no scrolled content bleeds through
