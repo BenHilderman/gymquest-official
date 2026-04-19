@@ -943,6 +943,14 @@ struct ExploreView: View {
                 }
             )
             .frame(minHeight: 600)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(GQColors.surfaceBase)
+                    .shadow(color: .black.opacity(0.05), radius: 6, y: 2)
+            )
+            .padding(.horizontal, 12)
+            .padding(.top, -4)
         } header: {
             // Sticky header: opaque page-bg bar with a rounded white
             // card inside that holds the title + chips. Mirrors the
