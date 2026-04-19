@@ -159,14 +159,29 @@ struct LiftAIApp: App {
 
         // Schema version — bump when @Model types are added/removed or their
         // stored properties change in ways SwiftData can't auto-migrate.
-        // Pre-launch policy: on bump, nuke the local store so demo data reseeds
-        // cleanly. Replace with a versioned migration plan before real users land.
-        let currentSchemaVersion = 2  // v2: Pod → Club.squad merge
+        // Pre-launch policy: on bump, nuke the local store AND clear seeder
+        // version keys so demo data reseeds cleanly. Replace with a versioned
+        // migration plan before real users land.
+        // v2: Pod → Club.squad merge.
+        // v3: fix-forward — v2 nuked the SwiftData store but didn't clear the
+        //    seeder version keys, so post/club/discover demo data never reseeded.
+        //    Bump to re-run the block below (now with seeder-key clearing) on
+        //    existing installs that hit the broken v2 state.
+        let currentSchemaVersion = 3
         let storedVersion = UserDefaults.standard.integer(forKey: "schemaVersion")
         if storedVersion < currentSchemaVersion {
             let base = URL.applicationSupportDirectory
             for name in ["default.store", "default.store-shm", "default.store-wal"] {
                 try? FileManager.default.removeItem(at: base.appending(path: name))
+            }
+            // Clear seeder gates so Social/Discover/Clubs seeders re-run.
+            let defaults = UserDefaults.standard
+            for key in defaults.dictionaryRepresentation().keys
+                where key.hasPrefix("socialSeeder_")
+                   || key.hasPrefix("communitySeeder_")
+                   || key.hasPrefix("clubsSeeder_")
+                   || key.hasPrefix("hasSeededDiscover") {
+                defaults.removeObject(forKey: key)
             }
             UserDefaults.standard.set(currentSchemaVersion, forKey: "schemaVersion")
         }
