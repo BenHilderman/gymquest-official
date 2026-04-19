@@ -67,7 +67,7 @@ struct ExploreView: View {
 
     var body: some View {
         ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 12) {
+            LazyVStack(alignment: .leading, spacing: 12, pinnedViews: [.sectionHeaders]) {
                 if showSearchOverlay {
                     SmartSearchBar(query: $query, bodyPart: $bodyPart, durationCap: $durationCap, equipment: $equipment, showsChips: isSearching).padding(.horizontal, 16).transition(.opacity.combined(with: .move(edge: .top)))
                 }
@@ -565,10 +565,10 @@ struct ExploreView: View {
 
     // MARK: - Pinned header (tabs + Discover filter chips)
 
-    /// Lives in the ScrollView's .safeAreaInset so it stays on top as the
-    /// body scrolls. Nav tabs on top, Discover filter chips below, so the
-    /// user can change page (Friends/Shorts/Clubs) or refine the feed
-    /// (For You / Push / Pull …) at any scroll depth.
+    /// Lives in the ScrollView's .safeAreaInset — nav tabs only. The
+    /// Discover filter chips live in their natural location in the body
+    /// and become sticky (pin just below this header) once the user
+    /// scrolls past them, via LazyVStack(pinnedViews: [.sectionHeaders]).
     private var pinnedHeader: some View {
         VStack(spacing: 8) {
             HStack(spacing: 20) {
@@ -593,11 +593,9 @@ struct ExploreView: View {
             .padding(.horizontal, 16)
 
             Divider().overlay(GQColors.adaptiveOverlay(0.04))
-
-            discoverFilterChips
         }
         .padding(.top, 4)
-        .padding(.bottom, 6)
+        .padding(.bottom, 4)
         .onAppear { livePulse = true }
     }
 
@@ -916,35 +914,45 @@ struct ExploreView: View {
 
     @ViewBuilder
     private var discoverSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            // Header (filter chips now live in the pinned top bar, not here).
-            HStack(alignment: .firstTextBaseline) {
-                Image(systemName: "sparkle.magnifyingglass")
-                    .font(.system(size: 14))
-                    .foregroundStyle(GQGradients.primary)
-                Text("Discover")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(GQColors.textPrimary)
-                Spacer()
-            }
-            .padding(.horizontal, 16)
-        }
+        // Section with a sticky header: header has the "Discover" title +
+        // filter chips. Natural position sits after the hero; once scrolled
+        // past, the header pins just under the top nav tabs thanks to
+        // LazyVStack(pinnedViews: [.sectionHeaders]) in `body`.
+        Section {
+            DiscoverGrid(
+                items: cachedDiscoverItems,
+                onTapVideo: { post in
+                    shortsEntryPostId = post.id
+                    presentingShorts = true
+                },
+                onTapPhoto: { post in
+                    sheetPostForDetail = post
+                },
+                onStartWorkout: { post in
+                    startWorkout(from: post)
+                }
+            )
+            .frame(minHeight: 600)
+        } header: {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .firstTextBaseline) {
+                    Image(systemName: "sparkle.magnifyingglass")
+                        .font(.system(size: 14))
+                        .foregroundStyle(GQGradients.primary)
+                    Text("Discover")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(GQColors.textPrimary)
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
 
-        // IG Explore-style grid (reads from cache)
-        DiscoverGrid(
-            items: cachedDiscoverItems,
-            onTapVideo: { post in
-                shortsEntryPostId = post.id
-                presentingShorts = true
-            },
-            onTapPhoto: { post in
-                sheetPostForDetail = post
-            },
-            onStartWorkout: { post in
-                startWorkout(from: post)
+                discoverFilterChips
             }
-        )
-        .frame(minHeight: 600)
+            .padding(.vertical, 8)
+            // Solid material backdrop so content scrolling beneath the
+            // pinned header doesn't bleed through.
+            .background(.ultraThinMaterial)
+        }
     }
 
     private func suggestionTitle(_ post: Post) -> String {
