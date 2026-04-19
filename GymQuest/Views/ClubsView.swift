@@ -735,11 +735,13 @@ struct ClubFeedView: View {
             .padding(.vertical, 12)
             .background(
                 RoundedRectangle(cornerRadius: 14)
-                    .fill(GQColors.surfaceBase)
+                    .fill(isSelected ? AnyShapeStyle(GQGradients.primary.opacity(0.10)) : AnyShapeStyle(GQColors.surfaceBase))
                     .overlay(
                         RoundedRectangle(cornerRadius: 14)
-                            .stroke(isSelected ? GQColors.deepBlue.opacity(0.55) : GQColors.borderDefault.opacity(0.4),
-                                    lineWidth: isSelected ? 1.5 : 0.5)
+                            .strokeBorder(
+                                isSelected ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQColors.borderDefault.opacity(0.4)),
+                                lineWidth: isSelected ? 1.5 : 0.5
+                            )
                     )
             )
         }
@@ -1070,23 +1072,87 @@ struct ClubFeedView: View {
 
     @ViewBuilder
     private var nearbySection: some View {
-        let hasNearby = searchFilteredRecommended.contains { $0.location != nil }
-        let header = hasNearby ? "NEARBY" : "DISCOVER"
+        // Split into "Nearby" (has location) vs "Online" (virtual/no-location)
+        // so location-first browsing feels intentional. When a category filter
+        // returns zero matches, show a proper empty-state card instead of
+        // blank scroll space.
+        let nearby = searchFilteredRecommended.filter { $0.location != nil }
+        let online = searchFilteredRecommended.filter { $0.location == nil }
 
-        if !searchFilteredRecommended.isEmpty {
-            VStack(alignment: .leading, spacing: 10) {
-                Text(header)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(GQColors.textTertiary)
-                    .tracking(0.6)
-                    .padding(.horizontal, 20)
-                    .padding(.top, 8)
+        VStack(alignment: .leading, spacing: 14) {
+            if searchFilteredRecommended.isEmpty {
+                emptyRecommendedCard
+            }
 
-                ForEach(searchFilteredRecommended) { club in
-                    recommendedClubCard(club)
-                }
+            if !nearby.isEmpty {
+                sectionHeader("NEARBY", trailingText: "\(nearby.count)")
+                ForEach(nearby) { club in recommendedClubCard(club) }
+            }
+
+            if !online.isEmpty {
+                sectionHeader("ONLINE", trailingText: "\(online.count)")
+                ForEach(online) { club in recommendedClubCard(club) }
             }
         }
+    }
+
+    @ViewBuilder
+    private func sectionHeader(_ title: String, trailingText: String? = nil) -> some View {
+        HStack {
+            Text(title)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(GQColors.textTertiary)
+                .tracking(0.6)
+            Spacer()
+            if let count = trailingText {
+                Text(count)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 4)
+    }
+
+    /// Empty state when a category filter (or search) returns no matching
+    /// recommended clubs. Offers the Create CTA inline so the dead-end
+    /// becomes an action.
+    @ViewBuilder
+    private var emptyRecommendedCard: some View {
+        let filterName = selectedCategory?.rawValue ?? "clubs"
+        VStack(spacing: 10) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 26, weight: .light))
+                .foregroundStyle(GQGradients.primary.opacity(0.7))
+            Text("No \(filterName.lowercased()) clubs near you yet")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(GQColors.textPrimary)
+                .multilineTextAlignment(.center)
+            Text("Be the first to start one — other lifters nearby will see it too.")
+                .font(.system(size: 12))
+                .foregroundColor(GQColors.textTertiary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 20)
+            Button { showingCreateClub = true } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 12, weight: .bold))
+                    Text("Create a \(filterName.capitalized) Club")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+                .foregroundColor(.white)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(Capsule().fill(GQGradients.primary))
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 4)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 22)
+        .padding(.horizontal, 16)
+        .homeSocialCard(cornerRadius: 16)
+        .padding(.horizontal, 16)
     }
 
     // MARK: - Map Mode
