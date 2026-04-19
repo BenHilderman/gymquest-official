@@ -585,9 +585,9 @@ struct ExploreView: View {
 
             Divider().overlay(GQColors.adaptiveOverlay(0.04))
 
-            // Crew row: properly spaced, no clipping, pulsing green dots
+            // Friends row: tight spacing to feel like a single strip of people.
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 14) {
+                HStack(spacing: 6) {
                     ForEach(cachedFriendsMembers.prefix(6)) { member in
                         Button {
                             #if canImport(UIKit)
