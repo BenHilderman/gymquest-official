@@ -10,6 +10,16 @@ import SwiftData
 ///   4. N shelves from ExploreShelfService, ordered by current intent
 ///
 /// Hosted inside FeedView's `.discover` tab — does not change the tab bar.
+/// Tabs in the Feed's top nav. Mirrors TodayView's TodaySubTab enum
+/// shape so both bars share the same rendering pattern. "Discover" is
+/// the active/home tab when this view is on screen.
+private enum FeedTopTab: String, CaseIterable {
+    case discover = "Discover"
+    case shorts = "Shorts"
+    case friends = "Friends"
+    case clubs = "Clubs"
+}
+
 struct ExploreView: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject var appState: AppState
@@ -561,44 +571,59 @@ struct ExploreView: View {
         cachedDiscoverItems = discoverGridItems
     }
 
-    // MARK: - Pinned header (tabs + Discover filter chips)
+    // MARK: - Pinned header (Today-style tab bar ported to Feed)
 
-    /// Pinned nav tab row + divider (original layout). Sits on a solid
-    /// GQColors.background — same shade as the bottom tab bar — so it
-    /// reads as a real bar, not a translucent overlay.
+    /// Four equal-width labels + animated brand-gradient underline under
+    /// the active tab — identical treatment to TodayView's Today/Progress
+    /// bar so the two pages share a single nav language. "Discover" is
+    /// the home tab (this view); the others route to their presentations.
     private var pinnedHeader: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 20) {
-                Spacer()
-                Button("Friends", action: { presentingFriendsFeed = true })
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(GQGradients.primary)
-                Button("Shorts", action: { shortsEntryPostId = shortsClips.first?.id; presentingShorts = true })
-                    .font(.system(size: 13, weight: .regular))
-                    .foregroundColor(GQColors.textTertiary)
-                Button("Clubs", action: { presentingClubs = true })
-                    .font(.system(size: 13, weight: .regular))
-                    .foregroundColor(GQColors.textTertiary)
-                Button(action: { withAnimation { showSearchOverlay.toggle() } }) {
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(GQColors.textPrimary)
+        VStack(spacing: 0) {
+            HStack(spacing: 0) {
+                ForEach(FeedTopTab.allCases, id: \.self) { tab in
+                    Text(tab.rawValue)
+                        .font(.system(size: 13, weight: tab == .discover ? .semibold : .regular))
+                        .foregroundColor(tab == .discover ? GQColors.textPrimary : GQColors.textTertiary)
+                        .frame(maxWidth: .infinity)
+                        .contentShape(Rectangle())
+                        .onTapGesture { handleTopTabTap(tab) }
                 }
-                // Dev-only: open the feed-header variants playground.
-                Button(action: { presentingVariants = true }) {
-                    Image(systemName: "flask")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(GQColors.textTertiary)
-                }
-                Spacer()
             }
-            .buttonStyle(.plain)
-            .padding(.horizontal, 16)
+            .padding(.bottom, 6)
 
-            Divider().overlay(GQColors.adaptiveOverlay(0.04))
+            ZStack(alignment: .leading) {
+                Rectangle()
+                    .fill(GQColors.borderSubtle)
+                    .frame(height: 0.5)
+                GeometryReader { geometry in
+                    let tabWidth = geometry.size.width / CGFloat(FeedTopTab.allCases.count)
+                    Rectangle()
+                        .fill(GQGradients.primary)
+                        .frame(width: tabWidth, height: 1.5)
+                        .clipShape(RoundedRectangle(cornerRadius: 0.75))
+                }
+                .frame(height: 1.5)
+            }
+            .frame(height: 1.5)
         }
-        .padding(.top, 4)
+        .padding(.horizontal, 20)
+        .padding(.top, 8)
+        .padding(.bottom, 2)
         .onAppear { livePulse = true }
+    }
+
+    private func handleTopTabTap(_ tab: FeedTopTab) {
+        switch tab {
+        case .discover:
+            return  // already here — no-op
+        case .shorts:
+            shortsEntryPostId = shortsClips.first?.id
+            presentingShorts = true
+        case .friends:
+            presentingFriendsFeed = true
+        case .clubs:
+            presentingClubs = true
+        }
     }
 
     /// Horizontal strip of Discover filter chips. Extracted so it can live
