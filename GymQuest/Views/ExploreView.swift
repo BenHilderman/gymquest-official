@@ -85,6 +85,7 @@ struct ExploreView: View {
                     // Friends strip scrolls away with the rest of the page
                     // (pinned header only keeps tabs + discover filters).
                     friendsStrip
+                        .padding(.top, 8)
 
                     if let hero = cachedHeroPick {
                         ExploreHeroCard(
@@ -98,10 +99,6 @@ struct ExploreView: View {
                             onLongPressSave: { sheetPostForCollection = hero }
                         )
                         .padding(.horizontal, 16)
-                        // Give the card's shadow room to render before the
-                        // Discover sticky header's solid background starts
-                        // painting over it.
-                        .padding(.bottom, 12)
                     }
 
                     // ── 5. Unified discover feed ────────────────
@@ -951,7 +948,8 @@ struct ExploreView: View {
 
                 discoverFilterChips
             }
-            .padding(.vertical, 8)
+            .padding(.top, 2)
+            .padding(.bottom, 8)
             .background(GQColors.background)
         }
     }
