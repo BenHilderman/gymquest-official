@@ -943,21 +943,16 @@ struct ExploreView: View {
                 }
             )
             .frame(minHeight: 600)
-            .padding(.vertical, 10)
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(GQColors.surfaceBase)
-                    .shadow(color: .black.opacity(0.05), radius: 6, y: 2)
-            )
-            .padding(.horizontal, 12)
-            .padding(.top, -4)
         } header: {
-            // Sticky header: opaque page-bg bar with a rounded white
-            // card inside that holds the title + chips. Mirrors the
-            // Tonight's Pick card treatment above so Discover doesn't
-            // feel unframed, while the page-bg bar prevents any
-            // scrolled content from bleeding through when pinned.
+            // Fully opaque sticky header — solid GQColors.background
+            // across the whole area so no scrolled content bleeds through
+            // when pinned. Hairline sits at the very top (flush with the
+            // nav bar's divider on pin), title + chips below.
             VStack(spacing: 0) {
+                Rectangle()
+                    .fill(GQColors.adaptiveOverlay(0.08))
+                    .frame(height: 0.5)
+
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(alignment: .firstTextBaseline) {
                         Image(systemName: "sparkle.magnifyingglass")
@@ -968,19 +963,12 @@ struct ExploreView: View {
                             .foregroundColor(GQColors.textPrimary)
                         Spacer()
                     }
-                    .padding(.horizontal, 14)
+                    .padding(.horizontal, 16)
 
                     discoverFilterChips
-                        .padding(.bottom, 2)
                 }
-                .padding(.vertical, 10)
-                .background(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(GQColors.surfaceBase)
-                        .shadow(color: .black.opacity(0.05), radius: 6, y: 2)
-                )
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
+                .padding(.top, 8)
+                .padding(.bottom, 8)
             }
             .background(GQColors.background)
         }
