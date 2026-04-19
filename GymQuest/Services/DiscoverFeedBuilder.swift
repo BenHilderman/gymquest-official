@@ -64,7 +64,7 @@ enum DiscoverFeedBuilder {
         let diversified = enforceDiversity(ranked, maxConsecutiveSameType: 2)
 
         // 5. Convert to feed items (video vs photo)
-        var items: [DiscoverFeedItem] = diversified.prefix(24).map { post in
+        var items: [DiscoverFeedItem] = diversified.prefix(80).map { post in
             isVideo(post) ? .video(post) : .photo(post)
         }
 

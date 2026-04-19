@@ -68,9 +68,6 @@ struct ExploreView: View {
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 12) {
-                // ── 1. Top bar (reads from cache, not computed per-render) ──
-                topSection
-
                 if showSearchOverlay {
                     SmartSearchBar(query: $query, bodyPart: $bodyPart, durationCap: $durationCap, equipment: $equipment, showsChips: isSearching).padding(.horizontal, 16).transition(.opacity.combined(with: .move(edge: .top)))
                 }
@@ -121,6 +118,14 @@ struct ExploreView: View {
         }
         .scrollContentBackground(.hidden)
         .gqPageBackground()
+        .safeAreaInset(edge: .top, spacing: 0) {
+            // Pin the Friends/Shorts/Clubs nav + friends strip to the top of
+            // the page. Everything below (hero, discover grid, clubs shelf)
+            // scrolls continuously under this pinned header.
+            topSection
+                .padding(.bottom, 8)
+                .background(.ultraThinMaterial)
+        }
         .refreshable {
             if let current = cachedHeroPick { shuffleHero(currentId: current.id) }
             PresenceSeeder.refreshDemoPresence(in: modelContext)

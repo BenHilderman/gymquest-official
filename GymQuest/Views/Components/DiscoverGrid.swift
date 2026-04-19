@@ -20,13 +20,19 @@ struct DiscoverGrid: View {
     private let spacing: CGFloat = 2
 
     var body: some View {
-        GeometryReader { geo in
-            let cellSize = (geo.size.width - spacing * 2 - 32) / 3
-            ScrollView {
-                gridLayout(cellSize: cellSize)
-                    .padding(.horizontal, 16)
-            }
-        }
+        // No inner ScrollView — the grid flows directly inside the parent
+        // page scroll so it reads as one continuous feed. Cell size is
+        // derived from the screen width instead of a GeometryReader
+        // (which would greedily claim its own layout space and force
+        // nested scrolling).
+        #if canImport(UIKit)
+        let screenW = UIScreen.main.bounds.width
+        #else
+        let screenW: CGFloat = 390
+        #endif
+        let cellSize = (screenW - spacing * 2 - 32) / 3
+        gridLayout(cellSize: cellSize)
+            .padding(.horizontal, 16)
     }
 
     // MARK: - Grid layout with featured cells
