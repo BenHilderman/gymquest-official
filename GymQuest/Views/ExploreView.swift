@@ -82,6 +82,10 @@ struct ExploreView: View {
                 } else if allPosts.isEmpty {
                     emptyExploreState
                 } else {
+                    // Friends strip scrolls away with the rest of the page
+                    // (pinned header only keeps tabs + discover filters).
+                    friendsStrip
+
                     if let hero = cachedHeroPick {
                         ExploreHeroCard(
                             post: hero,
@@ -119,11 +123,7 @@ struct ExploreView: View {
         .scrollContentBackground(.hidden)
         .gqPageBackground()
         .safeAreaInset(edge: .top, spacing: 0) {
-            // Pin the Friends/Shorts/Clubs nav + friends strip to the top of
-            // the page. Everything below (hero, discover grid, clubs shelf)
-            // scrolls continuously under this pinned header.
-            topSection
-                .padding(.bottom, 8)
+            pinnedHeader
                 .background(.ultraThinMaterial)
         }
         .refreshable {
@@ -563,11 +563,14 @@ struct ExploreView: View {
         cachedDiscoverItems = discoverGridItems
     }
 
-    // MARK: - Top Section (Option 1: Today-style nav + spaced crew)
+    // MARK: - Pinned header (tabs + Discover filter chips)
 
-    private var topSection: some View {
+    /// Lives in the ScrollView's .safeAreaInset so it stays on top as the
+    /// body scrolls. Nav tabs on top, Discover filter chips below, so the
+    /// user can change page (Friends/Shorts/Clubs) or refine the feed
+    /// (For You / Push / Pull …) at any scroll depth.
+    private var pinnedHeader: some View {
         VStack(spacing: 8) {
-            // Nav row: Today-style text links
             HStack(spacing: 20) {
                 Spacer()
                 Button("Friends", action: { presentingFriendsFeed = true })
@@ -587,47 +590,80 @@ struct ExploreView: View {
                 Spacer()
             }
             .buttonStyle(.plain)
+            .padding(.horizontal, 16)
 
             Divider().overlay(GQColors.adaptiveOverlay(0.04))
 
-            // Friends row: tight spacing, flows edge-to-edge so the last
-            // cell gets partially clipped at the right — Instagram Stories
-            // pattern that signals "scroll for more."
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 5) {
-                    ForEach(cachedFriendsMembers) { member in
-                        Button {
-                            #if canImport(UIKit)
-                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                            #endif
-                            openFriendPost(member)
-                        } label: {
-                            topFriendCell(member)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(.horizontal, 16)   // content inset
-                .padding(.vertical, 4)      // prevents circle stroke clipping
-            }
-            .padding(.horizontal, -16)      // negate parent padding so the
-                                            // scrollview extends edge-to-edge
-            .mask(
-                // Subtle fade at the right edge as a visible hint that more
-                // friends exist past the fold. No fade on the left.
-                LinearGradient(
-                    stops: [
-                        .init(color: .black, location: 0.0),
-                        .init(color: .black, location: 0.94),
-                        .init(color: .black.opacity(0.0), location: 1.0)
-                    ],
-                    startPoint: .leading, endPoint: .trailing
-                )
-            )
+            discoverFilterChips
         }
-        .padding(.horizontal, 16)
         .padding(.top, 4)
+        .padding(.bottom, 6)
         .onAppear { livePulse = true }
+    }
+
+    /// Horizontal strip of Discover filter chips. Extracted so it can live
+    /// in the pinned header (always reachable) instead of being buried in
+    /// the Discover section. Updates `discoverFilter` and rebuilds the
+    /// cached grid.
+    private var discoverFilterChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(discoverChips, id: \.self) { chip in
+                    let isSelected = discoverFilter == chip
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            discoverFilter = chip
+                            cachedDiscoverItems = discoverGridItems
+                        }
+                    } label: {
+                        Text(chip)
+                            .font(.system(size: 12, weight: isSelected ? .semibold : .medium))
+                            .foregroundColor(isSelected ? .white : GQColors.textSecondary)
+                            .padding(.horizontal, 14).padding(.vertical, 7)
+                            .background(
+                                isSelected
+                                    ? AnyShapeStyle(GQGradients.primary)
+                                    : AnyShapeStyle(GQColors.adaptiveOverlay(0.05))
+                            )
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 16)
+        }
+    }
+
+    /// Inline friends strip — lives in the scrolling body (above the hero)
+    /// so it scrolls away as you browse, while the pinned tabs/chips stay.
+    private var friendsStrip: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 5) {
+                ForEach(cachedFriendsMembers) { member in
+                    Button {
+                        #if canImport(UIKit)
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        #endif
+                        openFriendPost(member)
+                    } label: {
+                        topFriendCell(member)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 4)
+        }
+        .mask(
+            LinearGradient(
+                stops: [
+                    .init(color: .black, location: 0.0),
+                    .init(color: .black, location: 0.94),
+                    .init(color: .black.opacity(0.0), location: 1.0)
+                ],
+                startPoint: .leading, endPoint: .trailing
+            )
+        )
     }
 
     private func topFriendCell(_ member: FriendsMember) -> some View {
@@ -881,7 +917,7 @@ struct ExploreView: View {
     @ViewBuilder
     private var discoverSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            // Header
+            // Header (filter chips now live in the pinned top bar, not here).
             HStack(alignment: .firstTextBaseline) {
                 Image(systemName: "sparkle.magnifyingglass")
                     .font(.system(size: 14))
@@ -892,31 +928,6 @@ struct ExploreView: View {
                 Spacer()
             }
             .padding(.horizontal, 16)
-
-            // Chip filters (exact ProgressView pattern)
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(discoverChips, id: \.self) { chip in
-                        let isSelected = discoverFilter == chip
-                        Button {
-                            withAnimation(.easeInOut(duration: 0.2)) { discoverFilter = chip; cachedDiscoverItems = discoverGridItems }
-                        } label: {
-                            Text(chip)
-                                .font(.system(size: 12, weight: isSelected ? .semibold : .medium))
-                                .foregroundColor(isSelected ? .white : GQColors.textSecondary)
-                                .padding(.horizontal, 14).padding(.vertical, 8)
-                                .background(
-                                    isSelected
-                                        ? AnyShapeStyle(GQGradients.primary)
-                                        : AnyShapeStyle(GQColors.adaptiveOverlay(0.05))
-                                )
-                                .clipShape(Capsule())
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(.horizontal, 16)
-            }
         }
 
         // IG Explore-style grid (reads from cache)
