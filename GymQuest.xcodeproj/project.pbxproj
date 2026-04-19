@@ -166,6 +166,7 @@
 		2755C8B7865C98898FFDE2FD /* 1764.gif in Resources */ = {isa = PBXBuildFile; fileRef = 8FCA16E2D25C9F8AE0E9A6A3 /* 1764.gif */; };
 		275644D17319277CDBBA9A9A /* RelativeDateString.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59A4DFE6BA3A2FF93E6B6882 /* RelativeDateString.swift */; };
 		278118A85867FC574FE39DFB /* TopSectionVariants.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0E829D2366BDA48CA902897 /* TopSectionVariants.swift */; };
+		27BFA7C02001A9F97D8379A3 /* FeedVariantsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1697B6977C325F1380C3A2CD /* FeedVariantsView.swift */; };
 		286D208E50C7916FC933F4A8 /* 0043.gif in Resources */ = {isa = PBXBuildFile; fileRef = 68D76DA3FE870797F84CB2C1 /* 0043.gif */; };
 		2873B58C726DFC42A082E6EA /* VideoGeneratorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23E4A6F01A722FCF8F9E2F7D /* VideoGeneratorView.swift */; };
 		28B25B9AC35F63760BB2DFC5 /* UserProfileTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73B7C326C2EFE85352D1FA37 /* UserProfileTests.swift */; };
@@ -260,6 +261,7 @@
 		3D49449C0568594B17F03612 /* 0738.gif in Resources */ = {isa = PBXBuildFile; fileRef = 9B490DF2A0D87B2786C05222 /* 0738.gif */; };
 		3D6E4CBF8E7C41AAFA61D079 /* 0031.gif in Resources */ = {isa = PBXBuildFile; fileRef = 37EBD6A3578B3A3E2E100563 /* 0031.gif */; };
 		3D7F51B980CA4A1E5DC7BD08 /* 0058.gif in Resources */ = {isa = PBXBuildFile; fileRef = 88CBCD2C034D0CCC2EB096BE /* 0058.gif */; };
+		3DACF865FC719031D65F8C53 /* FeedVariantsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1697B6977C325F1380C3A2CD /* FeedVariantsView.swift */; };
 		3EBD20CA4FD90A77730E7371 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D7039D248B9E03824CEE17D /* ProfileView.swift */; };
 		3F00C71E06CE2FA8956C539E /* FriendActivityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B42C73FB01D41D4D2DD68657 /* FriendActivityTests.swift */; };
 		3F0C731A93C0D2DCA7021952 /* 0027.gif in Resources */ = {isa = PBXBuildFile; fileRef = 53EDD082823721CDDAD1E86A /* 0027.gif */; };
@@ -1083,6 +1085,7 @@
 		13DFB7C570AC69C8DC72E9CE /* ShortsShelf.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortsShelf.swift; sourceTree = "<group>"; };
 		159A26267DA79DBC61975593 /* 0274.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = 0274.gif; sourceTree = "<group>"; };
 		1677706BFE204721977D862E /* PresenceSeeder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PresenceSeeder.swift; sourceTree = "<group>"; };
+		1697B6977C325F1380C3A2CD /* FeedVariantsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedVariantsView.swift; sourceTree = "<group>"; };
 		16BCC21656A0FB5E5F42BBBF /* 0613.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = 0613.gif; sourceTree = "<group>"; };
 		16D7E61BDF736BA28AEC4407 /* till_i_collapse.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = till_i_collapse.jpg; sourceTree = "<group>"; };
 		17C74152393980588F6CB2BC /* UserProfileSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserProfileSheet.swift; sourceTree = "<group>"; };
@@ -1872,6 +1875,7 @@
 				B0B804404486E1C13453122F /* ExploreView.swift */,
 				70DD1098A15CC4A11DC2676F /* FeedEducationalView.swift */,
 				71048189F84B564FDE3A49D2 /* FeedSocialView.swift */,
+				1697B6977C325F1380C3A2CD /* FeedVariantsView.swift */,
 				D9F81EDB09D0192122A69909 /* FeedView.swift */,
 				27908D9264CF6267D32B6A65 /* FollowWorkoutView.swift */,
 				7487D7B029256B93AC32DDC8 /* FormCheckCameraView.swift */,
@@ -3096,6 +3100,7 @@
 				17964A8ED8AC1078B2856650 /* FeedEducationalView.swift in Sources */,
 				730A1491238B216547484889 /* FeedRankingService.swift in Sources */,
 				607B33A18838A332B1EE1CAE /* FeedSocialView.swift in Sources */,
+				27BFA7C02001A9F97D8379A3 /* FeedVariantsView.swift in Sources */,
 				6DF6761296372A42324F6B1A /* FeedView.swift in Sources */,
 				BA32F83DFA9C1EFB03D6E44D /* FloatingReactionsOverlay.swift in Sources */,
 				8F68576588A0666327ED759B /* FollowWorkoutView.swift in Sources */,
@@ -3380,6 +3385,7 @@
 				500C908BEA2949BE6FC798BF /* FeedEducationalView.swift in Sources */,
 				CF7FCFF8386A5FCB715DBE2A /* FeedRankingService.swift in Sources */,
 				1CB0DEA7993CFBF49BFAB8F1 /* FeedSocialView.swift in Sources */,
+				3DACF865FC719031D65F8C53 /* FeedVariantsView.swift in Sources */,
 				4A5F20AEA1764A320C46D546 /* FeedView.swift in Sources */,
 				329BCD3E516ABE46EE046637 /* FloatingReactionsOverlay.swift in Sources */,
 				375B202C42E55CD91F8CE753 /* FollowWorkoutView.swift in Sources */,
