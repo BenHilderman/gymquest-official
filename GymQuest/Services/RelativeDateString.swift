@@ -48,4 +48,18 @@ enum RelativeDateString {
 
         return short(from: date, to: now)
     }
+
+    /// Ultra-compact form for tight chips: "45m", "3h", "2d", "1w".
+    /// Never wraps. Drops the "ago" suffix by convention.
+    static func compact(from date: Date, to now: Date = Date()) -> String {
+        let seconds = now.timeIntervalSince(date)
+        let minutes = Int(seconds / 60)
+        let hours = Int(seconds / 3600)
+        let days = Int(seconds / 86_400)
+        if minutes < 1 { return "now" }
+        if minutes < 60 { return "\(minutes)m" }
+        if hours < 24 { return "\(hours)h" }
+        if days < 7 { return "\(days)d" }
+        return "\(days / 7)w"
+    }
 }

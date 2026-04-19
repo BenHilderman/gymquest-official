@@ -232,17 +232,25 @@ struct ExploreView: View {
             }
 
             if let post = latestPost[friendId], post.timestamp >= weekAgo {
-                let warm = RelativeDateString.warm(from: post.timestamp)
+                let ago = RelativeDateString.compact(from: post.timestamp)
+                let type = post.workoutType?.capitalized
+                let status: String = {
+                    if let type, let dur = post.duration, dur > 0 {
+                        return "\(type) · \(dur)m"
+                    }
+                    if let type { return "\(type) · \(ago)" }
+                    return ago
+                }()
                 return FriendsMember(
                     id: friendId, name: name, username: username, avatarData: avatarData,
                     status: .recent,
-                    statusText: warm
+                    statusText: status
                 )
             }
 
             let lastDate = latestPost[friendId]?.timestamp
             if lastDate == nil || lastDate! < inactiveThreshold {
-                let text = lastDate.map { RelativeDateString.warm(from: $0) } ?? "no posts"
+                let text = lastDate.map { RelativeDateString.compact(from: $0) } ?? "—"
                 return FriendsMember(
                     id: friendId, name: name, username: username, avatarData: avatarData,
                     status: .inactive,
@@ -608,29 +616,27 @@ struct ExploreView: View {
     private func topFriendCell(_ member: FriendsMember) -> some View {
         let isLive: Bool = { if case .live = member.status { return true }; return false }()
         let isInactive: Bool = { if case .inactive = member.status { return true }; return false }()
-        let avatarSize: CGFloat = 44
-        let ringSize: CGFloat = 48
+        let avatarSize: CGFloat = 36
+        let ringSize: CGFloat = 40
 
-        return VStack(spacing: 6) {
+        return VStack(spacing: 5) {
             ZStack {
-                // Only live members get a ring — thin green. Recent + inactive
-                // are plain. One signal, Apple-clean.
                 if isLive {
                     Circle()
-                        .stroke(GQColors.success, lineWidth: 2)
+                        .stroke(GQColors.success, lineWidth: 1.5)
                         .frame(width: ringSize, height: ringSize)
                 }
 
                 avatarImage(member)
                     .frame(width: avatarSize, height: avatarSize)
                     .clipShape(Circle())
-                    .opacity(isInactive ? 0.55 : 1.0)
+                    .opacity(isInactive ? 0.5 : 1.0)
 
                 if isLive {
                     Circle()
                         .fill(GQColors.success)
-                        .frame(width: 11, height: 11)
-                        .overlay(Circle().stroke(GQColors.background, lineWidth: 2))
+                        .frame(width: 9, height: 9)
+                        .overlay(Circle().stroke(GQColors.background, lineWidth: 1.5))
                         .scaleEffect(livePulse ? 1.25 : 1.0)
                         .animation(
                             .easeInOut(duration: 1.5).repeatForever(autoreverses: true),
@@ -641,28 +647,25 @@ struct ExploreView: View {
             }
 
             Text(friendFirstName(member))
-                .font(.system(size: 11, weight: .semibold))
+                .font(.system(size: 10, weight: .semibold))
                 .foregroundColor(GQColors.textPrimary)
                 .lineLimit(1)
-                .frame(maxWidth: 56)
+                .frame(maxWidth: 50)
 
             Text(member.statusText)
                 .font(.system(size: 9, weight: .medium))
                 .foregroundColor(GQColors.textTertiary)
                 .lineLimit(1)
-                .frame(maxWidth: 56)
+                .frame(maxWidth: 50)
         }
     }
 
-    /// Soft avatar: real photo if present, otherwise a stable pastel fill
-    /// keyed off the user's id + dark initials. No more stark purple blobs.
+    /// Avatar: real photo if present, else soft brand-purple initials circle.
     @ViewBuilder
     private func avatarImage(_ member: FriendsMember) -> some View {
         #if canImport(UIKit)
         if let data = member.avatarData, let img = UIImage(data: data) {
-            Image(uiImage: img)
-                .resizable()
-                .aspectRatio(contentMode: .fill)
+            Image(uiImage: img).resizable().aspectRatio(contentMode: .fill)
         } else {
             initialsAvatar(member)
         }
@@ -674,26 +677,11 @@ struct ExploreView: View {
     @ViewBuilder
     private func initialsAvatar(_ member: FriendsMember) -> some View {
         ZStack {
-            Circle().fill(avatarBackgroundColor(for: member.id))
+            Circle().fill(GQGradients.primary.opacity(0.12))
             Text(String(member.name.prefix(1)).uppercased())
-                .font(.system(size: 15, weight: .semibold, design: .rounded))
-                .foregroundColor(GQColors.textPrimary.opacity(0.85))
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundStyle(GQGradients.primary)
         }
-    }
-
-    /// Stable per-user pastel tint — picks one of a curated palette from
-    /// GQColors so initials avatars feel native to the design system
-    /// instead of the hard purple of GQGradients.primary.
-    private func avatarBackgroundColor(for id: UUID) -> Color {
-        let palette: [Color] = [
-            GQColors.surfaceSecondary,
-            GQColors.deepBlue.opacity(0.14),
-            GQColors.mint.opacity(0.18),
-            GQColors.terracotta.opacity(0.18),
-            GQColors.textSecondary.opacity(0.14)
-        ]
-        let idx = abs(id.hashValue) % palette.count
-        return palette[idx]
     }
 
     /// Tap a crew member → opens the full Friends feed so the user
