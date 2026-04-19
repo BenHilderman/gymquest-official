@@ -1527,7 +1527,7 @@ struct ClubFeedView: View {
                             .foregroundStyle(GQGradients.primary)
                     }
                 }
-                Text(subtitle(for: club))
+                Text(cardMeta(for: club))
                     .font(.system(size: 13))
                     .foregroundColor(GQColors.textTertiary)
                     .lineLimit(1)
