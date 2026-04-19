@@ -98,6 +98,10 @@ struct ExploreView: View {
                             onLongPressSave: { sheetPostForCollection = hero }
                         )
                         .padding(.horizontal, 16)
+                        // Give the card's shadow room to render before the
+                        // Discover sticky header's solid background starts
+                        // painting over it.
+                        .padding(.bottom, 12)
                     }
 
                     // ── 5. Unified discover feed ────────────────
