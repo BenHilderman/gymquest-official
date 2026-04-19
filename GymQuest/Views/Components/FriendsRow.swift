@@ -61,30 +61,27 @@ struct FriendsRow: View {
         } label: {
             VStack(spacing: 4) {
                 ZStack {
-                    Circle()
-                        .stroke(ringColor(member), lineWidth: 2.5)
-                        .frame(width: 48, height: 48)
-                        .scaleEffect(isLive(member) && pulse ? 1.04 : 1.0)
-                        .animation(isLive(member)
-                            ? .easeInOut(duration: 1.2).repeatForever(autoreverses: true)
-                            : .default, value: pulse)
+                    // Thin green ring only on live members. Recent/inactive get
+                    // no ring — just the avatar. Keeps the row clean and
+                    // reserves accent color for the single "training now"
+                    // signal, Apple-style.
+                    if isLive(member) {
+                        Circle()
+                            .stroke(GQColors.success, lineWidth: 2)
+                            .frame(width: 48, height: 48)
+                            .scaleEffect(pulse ? 1.04 : 1.0)
+                            .animation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true), value: pulse)
+                    }
 
                     avatarImage(member)
-                        .frame(width: 42, height: 42)
+                        .frame(width: 44, height: 44)
                         .clipShape(Circle())
+                        .opacity(isInactive(member) ? 0.55 : 1.0)
 
                     if isLive(member) {
                         Circle()
                             .fill(GQColors.success)
                             .frame(width: 12, height: 12)
-                            .overlay(Circle().stroke(GQColors.background, lineWidth: 2))
-                            .frame(width: 48, height: 48, alignment: .bottomTrailing)
-                    }
-
-                    if isInactive(member) {
-                        Circle()
-                            .fill(.orange)
-                            .frame(width: 10, height: 10)
                             .overlay(Circle().stroke(GQColors.background, lineWidth: 2))
                             .frame(width: 48, height: 48, alignment: .bottomTrailing)
                     }
@@ -146,14 +143,6 @@ struct FriendsRow: View {
         #else
         Circle().fill(GQColors.surfaceSecondary)
         #endif
-    }
-
-    private func ringColor(_ member: FriendsMember) -> some ShapeStyle {
-        switch member.status {
-        case .live: return AnyShapeStyle(GQColors.success)
-        case .recent: return AnyShapeStyle(GQGradients.primary)
-        case .inactive: return AnyShapeStyle(GQColors.borderDefault)
-        }
     }
 
     private func isLive(_ member: FriendsMember) -> Bool {

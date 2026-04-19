@@ -75,9 +75,9 @@ struct ExploreView: View {
                     SmartSearchBar(query: $query, bodyPart: $bodyPart, durationCap: $durationCap, equipment: $equipment, showsChips: isSearching).padding(.horizontal, 16).transition(.opacity.combined(with: .move(edge: .top)))
                 }
 
-                if let topNudge = activeNudges.first {
-                    FriendsNudgeBanner(nudge: topNudge, onAction: { handleNudgeAction(topNudge) }, onDismiss: { dismissedNudgeIds.insert(topNudge.id) }).padding(.horizontal, 16)
-                }
+                // FriendsNudgeBanner lives on the Friends tab now, not the
+                // main Feed — removed from this hero slot to keep the top
+                // cleaner. (Surfaces via FriendsFeedView when that tab opens.)
 
                 // ── 4. Hero (the action CTA — above the fold) ─
                 if isSearching {

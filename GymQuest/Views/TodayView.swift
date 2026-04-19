@@ -1351,23 +1351,11 @@ struct TodayView: View {
             // Today's plan — compact companion to calendar
             todayPlanCard
 
-            // Crew weekly recap — Monday-morning celebration of last week.
-            // Appears above activity so it reads as a "this week's event"
-            // rather than a tile. Auto-dismisses once seen for that week.
-            if let recap = currentFriendsRecap, !isRecapDismissed(recap) {
-                FriendsRecapCard(recap: recap) { dismissRecap(recap) }
-            }
-
             // Activity — taps through to Activity tab
             Button { appState.selectedTab = .activity } label: {
                 activityVariantsPreview
             }
             .buttonStyle(.plain)
-
-            // Crew rhythm — reframes the week as collective instead of solo.
-            // Slots between personal activity stats and challenges so the
-            // flow reads: my stats → our week → my challenges.
-            FriendsRhythmCard(rhythm: friendsRhythmSnapshot)
 
             // Progressive challenges (3 at a time, tier-based)
             TodayChallengesSection(profile: profile)
