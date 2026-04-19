@@ -557,8 +557,7 @@ struct ClubFeedView: View {
         .scrollContentBackground(.hidden)
         .background(GQColors.background.ignoresSafeArea())
         .navigationTitle("Clubs")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(.visible, for: .navigationBar)
+        .navigationBarTitleDisplayMode(.large)
         .refreshable {
             // Pull-to-refresh triggers SwiftData @Query re-evaluation
             try? await Task.sleep(for: .milliseconds(300))
@@ -678,7 +677,7 @@ struct ClubFeedView: View {
                         HStack(spacing: 4) {
                             Image(systemName: "person.2.fill")
                                 .font(.system(size: 11))
-                            Text("\(club.memberCount) members")
+                            Text(memberCountText(club.memberCount))
                                 .font(.system(size: 13))
                         }
                         .foregroundColor(GQColors.textTertiary)
@@ -761,27 +760,22 @@ struct ClubFeedView: View {
 
     @ViewBuilder
     private var myClubsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 6) {
-                Image(systemName: "person.3.fill")
-                    .foregroundStyle(GQGradients.primary)
-                    .font(.system(size: 12))
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
                 Text("MY CLUBS")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(.white)
-                    .tracking(1)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(GQColors.textTertiary)
+                    .tracking(0.6)
 
-                Text("\(yourClubs.count)")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 2)
-                    .background(GQColors.adaptiveOverlay(0.15))
-                    .cornerRadius(10)
+                if !yourClubs.isEmpty {
+                    Text("\(yourClubs.count)")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(GQColors.textTertiary)
+                }
 
                 Spacer()
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, 20)
 
             if searchFilteredYourClubs.isEmpty && !yourClubs.isEmpty {
                 Text("No matching clubs")
@@ -844,18 +838,13 @@ struct ClubFeedView: View {
         let header = hasNearby ? "NEARBY" : "DISCOVER"
 
         if !searchFilteredRecommended.isEmpty {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 6) {
-                    Image(systemName: hasNearby ? "mappin.and.ellipse" : "sparkles")
-                        .foregroundColor(GQColors.textSecondary)
-                        .font(.system(size: 12))
-                    Text(header)
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundColor(GQColors.textTertiary)
-                        .tracking(1)
-                    Spacer()
-                }
-                .padding(.horizontal, 16)
+            VStack(alignment: .leading, spacing: 10) {
+                Text(header)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(GQColors.textTertiary)
+                    .tracking(0.6)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
 
                 ForEach(searchFilteredRecommended) { club in
                     recommendedClubCard(club)
@@ -1013,115 +1002,68 @@ struct ClubFeedView: View {
         .cornerRadius(14)
     }
 
-    // MARK: - Shared Card Components
-
-    private func accentedCard<Content: View>(
-        accent: Color, @ViewBuilder content: () -> Content
-    ) -> some View {
-        HStack(spacing: 0) {
-            RoundedRectangle(cornerRadius: 2)
-                .fill(accent)
-                .frame(width: 3)
-                .padding(.vertical, 8)
-            content()
-        }
-        .homeSocialCard(cornerRadius: 14, subtle: true)
-    }
+    // MARK: - Row cards (Apple-style: clean, no accent bars)
 
     @ViewBuilder
     private func clubCard(_ club: Club) -> some View {
-        accentedCard(accent: club.resolvedCategory.color) {
-            HStack(spacing: 12) {
-                #if canImport(UIKit)
-                if let imageData = club.imageData,
-                   let uiImage = UIImage(data: imageData) {
-                    Image(uiImage: uiImage)
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .frame(width: 48, height: 48)
-                        .clipShape(Circle())
-                } else {
-                    categoryIcon(for: club, size: 48)
-                }
-                #else
-                categoryIcon(for: club, size: 48)
-                #endif
+        HStack(spacing: 12) {
+            clubAvatar(club, size: 44)
 
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack(spacing: 4) {
-                        Text(club.name)
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundColor(GQColors.textPrimary)
-                            .lineLimit(1)
-                        if club.isVerified {
-                            Image(systemName: "checkmark.seal.fill")
-                                .font(.system(size: 12))
-                                .foregroundColor(GQColors.textSecondary)
-                        }
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 4) {
+                    Text(club.name)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(GQColors.textPrimary)
+                        .lineLimit(1)
+                    if club.isVerified {
+                        Image(systemName: "checkmark.seal.fill")
+                            .font(.system(size: 12))
+                            .foregroundStyle(GQGradients.primary)
                     }
-                    HStack(spacing: 6) {
-                        if let location = club.location {
-                            Label(location, systemImage: "mappin")
-                        } else {
-                            Label("Online", systemImage: "globe")
-                        }
-                        Text("•")
-                        Text("\(club.memberCount) members")
-                    }
-                    .font(.system(size: 12))
-                    .foregroundColor(GQColors.textTertiary)
                 }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
+                Text(subtitle(for: club))
                     .font(.system(size: 13))
                     .foregroundColor(GQColors.textTertiary)
+                    .lineLimit(1)
             }
-            .padding(14)
+
+            Spacer(minLength: 8)
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(GQColors.textTertiary)
         }
+        .padding(14)
+        .homeSocialCard(cornerRadius: 14)
         .padding(.horizontal, 16)
     }
 
     @ViewBuilder
     private func recommendedClubCard(_ club: Club) -> some View {
         HStack(spacing: 12) {
-            categoryIcon(for: club, size: 44)
+            clubAvatar(club, size: 44)
 
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 4) {
                     Text(club.name)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundColor(GQColors.textPrimary)
                         .lineLimit(1)
                     if club.isVerified {
                         Image(systemName: "checkmark.seal.fill")
-                            .font(.system(size: 11))
-                            .foregroundColor(GQColors.textSecondary)
+                            .font(.system(size: 12))
+                            .foregroundStyle(GQGradients.primary)
                     }
                 }
-                HStack(spacing: 6) {
-                    if let location = club.location {
-                        Label(location, systemImage: "mappin")
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(GQColors.textSecondary)
-                    } else {
-                        Label("Online", systemImage: "globe")
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(GQColors.textTertiary)
-                    }
-                    Text("•")
-                        .font(.system(size: 10))
-                        .foregroundColor(GQColors.textTertiary)
-                    Text("\(club.memberCount) members")
-                        .font(.system(size: 11))
-                        .foregroundColor(GQColors.textTertiary)
-                }
+                Text(subtitle(for: club))
+                    .font(.system(size: 13))
+                    .foregroundColor(GQColors.textTertiary)
+                    .lineLimit(1)
             }
 
-            Spacer()
+            Spacer(minLength: 8)
 
-            Button(action: {
+            Button {
                 withAnimation {
                     do {
                         try ClubService.shared.joinClub(clubId: club.id, userId: profile.id)
@@ -1129,23 +1071,51 @@ struct ClubFeedView: View {
                         print("Failed to join club: \(error.localizedDescription)")
                     }
                 }
-            }) {
+            } label: {
                 Text("Join")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(GQColors.textSecondary)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.white)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 7)
-                    .background(GQColors.textSecondary.opacity(0.12))
-                    .cornerRadius(8)
+                    .background(Capsule().fill(GQGradients.primary))
             }
             .buttonStyle(.plain)
         }
         .padding(14)
-        .homeSocialCard(cornerRadius: 12, subtle: true)
+        .homeSocialCard(cornerRadius: 14)
         .padding(.horizontal, 16)
     }
 
+    private func subtitle(for club: Club) -> String {
+        let members = memberCountText(club.memberCount)
+        if let loc = club.location, !loc.isEmpty {
+            return "\(loc) · \(members)"
+        }
+        return "Online · \(members)"
+    }
+
+    @ViewBuilder
+    private func clubAvatar(_ club: Club, size: CGFloat) -> some View {
+        #if canImport(UIKit)
+        if let data = club.imageData, let img = UIImage(data: data) {
+            Image(uiImage: img)
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+                .frame(width: size, height: size)
+                .clipShape(Circle())
+        } else {
+            categoryIcon(for: club, size: size)
+        }
+        #else
+        categoryIcon(for: club, size: size)
+        #endif
+    }
+
     // MARK: - Helpers
+
+    private func memberCountText(_ count: Int) -> String {
+        count == 1 ? "1 member" : "\(count) members"
+    }
 
     @ViewBuilder
     private func categoryPill(label: String, icon: String?, isSelected: Bool, action: @escaping () -> Void) -> some View {
@@ -1170,35 +1140,32 @@ struct ClubFeedView: View {
     private func categoryIcon(for club: Club, size: CGFloat) -> some View {
         let cat = club.resolvedCategory
         return Circle()
-            .fill(GQColors.adaptiveOverlay(0.08))
+            .fill(GQGradients.primary.opacity(0.12))
             .frame(width: size, height: size)
             .overlay(
                 Image(systemName: cat.icon)
-                    .font(.system(size: size * 0.4))
-                    .foregroundColor(GQColors.textSecondary.opacity(0.8))
+                    .font(.system(size: size * 0.42, weight: .semibold))
+                    .foregroundStyle(GQGradients.primary)
             )
     }
 
     @ViewBuilder
     private var createClubButton: some View {
         Button(action: { showingCreateClub = true }) {
-            HStack {
-                Image(systemName: "plus.circle.fill")
+            HStack(spacing: 8) {
+                Image(systemName: "plus")
+                    .font(.system(size: 14, weight: .bold))
                 Text("Create a Club")
+                    .font(.system(size: 15, weight: .semibold))
             }
-            .font(.system(size: 15, weight: .semibold))
-            .foregroundColor(GQColors.textPrimary)
+            .foregroundColor(.white)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
-            .background(GQColors.adaptiveOverlay(0.08))
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(GQColors.adaptiveOverlay(0.15), lineWidth: 1)
-            )
-            .cornerRadius(12)
+            .background(GQGradients.primary, in: RoundedRectangle(cornerRadius: 14))
         }
         .buttonStyle(.plain)
         .padding(.horizontal, 16)
+        .padding(.top, 8)
     }
 }
 
@@ -1664,7 +1631,7 @@ struct ClubSearchRow: View {
                 }
 
                 HStack(spacing: 6) {
-                    Text("\(club.memberCount) members")
+                    Text(club.memberCount == 1 ? "1 member" : "\(club.memberCount) members")
                     if let location = club.location {
                         Text("•")
                         Text(location)
