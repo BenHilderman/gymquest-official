@@ -223,38 +223,29 @@ struct ExploreView: View {
             if liveIds.contains(friendId) {
                 let state = liveNowStates.first(where: { $0.userId == friendId })
                 let type = state?.workoutTypeRaw?.capitalized ?? "Training"
-                let mins = state?.minutesIn ?? 0
                 return FriendsMember(
                     id: friendId, name: name, username: username, avatarData: avatarData,
                     status: .live(workoutType: state?.workoutTypeRaw),
-                    statusText: "\(type) · \(mins)m"
+                    statusText: type
                 )
             }
 
             if let post = latestPost[friendId], post.timestamp >= weekAgo {
-                let ago = RelativeDateString.compact(from: post.timestamp)
-                let type = post.workoutType?.capitalized
-                let status: String = {
-                    if let type, let dur = post.duration, dur > 0 {
-                        return "\(type) · \(dur)m"
-                    }
-                    if let type { return "\(type) · \(ago)" }
-                    return ago
-                }()
+                let type = post.workoutType?.capitalized ?? "Workout"
                 return FriendsMember(
                     id: friendId, name: name, username: username, avatarData: avatarData,
                     status: .recent,
-                    statusText: status
+                    statusText: type
                 )
             }
 
             let lastDate = latestPost[friendId]?.timestamp
             if lastDate == nil || lastDate! < inactiveThreshold {
-                let text = lastDate.map { RelativeDateString.compact(from: $0) } ?? "—"
+                let type = latestPost[friendId]?.workoutType?.capitalized ?? ""
                 return FriendsMember(
                     id: friendId, name: name, username: username, avatarData: avatarData,
                     status: .inactive,
-                    statusText: text
+                    statusText: type
                 )
             }
 
@@ -677,10 +668,11 @@ struct ExploreView: View {
     @ViewBuilder
     private func initialsAvatar(_ member: FriendsMember) -> some View {
         ZStack {
-            Circle().fill(GQGradients.primary.opacity(0.12))
+            Circle().fill(GQGradients.primary.opacity(0.22))
+            Circle().stroke(GQGradients.primary.opacity(0.28), lineWidth: 1)
             Text(String(member.name.prefix(1)).uppercased())
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .foregroundStyle(GQGradients.primary)
+                .font(.system(size: 14, weight: .bold, design: .rounded))
+                .foregroundColor(GQColors.deepBlue)
         }
     }
 
