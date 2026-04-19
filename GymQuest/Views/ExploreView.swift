@@ -136,7 +136,6 @@ struct ExploreView: View {
         .gqPageBackground()
         .safeAreaInset(edge: .top, spacing: 0) {
             pinnedHeader
-                .background(GQColors.background)
         }
         .refreshable {
             if let current = cachedHeroPick { shuffleHero(currentId: current.id) }
@@ -607,8 +606,12 @@ struct ExploreView: View {
             .frame(height: 1.5)
         }
         .padding(.horizontal, 20)
-        .padding(.top, 8)
+        .padding(.top, 20)
         .padding(.bottom, 2)
+        .background(
+            GQColors.background
+                .ignoresSafeArea(edges: .top)
+        )
         .onAppear { livePulse = true }
     }
 
