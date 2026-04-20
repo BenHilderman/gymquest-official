@@ -870,17 +870,20 @@ struct ExploreView: View {
             )
             .frame(minHeight: 600)
         } header: {
-            // Utility-only sticky header: filter chips + Browse/Watch mode
-            // toggle. The nav bar already says "Discover" — no need to
-            // repeat it here. When scrolled, this thin bar pins flush
-            // below the nav so the viewer sees one continuous header zone
-            // (nav + filter strip) instead of two titled bars.
-            VStack(spacing: 6) {
+            // Utility-only sticky header: Browse/Watch toggle on top,
+            // filter chips below. The nav bar already says "Discover" —
+            // no need to repeat it here. Stacking the toggle above the
+            // chips (instead of sharing a row) avoids the horizontal
+            // overlap we'd get between the scrolling chip strip and the
+            // toggle capsule.
+            VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    discoverFilterChips
+                    Spacer()
                     discoverModeToggle
-                        .padding(.trailing, 12)
                 }
+                .padding(.horizontal, 16)
+
+                discoverFilterChips
             }
             .padding(.top, 6)
             .padding(.bottom, 8)
