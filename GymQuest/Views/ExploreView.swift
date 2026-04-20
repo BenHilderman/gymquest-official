@@ -20,6 +20,26 @@ private enum FeedTopTab: String, CaseIterable {
     case clubs = "Clubs"
 }
 
+/// Top-level visual mode inside Discover. Two states, kept minimal:
+/// Browse = photos + workout suggestions (the scroll-and-scan intent).
+/// Watch  = videos only (quick peek at entertainment, tap into Shorts).
+enum DiscoverMode: String, CaseIterable, Identifiable {
+    case browse, watch
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .browse: return "Browse"
+        case .watch: return "Watch"
+        }
+    }
+    var icon: String {
+        switch self {
+        case .browse: return "photo.on.rectangle.angled"
+        case .watch: return "play.rectangle.fill"
+        }
+    }
+}
+
 struct ExploreView: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject var appState: AppState
@@ -62,6 +82,7 @@ struct ExploreView: View {
     @State private var presentingFriendsFeed: Bool = false
     @State private var showSearchOverlay: Bool = false
     @State private var discoverFilter: String = "For You"
+    @State private var discoverMode: DiscoverMode = .browse
     @State private var visibleVideoId: String?
     @State private var livePulse: Bool = false
     @State private var presentedClub: Club?
@@ -93,11 +114,8 @@ struct ExploreView: View {
                 } else if allPosts.isEmpty {
                     emptyExploreState
                 } else {
-                    // Friends strip scrolls away with the rest of the page
-                    // (pinned header only keeps tabs + discover filters).
-                    friendsStrip
-                        .padding(.top, 8)
-
+                    // Friends strip moved to the Friends tab — Discover stays
+                    // focused on content browsing.
                     if let hero = cachedHeroPick {
                         ExploreHeroCard(
                             post: hero,
@@ -919,18 +937,81 @@ struct ExploreView: View {
             nextRecommendation: nextRecommendation
         )
 
-        let filter: String? = {
-            switch discoverFilter {
-            case "For You", "Following": return nil
-            case "Videos": return "Video"
-            default: return discoverFilter
-            }
-        }()
+        // Mode sets the media type base. Chip layers on top: workout-type
+        // chips refine further (photos + Push, videos + Push, etc). The
+        // social chips (For You / Following) don't touch media type.
+        let items = DiscoverFeedBuilder.build(
+            from: ctx,
+            typeFilter: workoutChipFilter(discoverFilter)
+        )
 
-        return DiscoverFeedBuilder.build(from: ctx, typeFilter: filter)
+        // Post-filter by mode: the builder doesn't know about our two-way
+        // mode toggle so we apply it here. Cheap — the list is already trimmed.
+        switch discoverMode {
+        case .browse:
+            return items.filter {
+                if case .video = $0 { return false }
+                return true
+            }
+        case .watch:
+            return items.filter {
+                if case .video = $0 { return true }
+                return false
+            }
+        }
     }
 
-    private let discoverChips = ["For You", "Following", "Push", "Pull", "Legs", "Cardio", "Videos"]
+    /// Workout-type filter only — social chips (For You / Following) return nil.
+    private func workoutChipFilter(_ chip: String) -> String? {
+        switch chip {
+        case "For You", "Following": return nil
+        default: return chip
+        }
+    }
+
+    private let discoverChips = ["For You", "Following", "Push", "Pull", "Legs", "Cardio"]
+
+    /// Two-way segmented toggle in the Discover header: Browse vs Watch.
+    /// Keeps the page focused by separating visual browsing from video
+    /// entertainment — chips below handle further refinement within each mode.
+    private var discoverModeToggle: some View {
+        HStack(spacing: 2) {
+            ForEach(DiscoverMode.allCases) { mode in
+                let selected = discoverMode == mode
+                Button {
+                    #if canImport(UIKit)
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    #endif
+                    withAnimation(.easeInOut(duration: 0.18)) { discoverMode = mode }
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: mode.icon)
+                            .font(.system(size: 10, weight: .semibold))
+                        Text(mode.label)
+                            .font(.system(size: 11, weight: .semibold))
+                    }
+                    .foregroundColor(selected ? .white : GQColors.textSecondary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(
+                        Group {
+                            if selected {
+                                GQGradients.primary
+                            } else {
+                                Color.clear
+                            }
+                        }
+                    )
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(2)
+        .background(GQColors.surfaceBase)
+        .clipShape(Capsule())
+        .overlay(Capsule().stroke(GQColors.borderDefault, lineWidth: 1))
+    }
 
     @ViewBuilder
     private var discoverSection: some View {
@@ -973,6 +1054,7 @@ struct ExploreView: View {
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundColor(GQColors.textPrimary)
                         Spacer()
+                        discoverModeToggle
                     }
                     .padding(.horizontal, 16)
 

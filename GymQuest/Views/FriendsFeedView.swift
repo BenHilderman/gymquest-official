@@ -16,10 +16,28 @@ struct FriendsFeedView: View {
 
     @Query(sort: \Post.timestamp, order: .reverse) private var allPosts: [Post]
     @Query private var follows: [Friend]
+    @Query private var presenceStates: [UserPresenceState]
+    @Query private var allUserProfiles: [UserProfile]
 
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
+                // Presence strip — moved here from Discover so the Friends
+                // tab owns "who's live / who posted recently" in one place.
+                if !friendsMembers.isEmpty {
+                    FriendsRow(
+                        members: friendsMembers,
+                        onTapMember: { _ in /* scroll to post — no-op for now */ },
+                        onStartWorkout: { dismiss() }
+                    )
+                    .padding(.top, 8)
+
+                    Rectangle()
+                        .fill(GQColors.borderSubtle)
+                        .frame(height: 1)
+                        .padding(.top, 10)
+                }
+
                 if friendPosts.isEmpty {
                     emptyState
                 } else {
@@ -60,6 +78,23 @@ struct FriendsFeedView: View {
             followedIds.contains($0.authorId) &&
             ($0.photoData != nil || $0.videoData != nil || !$0.mediaItems.isEmpty)
         }
+    }
+
+    private var friendsMembers: [FriendsMember] {
+        let followedIds = Set(follows.filter { $0.userId == profile.id }.map(\.odId))
+        let liveNow = PresenceService.liveNow(
+            from: presenceStates,
+            selfId: profile.id,
+            followedIds: followedIds
+        )
+        let profilesById = Dictionary(uniqueKeysWithValues: allUserProfiles.map { ($0.id, $0) })
+        return FriendsMemberBuilder.build(
+            selfId: profile.id,
+            follows: follows,
+            allPosts: allPosts,
+            liveNowStates: liveNow,
+            profilesById: profilesById
+        )
     }
 
     private var bestSuggestion: Post? {

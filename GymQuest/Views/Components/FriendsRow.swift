@@ -19,6 +19,87 @@ struct FriendsMember: Identifiable {
     }
 }
 
+/// Pure builder that turns raw queries (follows, posts, presence, profiles)
+/// into a sorted FriendsMember list. Lifted out of ExploreView so the
+/// Friends tab can render the same strip without duplicating 60 lines.
+enum FriendsMemberBuilder {
+    static func build(
+        selfId: UUID,
+        follows: [Friend],
+        allPosts: [Post],
+        liveNowStates: [UserPresenceState],
+        profilesById: [UUID: UserProfile]
+    ) -> [FriendsMember] {
+        let followedIds = Set(follows.filter { $0.userId == selfId }.map(\.odId))
+        guard !followedIds.isEmpty else { return [] }
+
+        let liveIds = Set(liveNowStates.map(\.userId))
+        let weekAgo = Date().addingTimeInterval(-7 * 86_400)
+        let inactiveThreshold = Date().addingTimeInterval(-3 * 86_400)
+
+        var latestPost: [UUID: Post] = [:]
+        for post in allPosts where followedIds.contains(post.authorId) {
+            if let existing = latestPost[post.authorId], existing.timestamp >= post.timestamp { continue }
+            latestPost[post.authorId] = post
+        }
+
+        let members: [FriendsMember] = followedIds.compactMap { friendId in
+            let profile = profilesById[friendId]
+            let follow = follows.first(where: { $0.odId == friendId })
+            let name = profile?.name ?? follow?.odName ?? "Friend"
+            let username = profile?.username ?? follow?.odUsername ?? ""
+            let avatarData = profile?.profilePhotoData
+
+            if liveIds.contains(friendId) {
+                let state = liveNowStates.first(where: { $0.userId == friendId })
+                let type = state?.workoutTypeRaw?.capitalized ?? "Training"
+                let mins = state?.minutesIn ?? 0
+                return FriendsMember(
+                    id: friendId, name: name, username: username, avatarData: avatarData,
+                    status: .live(workoutType: state?.workoutTypeRaw),
+                    statusText: "\(type) · \(mins)m"
+                )
+            }
+
+            if let post = latestPost[friendId], post.timestamp >= weekAgo {
+                let type = post.workoutType?.capitalized ?? "Workout"
+                let ago = RelativeDateString.compact(from: post.timestamp)
+                return FriendsMember(
+                    id: friendId, name: name, username: username, avatarData: avatarData,
+                    status: .recent,
+                    statusText: "\(type) · \(ago)"
+                )
+            }
+
+            let lastDate = latestPost[friendId]?.timestamp
+            if lastDate == nil || lastDate! < inactiveThreshold {
+                let ago = lastDate.map { RelativeDateString.compact(from: $0) } ?? "—"
+                let type = latestPost[friendId]?.workoutType?.capitalized
+                let text: String = type.map { "\($0) · \(ago)" } ?? ago
+                return FriendsMember(
+                    id: friendId, name: name, username: username, avatarData: avatarData,
+                    status: .inactive,
+                    statusText: text
+                )
+            }
+
+            return nil
+        }
+
+        return members.sorted { lhs, rhs in
+            priority(lhs.status) < priority(rhs.status)
+        }
+    }
+
+    private static func priority(_ status: FriendsMember.Status) -> Int {
+        switch status {
+        case .live: return 0
+        case .recent: return 1
+        case .inactive: return 2
+        }
+    }
+}
+
 /// One horizontal row replacing both LiveNowStrip and FriendFeedSection.
 /// Green ring = training now, purple = posted recently, gray = inactive.
 /// ~70pt tall. Tap avatar → callback. [+] at the end starts a workout.
