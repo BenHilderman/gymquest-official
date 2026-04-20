@@ -43,15 +43,9 @@ struct TodayView: View {
     @State private var draftWorkoutType: String = ""
     @State private var draftStartTime: Date = Date()
     @State private var showingPlanOptions = false
-    @State private var selectedSubTab: TodaySubTab = .today
     @State private var consistencyState: ConsistencyState = .onTrack
     @State private var showWeeklyScheduleEditor = false
     @State private var selectedPlanDay: IdentifiableInt? = nil
-
-    private enum TodaySubTab: String, CaseIterable {
-        case today = "Today"
-        case progress = "Progress"
-    }
 
     // MARK: - Squad / Challenge Computed Props
 
@@ -137,17 +131,8 @@ struct TodayView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                todayTabBar
-
-                ScrollView {
-                    switch selectedSubTab {
-                    case .today:
-                        todayContent
-                    case .progress:
-                        ProgressAnalyticsView(profile: profile, inline: true)
-                    }
-                }
+            ScrollView {
+                todayContent
             }
             .scrollContentBackground(.hidden)
             .gqPageBackground()
@@ -155,6 +140,17 @@ struct TodayView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     NavAvatarButton(profile: profile)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink {
+                        ProgressAnalyticsView(profile: profile, inline: true)
+                            .navigationTitle("Progress")
+                            .navigationBarTitleDisplayMode(.inline)
+                    } label: {
+                        Image(systemName: "chart.xyaxis.line")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(GQColors.textPrimary)
+                    }
                 }
             }
             .toolbarBackground(.visible, for: .navigationBar)
@@ -1665,57 +1661,6 @@ struct TodayView: View {
         case 12..<17: return "Good afternoon"
         default: return "Good evening"
         }
-    }
-
-    // MARK: - Tab Bar (Feed-style)
-
-    private var subTabIndex: Int {
-        TodaySubTab.allCases.firstIndex(of: selectedSubTab) ?? 0
-    }
-
-    private var todayTabBar: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 0) {
-                ForEach(TodaySubTab.allCases, id: \.self) { tab in
-                    Text(tab.rawValue)
-                        .font(.system(size: 13, weight: selectedSubTab == tab ? .semibold : .regular))
-                        .foregroundColor(selectedSubTab == tab ? GQColors.textPrimary : GQColors.textTertiary)
-                        .frame(maxWidth: .infinity)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            selectedSubTab = tab
-                        }
-                }
-            }
-            .padding(.bottom, 6)
-
-            ZStack(alignment: .leading) {
-                // Full-width grey baseline
-                Rectangle()
-                    .fill(GQColors.borderSubtle)
-                    .frame(height: 0.5)
-
-                // Active tab accent underline
-                GeometryReader { geometry in
-                    let tabWidth = geometry.size.width / CGFloat(TodaySubTab.allCases.count)
-                    Rectangle()
-                        .fill(GQGradients.primary)
-                        .frame(width: tabWidth, height: 1.5)
-                        .clipShape(RoundedRectangle(cornerRadius: 0.75))
-                        .offset(x: tabWidth * CGFloat(subTabIndex))
-                        .animation(.easeInOut(duration: 0.3), value: subTabIndex)
-                }
-                .frame(height: 1.5)
-            }
-            .frame(height: 1.5)
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 20)
-        .padding(.bottom, 2)
-        .background(
-            GQColors.background
-                .ignoresSafeArea(edges: .top)
-        )
     }
 
     // MARK: - Start Workout Hero Button
