@@ -71,14 +71,20 @@ struct ExploreHeroCard: View {
                     }
                 }
         )
-        .task(id: currentIndex) {
+        // Key the task on both currentIndex AND picksCount so it
+        // relaunches once the parent populates the carousel — the hero
+        // card mounts with picksCount == 0 briefly on first render.
+        .task(id: "\(currentIndex)-\(picksCount)") {
             guard picksCount > 1 else { return }
             progress = 0
+            // Tiny delay so the state reset lands before we kick off the
+            // animation — without it, the fill sometimes stays at whatever
+            // value it had when the previous task was cancelled.
+            try? await Task.sleep(nanoseconds: 50_000_000)
+            if Task.isCancelled { return }
             withAnimation(.linear(duration: fillDuration)) { progress = 1 }
-            do {
-                try await Task.sleep(nanoseconds: UInt64(fillDuration * 1_000_000_000))
-                if !Task.isCancelled { onAdvance?() }
-            } catch { }
+            try? await Task.sleep(nanoseconds: UInt64(fillDuration * 1_000_000_000))
+            if !Task.isCancelled { onAdvance?() }
         }
     }
 
