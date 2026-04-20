@@ -253,18 +253,14 @@ struct LiftAIApp: App {
                             if host == ClubInviteService.host,
                                let invite = ClubInviteService.parse(url: url) {
                                 appState.pendingClubInvite = invite
-                                appState.selectedTab = .feed
-                                NotificationCenter.default.post(name: .navigateToFeedTab, object: FeedFilter.clubs)
+                                appState.selectedTab = .clubs
                             } else {
-                                let tab: FeedFilter? = switch host {
-                                case "social", "discover": .discover
-                                case "friends": .friends
-                                case "clubs": .clubs
-                                default: nil
-                                }
-                                if let tab {
-                                    appState.selectedTab = .feed
-                                    NotificationCenter.default.post(name: .navigateToFeedTab, object: tab)
+                                // Deep-link hosts map directly to top-level tabs now.
+                                switch host {
+                                case "social", "discover": appState.selectedTab = .discover
+                                case "friends": appState.selectedTab = .friends
+                                case "clubs": appState.selectedTab = .clubs
+                                default: break
                                 }
                             }
                         }
@@ -288,7 +284,7 @@ struct LiftAIApp: App {
 // basically the brain of the app
 @MainActor
 class AppState: ObservableObject {
-    @Published var selectedTab: Tab = .feed
+    @Published var selectedTab: Tab = .friends
     /// Set by `liftai://club-invite/<id>` deep links; consumed by the Clubs
     /// feed to auto-open the target club (and auto-join for squads with a
     /// valid invite code).
@@ -366,16 +362,20 @@ class AppState: ObservableObject {
 
     // 5-tab layout: Today + Feed + Coach + Stats + You with center action hub
     enum Tab: String {
-        case feed = "Feed"
-        case today = "Today"
+        case friends = "Friends"
+        case clubs = "Clubs"
         case home = "Workout"    // hidden — only used during active workouts
-        case coach = "Coach"
-        case activity = "Stats"
-        case profile = "You"
+        case discover = "Discover"
+        case today = "Today"
+        case coach = "Coach"         // legacy, unused in tab bar
+        case activity = "Stats"      // legacy, reached via Friends bell icon
+        case profile = "You"         // legacy, reached via nav avatar
 
         var icon: String {
             switch self {
-            case .feed: return "person.2.fill"
+            case .friends: return "person.2.fill"
+            case .clubs: return "building.2.fill"
+            case .discover: return "sparkles"
             case .today: return "chart.bar.fill"
             case .home: return "house.fill"
             case .coach: return "bubble.left.and.text.bubble.right.fill"
@@ -384,7 +384,7 @@ class AppState: ObservableObject {
             }
         }
 
-        static let visibleTabs: [Tab] = [.today, .feed, .coach, .activity, .profile]
+        static let visibleTabs: [Tab] = [.friends, .clubs, .discover, .today]
     }
 }
 

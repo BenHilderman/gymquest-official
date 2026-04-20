@@ -1892,7 +1892,7 @@ struct TodayView: View {
         .padding(14)
         .homeSocialCard(cornerRadius: 14)
         .onTapGesture {
-            appState.selectedTab = .feed
+            appState.selectedTab = .friends
             NotificationCenter.default.post(name: .navigateToFeedTab, object: FeedTab.clubs)
         }
     }
@@ -1947,7 +1947,7 @@ struct TodayView: View {
         .padding(14)
         .homeSocialCard(cornerRadius: 14)
         .onTapGesture {
-            appState.selectedTab = .feed
+            appState.selectedTab = .friends
             NotificationCenter.default.post(name: .navigateToFeedTab, object: FeedTab.clubs)
         }
     }

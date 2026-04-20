@@ -537,7 +537,7 @@ struct ActiveWorkoutView: View {
                     hasSeenPostWorkoutPaywall = true
                     showingPostWorkoutPaywall = true
                 } else {
-                    appState.selectedTab = .feed
+                    appState.selectedTab = .friends
                     appState.endWorkout()
                 }
             }
@@ -568,7 +568,7 @@ struct ActiveWorkoutView: View {
                 hasSeenPostWorkoutPaywall = true
                 showingPostWorkoutPaywall = true
             } else {
-                appState.selectedTab = .feed
+                appState.selectedTab = .friends
                 appState.endWorkout()
             }
         }) {
@@ -625,7 +625,7 @@ struct ActiveWorkoutView: View {
                             hasSeenPostWorkoutPaywall = true
                             showingPostWorkoutPaywall = true
                         } else {
-                            appState.selectedTab = .feed
+                            appState.selectedTab = .friends
                             appState.endWorkout()
                         }
                     }
@@ -633,7 +633,7 @@ struct ActiveWorkoutView: View {
             }
         }
         .sheet(isPresented: $showingPostWorkoutPaywall, onDismiss: {
-            appState.selectedTab = .feed
+            appState.selectedTab = .friends
             appState.endWorkout()
         }) {
             PaywallView()

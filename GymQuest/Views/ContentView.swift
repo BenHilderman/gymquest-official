@@ -93,7 +93,9 @@ struct ContentView: View {
         ZStack(alignment: .bottom) {
             Group {
                 switch appState.selectedTab {
-                case .feed: FeedView(profile: profile)
+                case .discover: FeedView(profile: profile)
+                case .friends: FriendsTabView(profile: profile)
+                case .clubs: ClubsTabView(profile: profile)
                 case .today: TodayView(profile: profile)
                 case .coach: CoachView(profile: profile, workouts: workouts, aiService: aiService)
                 case .activity: SocialActivityView(profile: profile)
@@ -240,9 +242,9 @@ struct ContentView: View {
             withAnimation(.easeInOut(duration: 0.2)) {
                 switch newStep {
                 case 0, 1: appState.selectedTab = .today
-                case 2: appState.selectedTab = .activity
-                case 3: appState.selectedTab = .profile
-                case 4: appState.selectedTab = .feed  // end on Feed
+                case 2: appState.selectedTab = .clubs
+                case 3: appState.selectedTab = .discover
+                case 4: appState.selectedTab = .friends  // end on Friends
                 default: break
                 }
             }
@@ -294,7 +296,7 @@ struct FloatingTabBar: View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
                 ZStack(alignment: .topTrailing) {
-                    FloatingTabButton(tab: .feed, icon: "person.2", selectedIcon: "person.2.fill", label: "Feed")
+                    FloatingTabButton(tab: .friends, icon: "person.2", selectedIcon: "person.2.fill", label: "Friends")
 
                     if SocialActivityService.shared.hasLiveFriends {
                         SocialActivityBadge()
@@ -302,7 +304,7 @@ struct FloatingTabBar: View {
                     }
                 }
 
-                FloatingTabButton(tab: .today, icon: "chart.bar", selectedIcon: "chart.bar.fill", label: "Today")
+                FloatingTabButton(tab: .clubs, icon: "building.2", selectedIcon: "building.2.fill", label: "Clubs")
 
                 // Center button — workout indicator when active, "+" when idle
                 if appState.isWorkoutActive {
@@ -362,9 +364,9 @@ struct FloatingTabBar: View {
                     .accessibilityLabel("Start workout")
                 }
 
-                FloatingTabButton(tab: .activity, icon: "heart", selectedIcon: "heart.fill", label: "Activity")
+                FloatingTabButton(tab: .discover, icon: "sparkles", selectedIcon: "sparkles", label: "Discover")
 
-                FloatingTabButton(tab: .profile, icon: "person", selectedIcon: "person.fill", label: "You")
+                FloatingTabButton(tab: .today, icon: "chart.bar", selectedIcon: "chart.bar.fill", label: "Today")
             }
             .padding(.horizontal, 16)
             .padding(.top, 4)

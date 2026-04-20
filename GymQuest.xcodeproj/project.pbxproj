@@ -441,6 +441,7 @@
 		69C9817A4E6EDB5D7527FAA2 /* FriendActivityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6E11A69D076EC3F4DE47110 /* FriendActivityService.swift */; };
 		69DA2F45BF81D1A290C038CA /* 1380.gif in Resources */ = {isa = PBXBuildFile; fileRef = D069687F623F70CED59FA090 /* 1380.gif */; };
 		69ECF8A2797D68E65E4A4B9A /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 652CDE75BDC8BDBEAE366B89 /* Models.swift */; };
+		6A5DF86361D976EBF6D8617C /* FriendsTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 376DA528230BC014E570685B /* FriendsTabView.swift */; };
 		6A6B0C4975532884CED52261 /* FriendsRecapCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBE342783F663951D4723876 /* FriendsRecapCard.swift */; };
 		6ABCD67BE202E0B5E62AB3F6 /* 0405.gif in Resources */ = {isa = PBXBuildFile; fileRef = D24756064867AB33603A04D0 /* 0405.gif */; };
 		6B5654ABAB841B9DBDFEBABF /* 1456.gif in Resources */ = {isa = PBXBuildFile; fileRef = A28AF93B9108724681430E28 /* 1456.gif */; };
@@ -590,6 +591,7 @@
 		8E2D5C839E554123AD13700A /* VideoThumbnailService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B086BC2BE82606CBA3047348 /* VideoThumbnailService.swift */; };
 		8E4CA089D28470BCAE473157 /* lose_yourself.jpg in Resources */ = {isa = PBXBuildFile; fileRef = D7A910249EF352339609F67C /* lose_yourself.jpg */; };
 		8E4DF75815E6097846A27F2B /* 3289.gif in Resources */ = {isa = PBXBuildFile; fileRef = 9B8CC22DFA738BB146442BFF /* 3289.gif */; };
+		8E861A79899AD3C298F6142F /* FriendsTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 376DA528230BC014E570685B /* FriendsTabView.swift */; };
 		8EDE266390D761681DC8002B /* AlbumArtService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DA59902F77FA7D6F64F9B48 /* AlbumArtService.swift */; };
 		8F09E6315A7B0F7E4329CD17 /* 0300.gif in Resources */ = {isa = PBXBuildFile; fileRef = B2C9440504D01265BDF7E785 /* 0300.gif */; };
 		8F68576588A0666327ED759B /* FollowWorkoutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27908D9264CF6267D32B6A65 /* FollowWorkoutView.swift */; };
@@ -1142,6 +1144,7 @@
 		343A64E76EAC783986BED641 /* SupabaseConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseConfig.swift; sourceTree = "<group>"; };
 		3461F0F3E5EE1155A0A6D102 /* FormDemo3DView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FormDemo3DView.swift; sourceTree = "<group>"; };
 		374D9AF5AC436179FEE53758 /* AIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIService.swift; sourceTree = "<group>"; };
+		376DA528230BC014E570685B /* FriendsTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FriendsTabView.swift; sourceTree = "<group>"; };
 		37EBD6A3578B3A3E2E100563 /* 0031.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = 0031.gif; sourceTree = "<group>"; };
 		3A1D35977B41A0DD91A4075D /* 3291.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = 3291.gif; sourceTree = "<group>"; };
 		3B407B7E8E3CF56633C89D7F /* PermissionsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionsService.swift; sourceTree = "<group>"; };
@@ -1880,6 +1883,7 @@
 				27908D9264CF6267D32B6A65 /* FollowWorkoutView.swift */,
 				7487D7B029256B93AC32DDC8 /* FormCheckCameraView.swift */,
 				19887D59571B2F9513FE3E61 /* FriendsFeedView.swift */,
+				376DA528230BC014E570685B /* FriendsTabView.swift */,
 				2C44C2DBCA0AD6E857883EF0 /* HealthDashboardView.swift */,
 				B5E8594E233C2CD9C0E31BBF /* HeroWidgetsView.swift */,
 				DB3FFBAA88CE548E04967664 /* HomeView.swift */,
@@ -3130,6 +3134,7 @@
 				FC6F2D39C4FBF081AF2706ED /* FriendsRhythmCard.swift in Sources */,
 				4450661153BEF971228DE654 /* FriendsRhythmService.swift in Sources */,
 				41798B949B7A27094466E809 /* FriendsRow.swift in Sources */,
+				6A5DF86361D976EBF6D8617C /* FriendsTabView.swift in Sources */,
 				E69B7AC3F47873B943AD9CF2 /* GymQuestApp.swift in Sources */,
 				210EF78AD25F5A7CF8452E77 /* HealthDashboardView.swift in Sources */,
 				44A190D8FB3E65E36A0E2995 /* HealthKitService.swift in Sources */,
@@ -3415,6 +3420,7 @@
 				55B0BA6384D7BB444C8B4544 /* FriendsRhythmCard.swift in Sources */,
 				55F52BFD1C01627DCC185342 /* FriendsRhythmService.swift in Sources */,
 				25EC82E1BE0D400C4B78F651 /* FriendsRow.swift in Sources */,
+				8E861A79899AD3C298F6142F /* FriendsTabView.swift in Sources */,
 				CB1DAFF5DE6BF8B0CD04A1CD /* GymQuestApp.swift in Sources */,
 				2445D468BCCBB105E366A33D /* HealthDashboardView.swift in Sources */,
 				0C4D031C3EDEDC854C638914 /* HealthKitService.swift in Sources */,
