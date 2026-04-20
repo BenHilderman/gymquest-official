@@ -148,6 +148,7 @@
 		226ED910B9329590CB745C1E /* 0085.gif in Resources */ = {isa = PBXBuildFile; fileRef = D0DF1F6CBBAC063A6395D228 /* 0085.gif */; };
 		232D25739922670F4C98441E /* 3769.gif in Resources */ = {isa = PBXBuildFile; fileRef = AEFDCFD180E8E15D2F71F1D3 /* 3769.gif */; };
 		233F1AB0596AF093CA38DACC /* 0099.gif in Resources */ = {isa = PBXBuildFile; fileRef = BE9E102C4B0F336DAB0994D2 /* 0099.gif */; };
+		2373D2467EB33A64CBE181AB /* DiscoverSearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C756600A9443DA38D117641 /* DiscoverSearchView.swift */; };
 		2445D468BCCBB105E366A33D /* HealthDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C44C2DBCA0AD6E857883EF0 /* HealthDashboardView.swift */; };
 		24626AA32D534CB7AC0B12E9 /* 0550.gif in Resources */ = {isa = PBXBuildFile; fileRef = 58AA0DCD3B0471B9F4FC5CD2 /* 0550.gif */; };
 		24742149DED917D57A475B3F /* FormVideoPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F6FA057DB346A62631F880B /* FormVideoPlayerView.swift */; };
@@ -300,6 +301,7 @@
 		459CD0E644B5ED83CC11376F /* demo_bench_press.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = 62ED1C3C3B6B02236D5C424C /* demo_bench_press.mp4 */; };
 		45BCD8C22F103A6945CD7F38 /* UserProfileSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17C74152393980588F6CB2BC /* UserProfileSheet.swift */; };
 		4628310DCCBE21594618CE3D /* 3291.gif in Resources */ = {isa = PBXBuildFile; fileRef = 3A1D35977B41A0DD91A4075D /* 3291.gif */; };
+		4646B712F92867BB90D02A09 /* DiscoverSearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C756600A9443DA38D117641 /* DiscoverSearchView.swift */; };
 		467B84FE103FC97BAFF54AAA /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = E4D54DD994DF4457DE77972B /* LaunchScreen.storyboard */; };
 		469D837688F789F11BD19886 /* ClubsSeeder.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE6DBAEC96F07B141018F623 /* ClubsSeeder.swift */; };
 		46F59E54E3C7E1094B6A2D02 /* SocialSeeder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5554D249F530860F90381A85 /* SocialSeeder.swift */; };
@@ -1309,6 +1311,7 @@
 		9AA5CD190521E72EE61086CE /* 0149.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = 0149.gif; sourceTree = "<group>"; };
 		9B490DF2A0D87B2786C05222 /* 0738.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = 0738.gif; sourceTree = "<group>"; };
 		9B8CC22DFA738BB146442BFF /* 3289.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = 3289.gif; sourceTree = "<group>"; };
+		9C756600A9443DA38D117641 /* DiscoverSearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscoverSearchView.swift; sourceTree = "<group>"; };
 		9CAC34F1199EA29DE9222EF2 /* WatchSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchSyncService.swift; sourceTree = "<group>"; };
 		9D101B935B0EB0A3F8BB02F0 /* 3361.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = 3361.gif; sourceTree = "<group>"; };
 		9D566F6B27671C9711FC748C /* IntentInferenceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntentInferenceService.swift; sourceTree = "<group>"; };
@@ -1878,6 +1881,7 @@
 				0169C691FD8D328BB91CB7C7 /* CreatePostView.swift */,
 				D6A35BC69EB838B5BFCC24B4 /* DesignSystem.swift */,
 				2134ABCF55C2DDA358F47C72 /* DiscoverFeedView.swift */,
+				9C756600A9443DA38D117641 /* DiscoverSearchView.swift */,
 				8131A8F6BF08AF684495664C /* EnhancedPostEditorView.swift */,
 				B0B804404486E1C13453122F /* ExploreView.swift */,
 				70DD1098A15CC4A11DC2676F /* FeedEducationalView.swift */,
@@ -3086,6 +3090,7 @@
 				557025B50125A087A6B6D013 /* DiscoverFeedCards.swift in Sources */,
 				C02DD0D88EA37C01204E9400 /* DiscoverFeedView.swift in Sources */,
 				E795052103B4FDF752C9EC4C /* DiscoverGrid.swift in Sources */,
+				4646B712F92867BB90D02A09 /* DiscoverSearchView.swift in Sources */,
 				8221747985E136FFF37ED2E2 /* DiscoverSeeder.swift in Sources */,
 				D24A71FB776191666009E6F6 /* EmotionInsightsService.swift in Sources */,
 				C4C2E602308905F3F3CE5526 /* EmotionInsightsView.swift in Sources */,
@@ -3373,6 +3378,7 @@
 				A0BBE5F04A489DE0308DD7EA /* DiscoverFeedCards.swift in Sources */,
 				E5EF9F446927EEFB2DE5DEBC /* DiscoverFeedView.swift in Sources */,
 				B6D29A390CA7CE4658E6AD8F /* DiscoverGrid.swift in Sources */,
+				2373D2467EB33A64CBE181AB /* DiscoverSearchView.swift in Sources */,
 				B278F0B1237565E364D381B4 /* DiscoverSeeder.swift in Sources */,
 				11646C23EFD4C7B92F7A812F /* EmotionInsightsService.swift in Sources */,
 				63D49E8531D71C1B4FE22DAF /* EmotionInsightsView.swift in Sources */,

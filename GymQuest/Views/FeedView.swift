@@ -230,6 +230,7 @@ struct FeedView: View {
     @State private var activeSquad: Squad?
     @State private var squadChallenge: SquadChallenge?
     @State private var hasSeeded = false
+    @State private var showDiscoverSearch = false
 
     // MARK: - Cached Social Graph
 
@@ -282,9 +283,24 @@ struct FeedView: View {
                         ToolbarItem(placement: .topBarLeading) {
                             NavAvatarButton(profile: profile)
                         }
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button {
+                                #if canImport(UIKit)
+                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                #endif
+                                showDiscoverSearch = true
+                            } label: {
+                                Image(systemName: "magnifyingglass")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundColor(GQColors.textPrimary)
+                            }
+                        }
                     }
                     .toolbarBackground(.visible, for: .navigationBar)
                     .toolbarBackground(GQColors.background, for: .navigationBar)
+                    .sheet(isPresented: $showDiscoverSearch) {
+                        DiscoverSearchView(profile: profile)
+                    }
                     .onAppear {
                         if !hasSeeded {
                             hasSeeded = true
