@@ -47,11 +47,8 @@ struct ExploreHeroCard: View {
             progressBar
             cardBody
                 .id(post.id)
-                .transition(.asymmetric(
-                    insertion: .opacity.combined(with: .move(edge: .trailing)),
-                    removal: .opacity.combined(with: .move(edge: .leading))
-                ))
-                .animation(.easeInOut(duration: 0.28), value: post.id)
+                .transition(.opacity)
+                .animation(.easeInOut(duration: 0.35), value: post.id)
         }
         .background(GQColors.cardBackground)
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(GQColors.borderDefault, lineWidth: 1))
@@ -76,13 +73,17 @@ struct ExploreHeroCard: View {
         // card mounts with picksCount == 0 briefly on first render.
         .task(id: "\(currentIndex)-\(picksCount)") {
             guard picksCount > 1 else { return }
-            progress = 0
-            // Tiny delay so the state reset lands before we kick off the
-            // animation — without it, the fill sometimes stays at whatever
-            // value it had when the previous task was cancelled.
-            try? await Task.sleep(nanoseconds: 50_000_000)
+            // Snap progress back to 0 without animating (Transaction
+            // overrides the .animation modifier on the fill rect).
+            withTransaction(Transaction(animation: nil)) {
+                progress = 0
+            }
+            // Yield a beat so the reset commits before we set the target.
+            try? await Task.sleep(nanoseconds: 30_000_000)
             if Task.isCancelled { return }
-            withAnimation(.linear(duration: fillDuration)) { progress = 1 }
+            // Setting target to 1 — the .animation(.linear, value: progress)
+            // modifier on the fill rect interpolates smoothly over fillDuration.
+            progress = 1
             try? await Task.sleep(nanoseconds: UInt64(fillDuration * 1_000_000_000))
             if !Task.isCancelled { onAdvance?() }
         }
@@ -196,8 +197,9 @@ struct ExploreHeroCard: View {
     }
 
     /// Top 4pt accent that fills from left to right over fillDuration.
-    /// The .task-driven progress animation handles motion — no secondary
-    /// animation modifier here or the two would fight.
+    /// The .animation modifier on the fill rectangle interpolates smoothly
+    /// when progress transitions from 0 → 1. Instant resets (between
+    /// picks) are done via Transaction to skip the animation.
     private var progressBar: some View {
         GeometryReader { geo in
             ZStack(alignment: .leading) {
@@ -206,6 +208,7 @@ struct ExploreHeroCard: View {
                 Rectangle()
                     .fill(GQGradients.primary)
                     .frame(width: geo.size.width * CGFloat(progress))
+                    .animation(.linear(duration: fillDuration), value: progress)
             }
         }
         .frame(height: 4)
