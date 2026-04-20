@@ -30,6 +30,38 @@ struct DiscoverSearchView: View {
     @State private var tappedProfileId: UUID?
     @State private var tappedExercise: ExerciseMetadata?
 
+    /// Precomputed search indexes. Built once on appear so every keystroke
+    /// scans prebuilt lowercase blobs instead of lowercasing/decoding on
+    /// each render. The big win is skipping per-keystroke JSON decoding of
+    /// sharedWorkoutData to pull a post's title.
+    @State private var postIndex: [PostSearchRow] = []
+    @State private var profileIndex: [ProfileSearchRow] = []
+    @State private var clubIndex: [ClubSearchRow] = []
+
+    private struct PostSearchRow {
+        let post: Post
+        let title: String
+        let subtitle: String
+        let blob: String
+        let titleLower: String
+        let highlightLower: String
+        let typeLower: String
+        let authorNameLower: String
+        let authorUsernameLower: String
+        let isRunnable: Bool
+    }
+
+    private struct ProfileSearchRow {
+        let profile: UserProfile
+        let nameLower: String
+        let usernameLower: String
+    }
+
+    private struct ClubSearchRow {
+        let club: Club
+        let blob: String
+    }
+
     private let perTabCap = 12
     private let topPerSection = 3
 
@@ -63,7 +95,13 @@ struct DiscoverSearchView: View {
             }
             .gqPageBackground()
             .navigationBarHidden(true)
-            .onAppear { focused = true }
+            .onAppear {
+                focused = true
+                if postIndex.isEmpty { buildIndexes() }
+            }
+            .onChange(of: allPosts.count) { _, _ in buildIndexes() }
+            .onChange(of: allUserProfiles.count) { _, _ in buildIndexes() }
+            .onChange(of: clubs.count) { _, _ in buildIndexes() }
             .task(id: rawQuery) {
                 try? await Task.sleep(nanoseconds: 220_000_000)
                 query = rawQuery
@@ -580,17 +618,20 @@ struct DiscoverSearchView: View {
 
     private var matchedWorkouts: [Post] {
         guard !q.isEmpty else { return [] }
-        let scored = allPosts.compactMap { post -> (Post, Int)? in
+        var results: [(Post, Int)] = []
+        results.reserveCapacity(perTabCap * 2)
+        for row in postIndex {
+            guard row.blob.contains(q) else { continue }  // fast prefilter
             var score = 0
-            if postTitle(post).lowercased().contains(q) { score += 4 }
-            if (post.exerciseHighlight ?? "").lowercased().contains(q) { score += 3 }
-            if (post.workoutType ?? "").lowercased().contains(q) { score += 2 }
-            if post.authorName.lowercased().contains(q) { score += 2 }
-            if post.authorUsername.lowercased().contains(q) { score += 2 }
-            if post.sharedWorkoutData != nil { score += 1 }
-            return score > 0 ? (post, score) : nil
+            if row.titleLower.contains(q) { score += 4 }
+            if row.highlightLower.contains(q) { score += 3 }
+            if row.typeLower.contains(q) { score += 2 }
+            if row.authorNameLower.contains(q) { score += 2 }
+            if row.authorUsernameLower.contains(q) { score += 2 }
+            if row.isRunnable { score += 1 }
+            if score > 0 { results.append((row.post, score)) }
         }
-        return scored.sorted { $0.1 > $1.1 }.prefix(perTabCap).map { $0.0 }
+        return results.sorted { $0.1 > $1.1 }.prefix(perTabCap).map { $0.0 }
     }
 
     private var matchedExercises: [ExerciseMetadata] {
@@ -607,23 +648,81 @@ struct DiscoverSearchView: View {
 
     private var matchedPeople: [UserProfile] {
         guard !q.isEmpty else { return [] }
-        return allUserProfiles
-            .filter { $0.id != profile.id }
-            .filter { $0.name.lowercased().contains(q) || $0.username.lowercased().contains(q) }
-            .prefix(perTabCap)
-            .map { $0 }
+        var matches: [UserProfile] = []
+        matches.reserveCapacity(perTabCap)
+        for row in profileIndex {
+            if row.nameLower.contains(q) || row.usernameLower.contains(q) {
+                matches.append(row.profile)
+                if matches.count >= perTabCap { break }
+            }
+        }
+        return matches
     }
 
     private var matchedClubs: [Club] {
         guard !q.isEmpty else { return [] }
-        return clubs
-            .filter { club in
-                club.name.lowercased().contains(q) ||
-                (club.location?.lowercased().contains(q) ?? false) ||
-                club.resolvedCategory.rawValue.lowercased().contains(q)
+        var matches: [Club] = []
+        matches.reserveCapacity(perTabCap)
+        for row in clubIndex {
+            if row.blob.contains(q) {
+                matches.append(row.club)
+                if matches.count >= perTabCap { break }
             }
-            .prefix(perTabCap)
-            .map { $0 }
+        }
+        return matches
+    }
+
+    // MARK: - Index build
+
+    /// Build lowercased search indexes once so every keystroke reuses
+    /// precomputed blobs instead of lowercasing + JSON-decoding on each
+    /// render. Capped to the most recent 300 posts — search UX doesn't
+    /// need to scan the entire corpus.
+    private func buildIndexes() {
+        let postCap = 300
+        let recentPosts = Array(allPosts.prefix(postCap))
+
+        postIndex = recentPosts.map { post in
+            let title = postTitle(post)
+            let subtitle = workoutSubtitle(post)
+            let titleLower = title.lowercased()
+            let highlightLower = (post.exerciseHighlight ?? "").lowercased()
+            let typeLower = (post.workoutType ?? "").lowercased()
+            let authorNameLower = post.authorName.lowercased()
+            let authorUsernameLower = post.authorUsername.lowercased()
+            let blob = [titleLower, highlightLower, typeLower, authorNameLower, authorUsernameLower].joined(separator: " ")
+            return PostSearchRow(
+                post: post,
+                title: title,
+                subtitle: subtitle,
+                blob: blob,
+                titleLower: titleLower,
+                highlightLower: highlightLower,
+                typeLower: typeLower,
+                authorNameLower: authorNameLower,
+                authorUsernameLower: authorUsernameLower,
+                isRunnable: post.sharedWorkoutData != nil
+            )
+        }
+
+        profileIndex = allUserProfiles
+            .filter { $0.id != profile.id }
+            .map {
+                ProfileSearchRow(
+                    profile: $0,
+                    nameLower: $0.name.lowercased(),
+                    usernameLower: $0.username.lowercased()
+                )
+            }
+
+        clubIndex = clubs.map { club in
+            let blob = [
+                club.name.lowercased(),
+                club.location?.lowercased() ?? "",
+                club.resolvedCategory.rawValue.lowercased()
+            ].joined(separator: " ")
+            return ClubSearchRow(club: club, blob: blob)
+        }
     }
 
     // MARK: - States
