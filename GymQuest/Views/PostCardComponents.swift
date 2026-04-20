@@ -766,10 +766,29 @@ struct PostCardV2: View {
             }
         }
         .onTapGesture(count: 1) {
-            if sharedWorkout != nil {
-                showWorkoutDetail = true
-            }
+            // Single-tap on the hero no longer opens the start-workout
+            // sheet (the "Try it" bar below does that). Instead it toggles
+            // the music preview play/stop when the post has a song —
+            // matches the single-tap-to-mute pattern from IG/TikTok.
+            toggleMusicPreview()
         }
+    }
+
+    /// Toggle the inline music preview. No-op on posts without a song.
+    /// Double-tap still reacts, long-press still opens the context menu.
+    private func toggleMusicPreview() {
+        if isPlayingMusic {
+            MusicPreviewService.shared.stop()
+            isPlayingMusic = false
+            return
+        }
+        guard let previewURL = post.songPreviewURL else { return }
+        MusicPreviewService.shared.playURL(
+            postId: post.id,
+            previewURL: previewURL,
+            snippetStart: post.musicSnippetStart ?? 0
+        )
+        isPlayingMusic = true
     }
 
     // MARK: - Top Music Row (album art + song line, from 12cec68)
