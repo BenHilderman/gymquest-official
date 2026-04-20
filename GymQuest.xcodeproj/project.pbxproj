@@ -134,6 +134,7 @@
 		1EDC3C70DB4EC3A7929E2B63 /* 0035.gif in Resources */ = {isa = PBXBuildFile; fileRef = BBB460199B52A2A9E88C980C /* 0035.gif */; };
 		1F0E7051A52F12FC69522CBB /* NutritionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46230D876FAC3A46CCA856E7 /* NutritionService.swift */; };
 		1F102A98780CC5AC961D4ACB /* EmotionInsightsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D47BC4E3DB6CC90CE6B47F6C /* EmotionInsightsService.swift */; };
+		1F842D978DDA783264C429E7 /* RecentSearchStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB5EC9751DEF4390A4854BD8 /* RecentSearchStore.swift */; };
 		1FFDCEC2756B40C0E9114892 /* demo_deadlift.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = 49C59E65635572095808A79C /* demo_deadlift.mp4 */; };
 		202F927A95F1726EEDE6A8F9 /* PostMediaTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BC6F381CBDA1F69766FB99C /* PostMediaTests.swift */; };
 		2038149E6CD1CD801DF44368 /* 0085.gif in Resources */ = {isa = PBXBuildFile; fileRef = D0DF1F6CBBAC063A6395D228 /* 0085.gif */; };
@@ -744,6 +745,7 @@
 		B846663D5D7FC139B9EBF16E /* FormDemoSceneService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06B5E31EE43A7F86949C8674 /* FormDemoSceneService.swift */; };
 		B86713B44B5905408D67102C /* lose_yourself.jpg in Resources */ = {isa = PBXBuildFile; fileRef = D7A910249EF352339609F67C /* lose_yourself.jpg */; };
 		B87967A7794116BDB3640814 /* WorkoutCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3A559F771F37E93C9C6C6D9 /* WorkoutCardView.swift */; };
+		B921DE93DCC7B9B91D4B5116 /* RecentSearchStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB5EC9751DEF4390A4854BD8 /* RecentSearchStore.swift */; };
 		BA32F83DFA9C1EFB03D6E44D /* FloatingReactionsOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3E16E8F62B47A1F06BE0E4E /* FloatingReactionsOverlay.swift */; };
 		BA793EFA66412B89F3D34F33 /* 0316.gif in Resources */ = {isa = PBXBuildFile; fileRef = 533AFE7A704374EFB375A9D1 /* 0316.gif */; };
 		BA88CF14E2EDD2F430CF393F /* 0861.gif in Resources */ = {isa = PBXBuildFile; fileRef = 9F0EB5E8A6862967E1B4FBEC /* 0861.gif */; };
@@ -1454,6 +1456,7 @@
 		E9FEEB95635E6E5AFF559D17 /* FeedRankingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedRankingService.swift; sourceTree = "<group>"; };
 		EA841549F3546DD065E3BA06 /* 0120.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = 0120.gif; sourceTree = "<group>"; };
 		EB3ACFE2FCB21C1195EDB9A8 /* FriendsNudgeBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FriendsNudgeBanner.swift; sourceTree = "<group>"; };
+		EB5EC9751DEF4390A4854BD8 /* RecentSearchStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentSearchStore.swift; sourceTree = "<group>"; };
 		EB667EE34B89059704D8B10B /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
 		EBBB6CCBB8C317EE08685F2E /* MockURLProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockURLProtocol.swift; sourceTree = "<group>"; };
 		EBEA5361AE3644258F7D4733 /* SupabaseSyncable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseSyncable.swift; sourceTree = "<group>"; };
@@ -1721,6 +1724,7 @@
 				F69D3B74A854A6ACC91B7C7D /* ProgressiveOverloadService.swift */,
 				7B6D642307B4359A8EA9BC50 /* PRService.swift */,
 				A2F055F6FE71C4E19E10D0A8 /* QuestService.swift */,
+				EB5EC9751DEF4390A4854BD8 /* RecentSearchStore.swift */,
 				59A4DFE6BA3A2FF93E6B6882 /* RelativeDateString.swift */,
 				2066AB169A13A6B6FAC57B1D /* RobotDemoService.swift */,
 				AA451E88DB19767A3658E4D9 /* SavedWorkoutService.swift */,
@@ -3199,6 +3203,7 @@
 				C038EFB34EEF26728BDD3A5E /* ProgressView.swift in Sources */,
 				07D4D6FCF0DFA8AB49D899AA /* ProgressiveOverloadService.swift in Sources */,
 				4E03E24998F830268C7D8F7F /* QuestService.swift in Sources */,
+				B921DE93DCC7B9B91D4B5116 /* RecentSearchStore.swift in Sources */,
 				D00F4DB53FB0EF8834CA20E4 /* RecommendationEngine.swift in Sources */,
 				842B252A5457757905AFFB9B /* RecoveryAdvisorCard.swift in Sources */,
 				D8819CB881414052081C14E3 /* RelativeDateString.swift in Sources */,
@@ -3487,6 +3492,7 @@
 				F68D79AA29F1C79BA8DD676A /* ProgressView.swift in Sources */,
 				400F1F9B59CBEABA478CAEEB /* ProgressiveOverloadService.swift in Sources */,
 				FA3CE99C8B2163870A112065 /* QuestService.swift in Sources */,
+				1F842D978DDA783264C429E7 /* RecentSearchStore.swift in Sources */,
 				C6D02DFD13D188C3DBDE4A05 /* RecommendationEngine.swift in Sources */,
 				91B75C7D474BC4AE53B1B7AF /* RecoveryAdvisorCard.swift in Sources */,
 				275644D17319277CDBBA9A9A /* RelativeDateString.swift in Sources */,
