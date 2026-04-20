@@ -55,13 +55,15 @@ struct ExploreHeroCard: View {
             )
             .id(currentIndex)
 
-            // Tap anywhere on the card body (outside the shuffle / Start
-            // / thumbnail / dot buttons) opens the full post in the
-            // recommended-posts feed. Nested Buttons intercept first, so
-            // this only fires on "empty" areas.
+            // Tap on the card body (outside the shuffle / Start /
+            // thumbnail / dot buttons) goes straight to the workout
+            // overview — the primary action on a recommendation card.
+            // Thumbnail tap (handled inline in cardBody) routes to the
+            // post feed instead, so users who want to read the post
+            // still have a path in.
             cardBody
                 .contentShape(Rectangle())
-                .onTapGesture(perform: onOpen)
+                .onTapGesture(perform: onStart)
         }
         .background(GQColors.cardBackground)
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(GQColors.borderDefault, lineWidth: 1))
