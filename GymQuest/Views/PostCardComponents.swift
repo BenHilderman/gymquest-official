@@ -48,6 +48,11 @@ struct PostCardV2: View {
     @State private var cachedPRs: [FeedPR] = []
     @State private var showDoubleTapHeart = false
     @State private var doubleTapLocation: CGPoint = .zero
+    @State private var showMuteOverlay = false
+    /// Which icon to render in the mute overlay — flipped to match the
+    /// state the user is now in (muted -> speaker.slash, playing -> wave).
+    @State private var muteOverlayIcon: String = "speaker.wave.2.fill"
+    @State private var showActionDialog = false
     @State private var useMusicStyleB = false
     @State private var albumArtworkURL: URL?
     @State private var albumDominantColor: Color = GQColors.vividPurple
@@ -100,28 +105,23 @@ struct PostCardV2: View {
             }
         }
         .background(GQColors.surfaceBase)
-        .contextMenu {
+        .confirmationDialog("Post actions", isPresented: $showActionDialog, titleVisibility: .hidden) {
             if post.authorId != currentUserId {
-                Button {
-                    PermissionsService.shared.blockUser(userId: currentUserId, targetId: post.authorId)
-                } label: {
-                    Label("Block User", systemImage: "hand.raised")
-                }
-                Button {
-                    PermissionsService.shared.muteUser(userId: currentUserId, targetId: post.authorId)
-                } label: {
-                    Label("Mute User", systemImage: "speaker.slash")
-                }
-                Button(role: .destructive) {
+                Button("Report Post", role: .destructive) {
                     PermissionsService.shared.reportContent(
                         reporterId: currentUserId,
                         contentType: "post",
                         contentId: post.id,
                         reason: "inappropriate"
                     )
-                } label: {
-                    Label("Report Post", systemImage: "flag")
                 }
+                Button("Mute @\(post.authorUsername)") {
+                    PermissionsService.shared.muteUser(userId: currentUserId, targetId: post.authorId)
+                }
+                Button("Block @\(post.authorUsername)", role: .destructive) {
+                    PermissionsService.shared.blockUser(userId: currentUserId, targetId: post.authorId)
+                }
+                Button("Cancel", role: .cancel) { }
             }
         }
         .opacity(hasAppeared ? 1 : 0)
@@ -744,6 +744,18 @@ struct PostCardV2: View {
             if showDoubleTapHeart {
                 DoubleTapHeartBurst(isActive: true, location: doubleTapLocation)
             }
+
+            // Single-tap mute indicator — brief center icon that scales in
+            // and fades out. Flipped to match the state the user just
+            // moved to (muted -> slash, playing -> wave).
+            if showMuteOverlay {
+                Image(systemName: muteOverlayIcon)
+                    .font(.system(size: 34, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(width: 74, height: 74)
+                    .background(Circle().fill(.black.opacity(0.55)))
+                    .transition(.scale(scale: 0.6).combined(with: .opacity))
+            }
         }
         .clipShape(Rectangle())
         .contentShape(Rectangle())
@@ -766,29 +778,57 @@ struct PostCardV2: View {
             }
         }
         .onTapGesture(count: 1) {
-            // Single-tap on the hero no longer opens the start-workout
-            // sheet (the "Try it" bar below does that). Instead it toggles
-            // the music preview play/stop when the post has a song —
-            // matches the single-tap-to-mute pattern from IG/TikTok.
+            // Single-tap: toggle music preview + flash a subtle center
+            // icon. No-op on posts without music.
             toggleMusicPreview()
+        }
+        .onLongPressGesture(minimumDuration: 0.5) {
+            // Replaces the old .contextMenu (which zoomed the whole post).
+            // Fires a minimal iOS action sheet with Report/Mute/Block.
+            guard post.authorId != currentUserId else { return }
+            #if canImport(UIKit)
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            #endif
+            showActionDialog = true
         }
     }
 
-    /// Toggle the inline music preview. No-op on posts without a song.
-    /// Double-tap still reacts, long-press still opens the context menu.
+    /// Toggle the inline music preview. Flashes a brief mute/unmute
+    /// indicator whenever a song is available — on posts without music
+    /// the tap is a silent no-op.
     private func toggleMusicPreview() {
+        let nowPlaying: Bool
         if isPlayingMusic {
             MusicPreviewService.shared.stop()
             isPlayingMusic = false
+            nowPlaying = false
+        } else if let previewURL = post.songPreviewURL {
+            MusicPreviewService.shared.playURL(
+                postId: post.id,
+                previewURL: previewURL,
+                snippetStart: post.musicSnippetStart ?? 0
+            )
+            isPlayingMusic = true
+            nowPlaying = true
+        } else {
             return
         }
-        guard let previewURL = post.songPreviewURL else { return }
-        MusicPreviewService.shared.playURL(
-            postId: post.id,
-            previewURL: previewURL,
-            snippetStart: post.musicSnippetStart ?? 0
-        )
-        isPlayingMusic = true
+        flashMuteOverlay(muted: !nowPlaying)
+    }
+
+    /// Pop a short-lived icon at the center of the hero that mirrors the
+    /// state the user just moved into. Matches the IG single-tap-to-mute
+    /// affordance.
+    private func flashMuteOverlay(muted: Bool) {
+        muteOverlayIcon = muted ? "speaker.slash.fill" : "speaker.wave.2.fill"
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+            showMuteOverlay = true
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+            withAnimation(.easeOut(duration: 0.25)) {
+                showMuteOverlay = false
+            }
+        }
     }
 
     // MARK: - Top Music Row (album art + song line, from 12cec68)
