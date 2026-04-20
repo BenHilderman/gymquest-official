@@ -682,16 +682,6 @@ struct ExploreView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 4)
         }
-        .mask(
-            LinearGradient(
-                stops: [
-                    .init(color: .black, location: 0.0),
-                    .init(color: .black, location: 0.94),
-                    .init(color: .black.opacity(0.0), location: 1.0)
-                ],
-                startPoint: .leading, endPoint: .trailing
-            )
-        )
     }
 
     private func topFriendCell(_ member: FriendsMember) -> some View {
