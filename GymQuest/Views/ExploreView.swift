@@ -821,6 +821,10 @@ struct ExploreView: View {
     /// Keeps the page focused by separating visual browsing from video
     /// entertainment — chips below handle further refinement within each mode.
     private var discoverModeToggle: some View {
+        // Compact icon-only segmented control. Sits inline with the
+        // filter chips on a single row — no labels means it doesn't
+        // crowd the scroll strip and the photo/play glyphs read at a
+        // glance as "visual vs video."
         HStack(spacing: 2) {
             ForEach(DiscoverMode.allCases) { mode in
                 let selected = discoverMode == mode
@@ -830,27 +834,23 @@ struct ExploreView: View {
                     #endif
                     withAnimation(.easeInOut(duration: 0.18)) { discoverMode = mode }
                 } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: mode.icon)
-                            .font(.system(size: 10, weight: .semibold))
-                        Text(mode.label)
-                            .font(.system(size: 11, weight: .semibold))
-                    }
-                    .foregroundColor(selected ? .white : GQColors.textSecondary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(
-                        Group {
-                            if selected {
-                                GQGradients.primary
-                            } else {
-                                Color.clear
+                    Image(systemName: mode.icon)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(selected ? .white : GQColors.textSecondary)
+                        .frame(width: 26, height: 22)
+                        .background(
+                            Group {
+                                if selected {
+                                    GQGradients.primary
+                                } else {
+                                    Color.clear
+                                }
                             }
-                        }
-                    )
-                    .clipShape(Capsule())
+                        )
+                        .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(mode.label)
             }
         }
         .padding(2)
@@ -882,20 +882,15 @@ struct ExploreView: View {
             )
             .frame(minHeight: 600)
         } header: {
-            // Utility-only sticky header: Browse/Watch toggle on top,
-            // filter chips below. The nav bar already says "Discover" —
-            // no need to repeat it here. Stacking the toggle above the
-            // chips (instead of sharing a row) avoids the horizontal
-            // overlap we'd get between the scrolling chip strip and the
-            // toggle capsule.
-            VStack(spacing: 8) {
-                discoverModeToggle
-                    .frame(maxWidth: .infinity, alignment: .center)
-
+            // Utility-only sticky header: chips + mode toggle on one
+            // line. Toggle is a compact icon-pair pinned right so the
+            // chips breathe. One tidy row, no duplicate "Discover" title.
+            HStack(spacing: 10) {
                 discoverFilterChips
+                discoverModeToggle
+                    .padding(.trailing, 16)
             }
-            .padding(.top, 6)
-            .padding(.bottom, 8)
+            .padding(.vertical, 8)
             .background(GQColors.background)
         }
     }
