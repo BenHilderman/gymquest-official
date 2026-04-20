@@ -148,8 +148,13 @@ struct TodayView: View {
                         // "Progress" nav title. inline: true is for when
                         // it's embedded in an outer ScrollView (the old
                         // sub-tab pattern we just removed).
+                        // .automatic toolbar background overrides the
+                        // parent's .visible + solid-background — Progress
+                        // page now matches Activity's pattern: transparent
+                        // at rest, auto-fills on scroll.
                         ProgressAnalyticsView(profile: profile, inline: false)
                             .navigationBarTitleDisplayMode(.inline)
+                            .toolbarBackground(.automatic, for: .navigationBar)
                     } label: {
                         Image(systemName: "chart.xyaxis.line")
                             .font(.system(size: 16, weight: .medium))
