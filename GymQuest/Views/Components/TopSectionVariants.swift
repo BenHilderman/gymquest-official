@@ -24,7 +24,7 @@ struct TopSectionSampler: View {
                     Text("Option \(v)").font(.system(size: 10, weight: .bold, design: .rounded)).foregroundStyle(GQGradients.primary).padding(.horizontal, 16)
                     variant(v).padding(.horizontal, 16)
                     if let post = heroPost {
-                        ExploreHeroCard(post: post, rationale: heroRationale, isSaved: false, onStart: onHeroStart, onPreview: onHeroPreview, onToggleSave: {}, onShuffle: {}).padding(.horizontal, 16)
+                        ExploreHeroCard(post: post, rationale: heroRationale, isSaved: false, picksCount: 1, currentIndex: 0, onStart: onHeroStart, onPreview: onHeroPreview, onToggleSave: {}).padding(.horizontal, 16)
                     }
                     Divider().padding(.vertical, 6).padding(.horizontal, 40)
                 }

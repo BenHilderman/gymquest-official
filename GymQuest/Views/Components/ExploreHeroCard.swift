@@ -3,22 +3,36 @@ import SwiftUI
 import UIKit
 #endif
 
-/// Final hero card — Option 1 with gradient bar, play badge, author,
-/// social proof, shuffle dots, auto-shuffle. Tap card → post detail.
-/// Tap Start → starts workout directly.
+/// Tonight's Pick hero card — now a swipeable carousel over N ranked
+/// suggestions. The top accent bar acts as a progress fill (8s per
+/// pick); when it reaches 100% the card auto-advances. Tap the shuffle
+/// button to advance manually, swipe left/right to navigate. The dot row
+/// below shows position in the rotation.
 struct ExploreHeroCard: View {
     let post: Post
     let rationale: String
     let isSaved: Bool
+    /// Total picks in the rotation (for the position dots). Pass the size
+    /// of the hero carousel from the caller.
+    let picksCount: Int
+    /// 0-based index of the currently displayed pick.
+    let currentIndex: Int
     let onStart: () -> Void
     let onPreview: () -> Void
     let onToggleSave: () -> Void
-    var onShuffle: (() -> Void)? = nil
+    /// Advance to the next pick (right swipe / shuffle button / auto).
+    var onAdvance: (() -> Void)? = nil
+    /// Step back to the previous pick (left swipe).
+    var onRewind: (() -> Void)? = nil
     var onLongPressSave: (() -> Void)? = nil
 
-    /// Auto-shuffle dot index — cycles 0/1/2 every 8s.
-    @State private var autoIdx: Int = 0
-    private let timer = Timer.publish(every: 8, on: .main, in: .common).autoconnect()
+    /// Seconds the progress bar takes to fill before auto-advancing.
+    private let fillDuration: Double = 8
+    /// Progress 0.0 → 1.0. Animates continuously; resets to 0 on advance.
+    @State private var progress: Double = 0
+    /// Timer ticks 10 times per second to drive the progress animation
+    /// and trigger auto-advance when the bar hits full.
+    private let tick = Timer.publish(every: 0.1, on: .main, in: .common).autoconnect()
 
     private var ttl: String {
         if let d = post.sharedWorkoutData, let s = try? JSONDecoder().decode(SharedWorkoutData.self, from: d), !s.title.isEmpty { return s.title }
@@ -32,10 +46,9 @@ struct ExploreHeroCard: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            RoundedRectangle(cornerRadius: 2).fill(GQGradients.primary).frame(height: 4)
+            progressBar
             VStack(spacing: 6) {
                 HStack(spacing: 12) {
-                    // Thumbnail with play badge — tap opens post
                     ZStack {
                         thumbnail
                             .frame(width: 80, height: 80)
@@ -57,12 +70,12 @@ struct ExploreHeroCard: View {
                                 .tracking(1.2)
                                 .foregroundColor(GQColors.textTertiary)
                             Spacer()
-                            if let onShuffle {
+                            if onAdvance != nil {
                                 Button(action: {
                                     #if canImport(UIKit)
                                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
                                     #endif
-                                    onShuffle()
+                                    onAdvance?()
                                 }) {
                                     Image(systemName: "shuffle")
                                         .font(.system(size: 11, weight: .semibold))
@@ -93,7 +106,6 @@ struct ExploreHeroCard: View {
                         .foregroundColor(GQColors.textTertiary)
 
                         HStack(spacing: 4) {
-                            // Social avatars
                             HStack(spacing: -4) {
                                 ForEach(0..<min(did, 3), id: \.self) { i in
                                     Circle()
@@ -106,7 +118,6 @@ struct ExploreHeroCard: View {
                                 .font(.system(size: 9, weight: .semibold))
                                 .foregroundColor(GQColors.textTertiary)
                             Spacer()
-                            // Start button
                             Button(action: {
                                 #if canImport(UIKit)
                                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
@@ -124,15 +135,18 @@ struct ExploreHeroCard: View {
                     }
                 }
 
-                // Auto-shuffle dots
-                HStack(spacing: 3) {
-                    ForEach(0..<3, id: \.self) { i in
-                        Capsule()
-                            .fill(i == autoIdx % 3
-                                  ? AnyShapeStyle(GQGradients.primary)
-                                  : AnyShapeStyle(GQColors.adaptiveOverlay(0.12)))
-                            .frame(width: i == autoIdx % 3 ? 14 : 4, height: 4)
-                            .animation(.spring(response: 0.3, dampingFraction: 0.85), value: autoIdx)
+                // N-dot position indicator — one dot per pick, current is
+                // the elongated capsule.
+                if picksCount > 1 {
+                    HStack(spacing: 3) {
+                        ForEach(0..<picksCount, id: \.self) { i in
+                            Capsule()
+                                .fill(i == currentIndex
+                                      ? AnyShapeStyle(GQGradients.primary)
+                                      : AnyShapeStyle(GQColors.adaptiveOverlay(0.12)))
+                                .frame(width: i == currentIndex ? 14 : 4, height: 4)
+                                .animation(.spring(response: 0.3, dampingFraction: 0.85), value: currentIndex)
+                        }
                     }
                 }
             }
@@ -142,10 +156,52 @@ struct ExploreHeroCard: View {
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(GQColors.borderDefault, lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: 14))
         .gqShadow(.elevated)
-        .onReceive(timer) { _ in
-            withAnimation(.easeInOut(duration: 0.6)) { autoIdx = (autoIdx + 1) % 3 }
-            onShuffle?()
+        .gesture(
+            // Horizontal swipe: left → advance, right → rewind. Threshold
+            // avoids accidental triggers from vertical scroll motion.
+            DragGesture(minimumDistance: 30)
+                .onEnded { value in
+                    let horizontal = value.translation.width
+                    guard abs(horizontal) > abs(value.translation.height) else { return }
+                    if horizontal < -40 {
+                        onAdvance?()
+                    } else if horizontal > 40 {
+                        onRewind?()
+                    }
+                }
+        )
+        .onReceive(tick) { _ in
+            guard picksCount > 1 else { return }
+            let step = 0.1 / fillDuration
+            if progress + step >= 1.0 {
+                progress = 0
+                onAdvance?()
+            } else {
+                progress += step
+            }
         }
+        .onChange(of: currentIndex) { _, _ in
+            // External index change (swipe, shuffle button) — restart the
+            // progress bar from zero.
+            withAnimation(.easeOut(duration: 0.2)) { progress = 0 }
+        }
+    }
+
+    /// Top 4pt accent that fills from left to right over fillDuration.
+    /// Replaces the static gradient bar from the previous design.
+    private var progressBar: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Rectangle()
+                    .fill(GQGradients.primary.opacity(0.12))
+                Rectangle()
+                    .fill(GQGradients.primary)
+                    .frame(width: geo.size.width * CGFloat(progress))
+                    .animation(.linear(duration: 0.1), value: progress)
+            }
+        }
+        .frame(height: 4)
+        .clipShape(RoundedRectangle(cornerRadius: 2))
     }
 
     @ViewBuilder

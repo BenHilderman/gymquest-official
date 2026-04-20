@@ -100,6 +100,25 @@ final class ExploreShelfService {
         })
     }
 
+    /// Top N hero candidates, ranked by the same score as heroPick. Drives
+    /// the Discover hero's auto-rotate carousel (swipe / shuffle / auto
+    /// cycles through these).
+    func heroPicks(for ctx: ExploreContext, count: Int = 5) -> [Post] {
+        let candidates = ctx.allPosts.filter { $0.doabilityScore >= 0.5 }
+        let preferred = ctx.profile.preferredWorkoutDuration
+        let ranked = candidates.sorted { lhs, rhs in
+            heroFitScore(lhs, preferredMinutes: preferred, now: ctx.now) >
+            heroFitScore(rhs, preferredMinutes: preferred, now: ctx.now)
+        }
+        if ranked.count >= count { return Array(ranked.prefix(count)) }
+        // Not enough strong picks — top up with recent posts so the
+        // carousel never collapses to a single card.
+        let padding = ctx.allPosts
+            .filter { p in !ranked.contains(where: { $0.id == p.id }) }
+            .sorted { $0.timestamp > $1.timestamp }
+        return ranked + Array(padding.prefix(count - ranked.count))
+    }
+
     /// Max shelves rendered below the hero. Keeps the page Apple-clean
     /// instead of overwhelming with 8+ identically-shaped rows.
     private static let maxShelves = 3

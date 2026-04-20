@@ -63,9 +63,17 @@ struct ExploreView: View {
     // MARK: - Cached feed data (computed once in .task, not per-render)
     @State private var cachedFriendsMembers: [FriendsMember] = []
     @State private var cachedDiscoverItems: [DiscoverFeedItem] = []
-    @State private var cachedHeroPick: Post?
+    /// Fixed carousel of 5 hero candidates. Swipe / shuffle / auto-advance
+    /// cycle through this slice; the hero card is always heroPicks[heroIndex].
+    @State private var heroPicks: [Post] = []
+    @State private var heroIndex: Int = 0
     @State private var cachedShortsClips: [Post] = []
     @State private var cachedFeedLoaded: Bool = false
+
+    private var cachedHeroPick: Post? {
+        guard !heroPicks.isEmpty else { return nil }
+        return heroPicks[heroIndex % heroPicks.count]
+    }
 
     /// Shorts entry: when set, the full-screen ScrollFeedView is presented
     /// starting at this post id. Tap any preview in the Shorts shelf or the
@@ -85,9 +93,6 @@ struct ExploreView: View {
     /// banner. Day-keyed so "friendsAhead-2-Jake" doesn't nag every open.
     @State private var dismissedNudgeIds: Set<String> = []
 
-    /// Last 3 hero ids to skip on refresh — keeps the hero feeling fresh
-    /// without ever showing the same pick twice in a row.
-    @State private var heroSkipIds: [UUID] = []
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -113,10 +118,13 @@ struct ExploreView: View {
                             post: hero,
                             rationale: heroRationale(for: hero),
                             isSaved: isSaved(hero, in: .train),
+                            picksCount: heroPicks.count,
+                            currentIndex: heroIndex,
                             onStart: { startWorkout(from: hero) },
                             onPreview: { sheetPostForDetail = hero },
                             onToggleSave: { toggleSave(hero, collection: .train) },
-                            onShuffle: { shuffleHero(currentId: hero.id); rebuildFeedCache() },
+                            onAdvance: { advanceHero() },
+                            onRewind: { rewindHero() },
                             onLongPressSave: { sheetPostForCollection = hero }
                         )
                         .padding(.horizontal, 16)
@@ -145,9 +153,11 @@ struct ExploreView: View {
         .scrollContentBackground(.hidden)
         .gqPageBackground()
         .refreshable {
-            if let current = cachedHeroPick { shuffleHero(currentId: current.id) }
             PresenceSeeder.refreshDemoPresence(in: modelContext)
             rebuildFeedCache()
+            // Reset to first pick after a refresh so the carousel starts
+            // cleanly on the top-ranked suggestion.
+            heroIndex = 0
         }
         .task {
             if !cachedFeedLoaded {
@@ -566,7 +576,9 @@ struct ExploreView: View {
     /// iterate all posts on every SwiftUI render pass.
     private func rebuildFeedCache() {
         cachedFriendsMembers = friendsMembers
-        cachedHeroPick = heroPick
+        let newPicks = ExploreShelfService.shared.heroPicks(for: context, count: 5)
+        heroPicks = newPicks
+        if heroIndex >= newPicks.count { heroIndex = 0 }
         cachedShortsClips = shortsClips
         cachedDiscoverItems = discoverGridItems
     }
@@ -914,20 +926,22 @@ struct ExploreView: View {
         )
     }
 
-    private var heroPick: Post? {
-        ExploreShelfService.shared.heroPick(for: context, excluding: Set(heroSkipIds))
-    }
-
-    /// Push the current hero into the skip ring (max 3) and recompute. The
-    /// view re-renders because heroSkipIds is @State and heroPick reads it.
-    private func shuffleHero(currentId: UUID) {
+    /// Advance the hero carousel by one. Wraps around at the end.
+    private func advanceHero() {
         #if canImport(UIKit)
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         #endif
-        var next = heroSkipIds
-        next.append(currentId)
-        if next.count > 3 { next.removeFirst(next.count - 3) }
-        heroSkipIds = next
+        guard !heroPicks.isEmpty else { return }
+        heroIndex = (heroIndex + 1) % heroPicks.count
+    }
+
+    /// Step back one hero. Wraps around at the start.
+    private func rewindHero() {
+        #if canImport(UIKit)
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        #endif
+        guard !heroPicks.isEmpty else { return }
+        heroIndex = (heroIndex - 1 + heroPicks.count) % heroPicks.count
     }
 
     private var currentShelves: [ExploreShelf] {
