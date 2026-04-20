@@ -583,7 +583,9 @@ struct ClubFeedView: View {
         let myClubMemberships = yourClubs.flatMap { club in
             club.memberIds.filter { $0 != profile.id }.map { ($0, club.name) }
         }
-        let byUser = Dictionary(uniqueKeysWithValues: myClubMemberships.map { ($0.0, $0.1) })
+        // A user can be in multiple of the viewer's clubs — keep the first
+        // club name we see per user. `uniqueKeysWithValues` would trap.
+        let byUser = Dictionary(myClubMemberships.map { ($0.0, $0.1) }, uniquingKeysWith: { first, _ in first })
         return presenceStates
             .filter { $0.status == .training && byUser[$0.userId] != nil }
             .compactMap { state in
