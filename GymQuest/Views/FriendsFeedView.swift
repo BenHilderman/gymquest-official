@@ -20,6 +20,7 @@ struct FriendsFeedView: View {
     @Query private var allUserProfiles: [UserProfile]
     @Query private var likes: [Like]
     @Query private var comments: [Comment]
+    @Query private var clubs: [Club]
 
     @State private var presentingActivity: Bool = false
 
@@ -257,21 +258,110 @@ struct FriendsFeedView: View {
 
     // MARK: - Empty + footer
 
+    /// People from the user's clubs they don't yet follow. Max 8. Used to
+    /// fill a quiet Friends feed with actionable "add someone" rows instead
+    /// of a dead-end placeholder.
+    private var suggestedFromClubs: [UserProfile] {
+        let myClubs = clubs.filter { $0.memberIds.contains(profile.id) }
+        guard !myClubs.isEmpty else { return [] }
+        let followedIds = Set(follows.filter { $0.userId == profile.id }.map(\.odId))
+        let clubMemberIds = Set(myClubs.flatMap { $0.memberIds }).subtracting([profile.id])
+        let candidateIds = clubMemberIds.subtracting(followedIds)
+        return allUserProfiles
+            .filter { candidateIds.contains($0.id) }
+            .prefix(8)
+            .map { $0 }
+    }
+
     private var emptyState: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "person.2")
-                .font(.system(size: 40))
-                .foregroundColor(GQColors.textTertiary)
-            Text("No friend posts yet")
-                .font(.system(size: 16, weight: .medium))
-                .foregroundColor(GQColors.textSecondary)
-            Text("Follow people to see their workouts here")
-                .font(.system(size: 14))
-                .foregroundColor(GQColors.textTertiary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
+        VStack(spacing: 16) {
+            VStack(spacing: 10) {
+                Image(systemName: "person.2")
+                    .font(.system(size: 36))
+                    .foregroundStyle(GQGradients.primary)
+                Text("Quiet on the feed")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundColor(GQColors.textPrimary)
+                Text(suggestedFromClubs.isEmpty
+                     ? "Follow people to see their workouts here"
+                     : "Follow people from your clubs to fill it up")
+                    .font(.system(size: 13))
+                    .foregroundColor(GQColors.textTertiary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 40)
+            }
+            .padding(.top, 40)
+
+            if !suggestedFromClubs.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("FROM YOUR CLUBS")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(GQColors.textTertiary)
+                        .tracking(0.6)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 8)
+
+                    LazyVStack(spacing: 8) {
+                        ForEach(suggestedFromClubs) { person in
+                            suggestedPersonRow(person)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
+            }
         }
-        .padding(.top, 60)
+        .padding(.bottom, 24)
+    }
+
+    private func suggestedPersonRow(_ person: UserProfile) -> some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle().fill(GQGradients.primary).frame(width: 40, height: 40)
+                Text(String(person.name.prefix(1)).uppercased())
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(.white)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(person.name)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(GQColors.textPrimary)
+                    .lineLimit(1)
+                if !person.username.isEmpty {
+                    Text("@\(person.username)")
+                        .font(.system(size: 11))
+                        .foregroundColor(GQColors.textTertiary)
+                        .lineLimit(1)
+                }
+            }
+            Spacer()
+            Button {
+                followUser(person)
+            } label: {
+                Text("Follow")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 14).padding(.vertical, 7)
+                    .background(Capsule().fill(GQGradients.primary))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .homeSocialCard(cornerRadius: 12)
+    }
+
+    private func followUser(_ person: UserProfile) {
+        let friend = Friend(
+            userId: profile.id,
+            odId: person.id,
+            odName: person.name,
+            odUsername: person.username
+        )
+        modelContext.insert(friend)
+        try? modelContext.save()
+        #if canImport(UIKit)
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        #endif
     }
 
     private var backToTrainingFooter: some View {

@@ -17,7 +17,13 @@ struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Workout.date, order: .reverse) private var workouts: [Workout]
     @Query(filter: #Predicate<UserProfile> { $0.isAuthenticated == true }) private var authenticatedProfiles: [UserProfile]
+    @Query private var allFriends: [Friend]
     @StateObject private var aiService = AIService()
+
+    /// Cold-launch landing: Friends if the user has at least one follow,
+    /// Discover otherwise. Runs once per app launch — we don't yank users
+    /// away from a tab they've manually navigated to later.
+    @State private var hasAppliedInitialLanding: Bool = false
 
     // Weekly Recap Proof Card — memo 4 "anticipated cadence" driver.
     @State private var showWeeklyRecap = false
@@ -211,6 +217,15 @@ struct ContentView: View {
                 if let userId = SupabaseAuthService.shared.currentUserId {
                     SupabaseSyncService.shared.startSync(userId: userId)
                 }
+            }
+
+            // Cold-launch landing: Friends when the user has a social graph,
+            // Discover otherwise — avoids a sparse empty Friends page on
+            // first launch. Runs once per process lifetime.
+            if !hasAppliedInitialLanding {
+                hasAppliedInitialLanding = true
+                let followCount = allFriends.filter { $0.userId == profile.id }.count
+                appState.selectedTab = followCount > 0 ? .friends : .discover
             }
 
             // First-time app tour — show after 1s delay on first launch
