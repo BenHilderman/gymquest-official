@@ -722,13 +722,16 @@ struct PostCardV2: View {
                 PostMediaView(post: post, showVideoPlayer: $showVideoPlayer)
             }
 
-            // Top-center: widget overlay
+            // Top-center: widget overlay. .id(post.id) forces a fresh
+            // widget identity per post so LazyVStack reuse doesn't let a
+            // widget animate/fall between adjacent cards as they scroll.
             if let widget = post.getPostWidget() {
                 VStack {
                     photoWidgetHero(widget)
                         .padding(.top, 10)
                     Spacer()
                 }
+                .id(post.id)
             }
 
             // Bottom: GIFs / route map
@@ -761,29 +764,25 @@ struct PostCardV2: View {
                     .transition(.scale(scale: 0.7).combined(with: .opacity))
             }
 
-            // Persistent mute affordance on photo posts with music —
-            // matches the video player's corner button so the gesture
-            // language is consistent across media types.
-            if post.songPreviewURL != nil {
-                VStack {
-                    Spacer()
-                    HStack {
-                        Spacer()
-                        Button {
-                            toggleMusicPreview()
-                        } label: {
-                            Image(systemName: isPlayingMusic ? "speaker.wave.2.fill" : "speaker.slash.fill")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundColor(.white)
-                                .padding(7)
-                                .background(.ultraThinMaterial)
-                                .environment(\.colorScheme, .dark)
-                                .clipShape(Circle())
-                        }
-                        .buttonStyle(.plain)
-                        .padding(10)
-                    }
+            // Persistent mute affordance on any post that has audio to
+            // toggle (video track or music preview). Matches the video
+            // player's corner button so the gesture language is
+            // consistent across media types.
+            if hasToggleableAudio {
+                Button {
+                    toggleMusicPreview()
+                } label: {
+                    Image(systemName: isPlayingMusic ? "speaker.wave.2.fill" : "speaker.slash.fill")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.white)
+                        .padding(7)
+                        .background(.ultraThinMaterial)
+                        .environment(\.colorScheme, .dark)
+                        .clipShape(Circle())
                 }
+                .buttonStyle(.plain)
+                .padding(10)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
             }
         }
         .clipShape(Rectangle())
@@ -820,6 +819,15 @@ struct PostCardV2: View {
             #endif
             showActionDialog = true
         }
+    }
+
+    /// True when the post has something audible we can toggle — either
+    /// a music preview URL or a song with metadata. Drives whether the
+    /// corner mute button renders.
+    private var hasToggleableAudio: Bool {
+        if post.songPreviewURL != nil { return true }
+        if post.songTitle != nil { return true }
+        return false
     }
 
     /// Toggle the inline music preview. Flashes a brief mute/unmute
