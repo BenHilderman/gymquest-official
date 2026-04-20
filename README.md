@@ -1,8 +1,42 @@
-# GymQuest
+# Lift AI (GymQuest)
+
+> **Every post is a workout you can run.**
+> Tap a post. Start the workout.
 
 A full-stack, multi-platform fitness application built with SwiftUI and SwiftData. Real-time workout tracking, multi-provider AI coaching, RPG-style progression, and a social feed across iOS, tvOS, and watchOS.
 
 > SwiftUI · SwiftData · Swift 5.9 · iOS 17+ · tvOS 17+ · watchOS 10+ · Supabase · FastAPI · XcodeGen
+
+---
+
+## Positioning
+
+**The one sentence**
+
+> *Every post is a workout you can run.*
+
+**The one-paragraph pitch**
+
+> Lift AI is a social gym app where every shared lift is an executable session — tap "Try it →" and the app starts that exact workout, scaled to you. Friends, clubs, and the discover feed are the distribution layer; the runnable post is the product.
+
+**Who it's for**
+18–28 lifters who already post gym content (IG stories, TikTok PRs, Hevy logs) and have 2–5 training friends. They want the social feed Strava gave runners — but for the barbell, and with posts that are actually doable instead of photo blobs.
+
+**The wedge**
+
+| Competitor | What they ship | What they miss |
+|---|---|---|
+| **Hevy** | Clean logger + social feed, 10M+ users | Shared routines strip weights/reps — "the reps and weight will not be included" (their own docs). Structure travels, prescription doesn't. |
+| **Strava** | Best-in-class social for cardio, 100M+ users | Gym is a blob called "Workout — 45 min." No lifter home at scale. |
+| **Strong** | Minimalist personal tracker | Explicitly no social. |
+| **Apple Fitness+** | Studio-style classes with Group Workouts | SharePlay requires synchronous FaceTime — async "train with friends" is empty. |
+| **Fitbod / Juggernaut / Alpha Progression** | AI-generated or science-based plans | Solo. No peer UGC. |
+| **12REPS (YC)** | Positions as "Strava of strength" | Coach-authored content, not peer-runnable posts. |
+
+**No competitor ships executable-post as a first-class primitive.** That is the empty square on the board.
+
+**North-star metric**
+Taps-to-Try per post. Every feature is evaluated on whether it makes a workout easier to *spread*, not just easier to *log*.
 
 ---
 
