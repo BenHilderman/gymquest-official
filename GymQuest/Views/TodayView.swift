@@ -160,6 +160,7 @@ struct TodayView: View {
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbarBackground(GQColors.background, for: .navigationBar)
         }
+        .tint(GQColors.textPrimary)
         .sheet(isPresented: $showWeeklyScheduleEditor) {
             WeeklyScheduleEditorSheet(profile: profile)
                 .presentationDetents([.large])
