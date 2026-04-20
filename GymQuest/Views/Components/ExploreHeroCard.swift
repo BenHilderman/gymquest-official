@@ -41,7 +41,6 @@ struct ExploreHeroCard: View {
     private var tp: String { post.workoutType?.capitalized ?? "Workout" }
     private var auth: String { "@\(post.authorUsername)" }
     private var ini: String { String(post.authorName.prefix(1)).uppercased() }
-    private var did: Int { max(post.timesUsed, post.likeCount / 2 + 1) }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -143,18 +142,7 @@ struct ExploreHeroCard: View {
                         .font(.system(size: 10))
                         .foregroundColor(GQColors.textTertiary)
 
-                        HStack(spacing: 4) {
-                            HStack(spacing: -4) {
-                                ForEach(0..<min(did, 3), id: \.self) { i in
-                                    Circle()
-                                        .fill(GQGradients.primary.opacity(0.12 + Double(3 - i) * 0.2))
-                                        .frame(width: 16, height: 16)
-                                        .overlay(Circle().stroke(GQColors.background, lineWidth: 1))
-                                }
-                            }
-                            Text("+\(did) did this")
-                                .font(.system(size: 9, weight: .semibold))
-                                .foregroundColor(GQColors.textTertiary)
+                        HStack {
                             Spacer()
                             Button(action: {
                                 #if canImport(UIKit)

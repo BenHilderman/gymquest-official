@@ -168,9 +168,26 @@ struct ExploreView: View {
             scheduleNotificationsForLiveState()
         }
         .sheet(item: $sheetPostForFollow) { post in
+            // Structured path: render the full SharedWorkoutData. Fallback:
+            // build a minimal stub from whatever the post carries
+            // (workoutType, duration, exerciseHighlight) so tapping Start
+            // on a plain photo/video post still opens the overview screen
+            // before launching.
             if let data = post.sharedWorkoutData,
                let shared = try? JSONDecoder().decode(SharedWorkoutData.self, from: data) {
                 FollowWorkoutView(workoutData: shared, profile: profile)
+            } else {
+                FollowWorkoutView(
+                    workoutData: SharedWorkoutData(
+                        title: post.exerciseHighlight ?? post.workoutType?.capitalized ?? "Workout",
+                        workoutType: post.workoutType ?? WorkoutType.push.rawValue,
+                        estimatedDuration: post.duration ?? 0,
+                        exercises: [],
+                        authorName: post.authorName,
+                        authorUsername: post.authorUsername
+                    ),
+                    profile: profile
+                )
             }
         }
         .fullScreenCover(item: $sheetPostForDetail) { post in
@@ -1128,17 +1145,10 @@ struct ExploreView: View {
     }
 
     private func startWorkout(from post: Post) {
-        guard let data = post.sharedWorkoutData,
-              let shared = try? JSONDecoder().decode(SharedWorkoutData.self, from: data) else {
-            // No structured workout — open detail so the user can explore the post.
-            sheetPostForDetail = post
-            return
-        }
+        // Always show the overview (FollowWorkoutView) before starting —
+        // structured or not. sheet(item:) handles the rendering, so the
+        // only job here is to seed it. Posts without sharedWorkoutData
+        // get a minimal stub constructed from the post's type/highlight.
         sheetPostForFollow = post
-        // Phase 2 will let the user skip the FollowWorkoutView and start directly:
-        //   appState.startWorkout(type: WorkoutType(rawValue: shared.workoutType) ?? .push,
-        //                         exercises: shared.toActiveExercises(),
-        //                         customTitle: shared.title)
-        _ = shared
     }
 }
