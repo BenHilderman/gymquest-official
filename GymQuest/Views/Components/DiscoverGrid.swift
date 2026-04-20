@@ -35,78 +35,24 @@ struct DiscoverGrid: View {
             .padding(.horizontal, 16)
     }
 
-    // MARK: - Grid layout with featured cells
+    // MARK: - Grid layout — uniform 3-column grid of equal squares
 
     @ViewBuilder
     private func gridLayout(cellSize: CGFloat) -> some View {
-        // Truncate the feed so the last group renders a *complete* layout —
-        // no orphan tiles, no pad-with-blank fills. Each 9-item group can
-        // terminate cleanly at exactly 3 (just Row 1), 6 (Row 1 + featured
-        // row), or 9 (full pattern). Any other remainder gets dropped so
-        // the feed ends on a visually even row.
-        let n = items.count
-        let fullGroups = n / 9
-        let remainder = n % 9
-        let validRemainder = remainder >= 6 ? 6 : (remainder >= 3 ? 3 : 0)
-        let finalCount = fullGroups * 9 + validRemainder
-        let truncated = Array(items.prefix(finalCount))
-        let grouped = stride(from: 0, to: truncated.count, by: 9).map { start in
-            Array(truncated[start..<min(start + 9, truncated.count)])
+        // Truncate to a clean multiple of 3 so every row is full. No
+        // featured cells, no orphans, no padding. One consistent square
+        // size across the whole feed.
+        let truncated = Array(items.prefix(items.count - (items.count % 3)))
+        let rows = stride(from: 0, to: truncated.count, by: 3).map { start in
+            Array(truncated[start..<min(start + 3, truncated.count)])
         }
 
         LazyVStack(spacing: spacing) {
-            ForEach(Array(grouped.enumerated()), id: \.offset) { groupIdx, group in
-                gridGroup(group, cellSize: cellSize, groupOffset: groupIdx)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func gridGroup(_ group: [DiscoverFeedItem], cellSize: CGFloat, groupOffset: Int) -> some View {
-        // gridLayout guarantees group.count is 3, 6, or 9, so every row
-        // below renders as a complete set of tiles — no blanks, no drops.
-
-        // Row 1: 3 small cells
-        HStack(spacing: spacing) {
-            ForEach(0..<3, id: \.self) { i in
-                smallCell(group[i], size: cellSize)
-            }
-        }
-
-        // Row 2-3: featured (2×2) + 2 stacked smalls. Alternates side so
-        // the layout has rhythm without a mechanical stripe.
-        if group.count >= 6 {
-            let featuredOnLeft = groupOffset % 2 == 0
-            let featured = group[3]
-            let featuredSize = cellSize * 2 + spacing
-            let smalls = [group[4], group[5]]
-
-            HStack(spacing: spacing) {
-                if featuredOnLeft {
-                    featuredCell(featured, size: featuredSize)
-                    VStack(spacing: spacing) {
-                        ForEach(smalls) { item in
-                            smallCell(item, size: cellSize)
-                        }
+            ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                HStack(spacing: spacing) {
+                    ForEach(row) { item in
+                        smallCell(item, size: cellSize)
                     }
-                    .frame(width: cellSize)
-                } else {
-                    VStack(spacing: spacing) {
-                        ForEach(smalls) { item in
-                            smallCell(item, size: cellSize)
-                        }
-                    }
-                    .frame(width: cellSize)
-                    featuredCell(featured, size: featuredSize)
-                }
-            }
-        }
-
-        // Row 4: trailing 3 smalls (only present in full 9-item groups).
-        if group.count >= 9 {
-            HStack(spacing: spacing) {
-                ForEach(6..<9, id: \.self) { i in
-                    smallCell(group[i], size: cellSize)
                 }
             }
         }
