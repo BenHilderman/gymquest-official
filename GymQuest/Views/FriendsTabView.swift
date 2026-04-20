@@ -24,6 +24,11 @@ struct ClubsTabView: View {
             ClubFeedView(profile: profile)
                 .navigationTitle("Clubs")
                 .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        NavAvatarButton(profile: profile)
+                    }
+                }
         }
     }
 }

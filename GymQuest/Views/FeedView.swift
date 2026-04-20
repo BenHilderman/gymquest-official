@@ -276,7 +276,15 @@ struct FeedView: View {
         if useTrainFirst {
             NavigationStack {
                 ExploreView(profile: profile)
-                    .toolbar(.hidden, for: .navigationBar)
+                    .navigationTitle("Discover")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarLeading) {
+                            NavAvatarButton(profile: profile)
+                        }
+                    }
+                    .toolbarBackground(.visible, for: .navigationBar)
+                    .toolbarBackground(GQColors.background, for: .navigationBar)
                     .onAppear {
                         if !hasSeeded {
                             hasSeeded = true

@@ -122,6 +122,7 @@
 		1C49AF1CBA09A34DCFBE81E9 /* 0856.gif in Resources */ = {isa = PBXBuildFile; fileRef = 31F18A57C6AFE32B88FF4F6C /* 0856.gif */; };
 		1C60AB87D6707C0EFDAB2B95 /* 0295.gif in Resources */ = {isa = PBXBuildFile; fileRef = 6ABD8235CAC4A4045722E1A4 /* 0295.gif */; };
 		1CB0DEA7993CFBF49BFAB8F1 /* FeedSocialView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71048189F84B564FDE3A49D2 /* FeedSocialView.swift */; };
+		1CF5F937ECC6AB413E847925 /* NavAvatarButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = E17745F0B3DD59CDB6B9EDB0 /* NavAvatarButton.swift */; };
 		1D68C8292B25C9DDC9286F05 /* SwiftDataIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ECA6A7EBE9D98DED21B5BBD /* SwiftDataIntegrationTests.swift */; };
 		1D93A2A8BDC3EBB5B7E8F2D0 /* HeroWidgetsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E8594E233C2CD9C0E31BBF /* HeroWidgetsView.swift */; };
 		1DA286E6EB7D2E14978B5574 /* 0151.gif in Resources */ = {isa = PBXBuildFile; fileRef = 5AA05859A93DE201F36D58C0 /* 0151.gif */; };
@@ -869,6 +870,7 @@
 		D8658A1E2109A9CB717063D5 /* 1764.gif in Resources */ = {isa = PBXBuildFile; fileRef = 8FCA16E2D25C9F8AE0E9A6A3 /* 1764.gif */; };
 		D8819CB881414052081C14E3 /* RelativeDateString.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59A4DFE6BA3A2FF93E6B6882 /* RelativeDateString.swift */; };
 		D8A187EF9668E544846D7BE7 /* 0579.gif in Resources */ = {isa = PBXBuildFile; fileRef = 5DFD913DA6D5099122B3D870 /* 0579.gif */; };
+		D8A6E2F67865231F7BD59DD0 /* NavAvatarButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = E17745F0B3DD59CDB6B9EDB0 /* NavAvatarButton.swift */; };
 		D8D15FA01667D31BE032F0D7 /* 0340.gif in Resources */ = {isa = PBXBuildFile; fileRef = DF5FFFD853C29B83D5C821F9 /* 0340.gif */; };
 		D8D789FC25D4A94C1C1CD9D8 /* exercisedb_mapping.json in Resources */ = {isa = PBXBuildFile; fileRef = 6A786D1ACD1D46590532F696 /* exercisedb_mapping.json */; };
 		D92823B689291EBB0260621F /* SavedWorkoutService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA451E88DB19767A3658E4D9 /* SavedWorkoutService.swift */; };
@@ -1434,6 +1436,7 @@
 		E0D37D5B7E78DCB87495C4E8 /* 0036.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = 0036.gif; sourceTree = "<group>"; };
 		E10C117D3D75F614C147C776 /* ActivityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityView.swift; sourceTree = "<group>"; };
 		E1258EAB2B4027AD6C12156B /* TestFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestFixtures.swift; sourceTree = "<group>"; };
+		E17745F0B3DD59CDB6B9EDB0 /* NavAvatarButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavAvatarButton.swift; sourceTree = "<group>"; };
 		E1B092AA6E17DF0272E66409 /* IntegrationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntegrationsView.swift; sourceTree = "<group>"; };
 		E1D1B61D86C0D86DB8B66341 /* VoiceNoteService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceNoteService.swift; sourceTree = "<group>"; };
 		E2A3F142DB9D2AC7F4A7D25A /* HealthKitService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitService.swift; sourceTree = "<group>"; };
@@ -1615,6 +1618,7 @@
 				72F3573C1BE67DA3F06FD20A /* FriendsRow.swift */,
 				41E22F55D87C87DB84711CB4 /* HeroVariants.swift */,
 				3F654AB3338262B630CE22F7 /* LiveNowStrip.swift */,
+				E17745F0B3DD59CDB6B9EDB0 /* NavAvatarButton.swift */,
 				3D6DB9EA9EB20F87E480EF10 /* NextSessionCard.swift */,
 				2C13998D92E928A39D0A4E7B /* ProgressPredictionChart.swift */,
 				45A5D9261EAC840A033AE7CE /* RecoveryAdvisorCard.swift */,
@@ -3161,6 +3165,7 @@
 				E64A1ADC859F46AA3D7CA579 /* MusicPreviewService.swift in Sources */,
 				5676B85B86EEA85E0A05FCFB /* MusicService.swift in Sources */,
 				4F3378B0B74C989585480966 /* MySavesView.swift in Sources */,
+				1CF5F937ECC6AB413E847925 /* NavAvatarButton.swift in Sources */,
 				37569E1AE89ED48AD28A794A /* NextSessionCard.swift in Sources */,
 				7E182AE053369EF8E4A1B3A2 /* NextWorkoutService.swift in Sources */,
 				ED258C1A8BA2565390ED6A01 /* NotificationService.swift in Sources */,
@@ -3447,6 +3452,7 @@
 				FBA86A68D64C7EE69C4B410D /* MusicPreviewService.swift in Sources */,
 				4375919E3B25D3EB486EF751 /* MusicService.swift in Sources */,
 				EAC416E4C6D1CCCAD40F36F4 /* MySavesView.swift in Sources */,
+				D8A6E2F67865231F7BD59DD0 /* NavAvatarButton.swift in Sources */,
 				C0FA0B3BF34673A87CB7426D /* NextSessionCard.swift in Sources */,
 				80FD6D880526AC9EF435E0DE /* NextWorkoutService.swift in Sources */,
 				C5A747A841EFAE20089BEC9D /* NotificationService.swift in Sources */,

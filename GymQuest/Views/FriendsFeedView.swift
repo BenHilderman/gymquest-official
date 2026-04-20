@@ -91,6 +91,9 @@ struct FriendsFeedView: View {
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbarBackground(GQColors.background, for: .navigationBar)
         .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                NavAvatarButton(profile: profile)
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 activityBellButton
             }

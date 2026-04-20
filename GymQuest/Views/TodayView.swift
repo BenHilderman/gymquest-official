@@ -152,6 +152,13 @@ struct TodayView: View {
             .scrollContentBackground(.hidden)
             .gqPageBackground()
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    NavAvatarButton(profile: profile)
+                }
+            }
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarBackground(GQColors.background, for: .navigationBar)
         }
         .sheet(isPresented: $showWeeklyScheduleEditor) {
             WeeklyScheduleEditorSheet(profile: profile)
