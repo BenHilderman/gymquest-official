@@ -298,8 +298,28 @@ struct FloatingTabBar: View {
     @Query private var likes: [Like]
     @Query private var comments: [Comment]
     @Query(sort: \Post.timestamp, order: .reverse) private var allPosts: [Post]
+    @Query private var presenceStates: [UserPresenceState]
+    @Query private var tabBarClubs: [Club]
     @State private var workoutSeconds: Int = 0
     @State private var workoutTimer: Timer?
+
+    /// True when any member of any club the user is in is currently
+    /// training. Drives a green dot on the Clubs tab icon — parity with
+    /// the live indicator already on Friends.
+    private var anyClubMemberLive: Bool {
+        guard let profile = authenticatedProfiles.first else { return false }
+        let myClubs = tabBarClubs.filter { $0.memberIds.contains(profile.id) }
+        guard !myClubs.isEmpty else { return false }
+        let audience = Set(myClubs.flatMap { $0.memberIds }).subtracting([profile.id])
+        let now = Date()
+        return presenceStates.contains { state in
+            guard audience.contains(state.userId), state.status == .training else { return false }
+            if let started = state.startedAt, now.timeIntervalSince(started) > 3 * 3600 {
+                return false
+            }
+            return true
+        }
+    }
 
     /// Shared unread activity count so the Friends tab icon, the bell
     /// inside Friends, and the in-feed banner all read from one number.
@@ -349,7 +369,19 @@ struct FloatingTabBar: View {
                     }
                 }
 
-                FloatingTabButton(tab: .clubs, icon: "person.3", selectedIcon: "person.3.fill", label: "Clubs")
+                ZStack(alignment: .topTrailing) {
+                    FloatingTabButton(tab: .clubs, icon: "person.3", selectedIcon: "person.3.fill", label: "Clubs")
+
+                    if anyClubMemberLive {
+                        // Green dot when any member of the user's clubs is
+                        // currently training — mirrors the Friends indicator.
+                        Circle()
+                            .fill(GQColors.success)
+                            .frame(width: 8, height: 8)
+                            .overlay(Circle().stroke(GQColors.background, lineWidth: 1.5))
+                            .offset(x: -14, y: 2)
+                    }
+                }
 
                 // Center button — workout indicator when active, "+" when idle
                 if appState.isWorkoutActive {
