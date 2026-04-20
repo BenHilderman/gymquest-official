@@ -143,8 +143,12 @@ struct TodayView: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink {
-                        ProgressAnalyticsView(profile: profile, inline: true)
-                            .navigationTitle("Progress")
+                        // inline: false lets ProgressAnalyticsView wrap
+                        // itself in ScrollView + page background + its own
+                        // "Progress" nav title. inline: true is for when
+                        // it's embedded in an outer ScrollView (the old
+                        // sub-tab pattern we just removed).
+                        ProgressAnalyticsView(profile: profile, inline: false)
                             .navigationBarTitleDisplayMode(.inline)
                     } label: {
                         Image(systemName: "chart.xyaxis.line")
