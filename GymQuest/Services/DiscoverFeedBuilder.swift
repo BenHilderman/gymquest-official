@@ -63,11 +63,18 @@ enum DiscoverFeedBuilder {
         // to keep the grid interesting for discovery.
         let diversified = enforceDiversity(ranked, maxConsecutiveSameType: 2)
 
-        // 5. Convert to feed items (video vs photo)
+        // 5. Media-type interleave — when the feed is a mix of photos and
+        // videos (All mode), don't let one type dominate a contiguous
+        // stretch. Alternates types while preserving each type's ranked
+        // order so the "All" filter reads as a real mix of photos,
+        // videos, and carousels instead of one big photo block.
+        let mediaMixed = interleaveMedia(diversified)
+
+        // 6. Convert to feed items (video vs photo)
         // No arbitrary cap — the feed ends only when the filtered pool
         // runs out, so users who scroll forever keep seeing fresh content
         // that matches their chip/mode selection.
-        var items: [DiscoverFeedItem] = diversified.map { post in
+        var items: [DiscoverFeedItem] = mediaMixed.map { post in
             isVideo(post) ? .video(post) : .photo(post)
         }
 
@@ -120,6 +127,54 @@ enum DiscoverFeedBuilder {
                 }
             }
             i += 1
+        }
+        return result
+    }
+
+    /// Interleaves photo and video posts so neither dominates a long
+    /// stretch of the grid. Preserves each type's ranked order —
+    /// effectively a merge of two priority queues with alternation when
+    /// both have candidates. Carousels follow their dominant media type
+    /// (video if any clip, photo otherwise) so they thread naturally
+    /// through the mix.
+    private static func interleaveMedia(_ posts: [Post]) -> [Post] {
+        guard posts.count > 2 else { return posts }
+        var photos = posts.filter { !isVideo($0) }
+        var videos = posts.filter { isVideo($0) }
+        // Nothing to mix if one type is empty — fall back to the ranked
+        // order so we don't degrade a single-type feed.
+        guard !photos.isEmpty && !videos.isEmpty else { return posts }
+
+        // Ratio-aware alternation: if photos outnumber videos 3:1 we
+        // interleave as P P P V P P P V..., keeping the grid's density
+        // while still breaking up long photo runs.
+        let total = Double(posts.count)
+        let photoWeight = Double(photos.count) / total
+        let videoWeight = Double(videos.count) / total
+
+        var result: [Post] = []
+        result.reserveCapacity(posts.count)
+        var photoDebt: Double = 0
+        var videoDebt: Double = 0
+
+        while !photos.isEmpty || !videos.isEmpty {
+            photoDebt += photoWeight
+            videoDebt += videoWeight
+            if videoDebt >= 1, let next = videos.first {
+                result.append(next)
+                videos.removeFirst()
+                videoDebt -= 1
+            } else if photoDebt >= 1, let next = photos.first {
+                result.append(next)
+                photos.removeFirst()
+                photoDebt -= 1
+            } else if let next = photos.first {
+                result.append(next)
+                photos.removeFirst()
+            } else if let next = videos.first {
+                result.append(next)
+                videos.removeFirst()
+            }
         }
         return result
     }
