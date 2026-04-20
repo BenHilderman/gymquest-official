@@ -870,33 +870,20 @@ struct ExploreView: View {
             )
             .frame(minHeight: 600)
         } header: {
-            // Fully opaque sticky header — solid GQColors.background
-            // across the whole area so no scrolled content bleeds through
-            // when pinned. Hairline sits at the very top (flush with the
-            // nav bar's divider on pin), title + chips below.
-            VStack(spacing: 0) {
-                Rectangle()
-                    .fill(GQColors.adaptiveOverlay(0.08))
-                    .frame(height: 0.5)
-
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(alignment: .firstTextBaseline) {
-                        Image(systemName: "sparkle.magnifyingglass")
-                            .font(.system(size: 14))
-                            .foregroundStyle(GQGradients.primary)
-                        Text("Discover")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(GQColors.textPrimary)
-                        Spacer()
-                        discoverModeToggle
-                    }
-                    .padding(.horizontal, 16)
-
+            // Utility-only sticky header: filter chips + Browse/Watch mode
+            // toggle. The nav bar already says "Discover" — no need to
+            // repeat it here. When scrolled, this thin bar pins flush
+            // below the nav so the viewer sees one continuous header zone
+            // (nav + filter strip) instead of two titled bars.
+            VStack(spacing: 6) {
+                HStack {
                     discoverFilterChips
+                    discoverModeToggle
+                        .padding(.trailing, 12)
                 }
-                .padding(.top, 8)
-                .padding(.bottom, 8)
             }
+            .padding(.top, 6)
+            .padding(.bottom, 8)
             .background(GQColors.background)
         }
     }
