@@ -18,6 +18,28 @@ struct FriendsFeedView: View {
     @Query private var follows: [Friend]
     @Query private var presenceStates: [UserPresenceState]
     @Query private var allUserProfiles: [UserProfile]
+    @Query private var likes: [Like]
+    @Query private var comments: [Comment]
+
+    @State private var presentingActivity: Bool = false
+
+    /// UserDefaults key holding the timestamp of the last Activity view
+    /// for this user. Anything newer is counted as unread on the bell icon.
+    private var lastActivitySeenKey: String { "activity_last_seen_\(profile.id.uuidString)" }
+    private var lastActivitySeen: Date {
+        let t = UserDefaults.standard.double(forKey: lastActivitySeenKey)
+        return t > 0 ? Date(timeIntervalSince1970: t) : .distantPast
+    }
+
+    /// Count of likes + comments on the user's posts since the user last
+    /// opened the Activity sheet. Drives the red badge on the bell icon.
+    private var unreadActivityCount: Int {
+        let myPostIds = Set(allPosts.filter { $0.authorId == profile.id }.map(\.id))
+        let since = lastActivitySeen
+        let newLikes = likes.filter { myPostIds.contains($0.postId) && $0.userId != profile.id && $0.timestamp > since }.count
+        let newComments = comments.filter { myPostIds.contains($0.postId) && $0.authorId != profile.id && $0.timestamp > since }.count
+        return newLikes + newComments
+    }
 
     var body: some View {
         ScrollView {
@@ -68,6 +90,47 @@ struct FriendsFeedView: View {
         .toolbar(.visible, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbarBackground(GQColors.background, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                activityBellButton
+            }
+        }
+        .sheet(isPresented: $presentingActivity, onDismiss: markActivitySeen) {
+            NavigationStack {
+                SocialActivityView(profile: profile)
+            }
+        }
+    }
+
+    private var activityBellButton: some View {
+        Button {
+            #if canImport(UIKit)
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            #endif
+            presentingActivity = true
+        } label: {
+            ZStack(alignment: .topTrailing) {
+                Image(systemName: "bell")
+                    .font(.system(size: 17, weight: .medium))
+                    .foregroundColor(GQColors.textPrimary)
+                    .frame(width: 32, height: 32)
+
+                if unreadActivityCount > 0 {
+                    Text(unreadActivityCount > 9 ? "9+" : "\(unreadActivityCount)")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 4)
+                        .frame(minWidth: 14, minHeight: 14)
+                        .background(Circle().fill(Color.red))
+                        .offset(x: 2, y: -2)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func markActivitySeen() {
+        UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: lastActivitySeenKey)
     }
 
     // MARK: - Data
