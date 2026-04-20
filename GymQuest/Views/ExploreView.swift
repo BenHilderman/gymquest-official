@@ -128,6 +128,7 @@ struct ExploreView: View {
                             onToggleSave: { toggleSave(hero, collection: .train) },
                             onAdvance: { advanceHero() },
                             onRewind: { rewindHero() },
+                            onJumpTo: { idx in jumpHero(to: idx) },
                             onLongPressSave: { sheetPostForCollection = hero }
                         )
                         .padding(.horizontal, 16)
@@ -938,6 +939,14 @@ struct ExploreView: View {
         #endif
         guard !heroPicks.isEmpty else { return }
         heroIndex = (heroIndex - 1 + heroPicks.count) % heroPicks.count
+    }
+
+    /// Jump to a specific pick by index. Called from the tappable dot
+    /// indicator so users can peek at any of the 5 picks without waiting.
+    private func jumpHero(to index: Int) {
+        guard heroPicks.indices.contains(index) else { return }
+        guard index != heroIndex else { return }
+        heroIndex = index
     }
 
     private var currentShelves: [ExploreShelf] {

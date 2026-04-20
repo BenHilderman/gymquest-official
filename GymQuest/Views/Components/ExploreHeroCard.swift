@@ -24,10 +24,12 @@ struct ExploreHeroCard: View {
     var onAdvance: (() -> Void)? = nil
     /// Step back to the previous pick (left swipe).
     var onRewind: (() -> Void)? = nil
+    /// Jump directly to a specific pick (dot tap).
+    var onJumpTo: ((Int) -> Void)? = nil
     var onLongPressSave: (() -> Void)? = nil
 
     /// Seconds the progress bar takes to fill before auto-advancing.
-    private let fillDuration: Double = 8
+    private let fillDuration: Double = 10
 
     private var ttl: String {
         if let d = post.sharedWorkoutData, let s = try? JSONDecoder().decode(SharedWorkoutData.self, from: d), !s.title.isEmpty { return s.title }
@@ -163,19 +165,33 @@ struct ExploreHeroCard: View {
                     }
                 }
 
-                // N-dot position indicator — one dot per pick, current is
-                // the elongated capsule.
+                // Tappable position indicator — each pick is a button so
+                // users can jump directly to any of the 5 picks instead
+                // of waiting for the auto-advance or swiping through.
+                // Capsule is larger (8pt tall, 8-22pt wide) and wrapped
+                // in a generous 24x24 hit target so it's finger-friendly.
                 if picksCount > 1 {
-                    HStack(spacing: 3) {
+                    HStack(spacing: 6) {
                         ForEach(0..<picksCount, id: \.self) { i in
-                            Capsule()
-                                .fill(i == currentIndex
-                                      ? AnyShapeStyle(GQGradients.primary)
-                                      : AnyShapeStyle(GQColors.adaptiveOverlay(0.12)))
-                                .frame(width: i == currentIndex ? 14 : 4, height: 4)
-                                .animation(.spring(response: 0.3, dampingFraction: 0.85), value: currentIndex)
+                            Button {
+                                #if canImport(UIKit)
+                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                #endif
+                                onJumpTo?(i)
+                            } label: {
+                                Capsule()
+                                    .fill(i == currentIndex
+                                          ? AnyShapeStyle(GQGradients.primary)
+                                          : AnyShapeStyle(GQColors.adaptiveOverlay(0.18)))
+                                    .frame(width: i == currentIndex ? 22 : 8, height: 8)
+                                    .animation(.spring(response: 0.3, dampingFraction: 0.85), value: currentIndex)
+                                    .frame(height: 24)    // expand hit target
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
+                    .padding(.top, 2)
                 }
             }
             .padding(12)
