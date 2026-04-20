@@ -28,9 +28,6 @@ struct ExploreHeroCard: View {
 
     /// Seconds the progress bar takes to fill before auto-advancing.
     private let fillDuration: Double = 8
-    /// Progress 0.0 → 1.0. Driven by a single linear animation over
-    /// fillDuration so the fill is continuous (not stepped by a timer).
-    @State private var progress: Double = 0
 
     private var ttl: String {
         if let d = post.sharedWorkoutData, let s = try? JSONDecoder().decode(SharedWorkoutData.self, from: d), !s.title.isEmpty { return s.title }
@@ -44,11 +41,18 @@ struct ExploreHeroCard: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            progressBar
+            // .id(currentIndex) forces a fresh subview per pick — the
+            // progress state resets cleanly and the new fill animation
+            // starts from 0 every time. Auto-advance is disabled when
+            // there's only one pick.
+            HeroProgressBar(
+                duration: fillDuration,
+                active: picksCount > 1,
+                onComplete: { onAdvance?() }
+            )
+            .id(currentIndex)
+
             cardBody
-                .id(post.id)
-                .transition(.opacity)
-                .animation(.easeInOut(duration: 0.35), value: post.id)
         }
         .background(GQColors.cardBackground)
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(GQColors.borderDefault, lineWidth: 1))
@@ -68,25 +72,6 @@ struct ExploreHeroCard: View {
                     }
                 }
         )
-        // Key the task on both currentIndex AND picksCount so it
-        // relaunches once the parent populates the carousel — the hero
-        // card mounts with picksCount == 0 briefly on first render.
-        .task(id: "\(currentIndex)-\(picksCount)") {
-            guard picksCount > 1 else { return }
-            // Snap progress back to 0 without animating (Transaction
-            // overrides the .animation modifier on the fill rect).
-            withTransaction(Transaction(animation: nil)) {
-                progress = 0
-            }
-            // Yield a beat so the reset commits before we set the target.
-            try? await Task.sleep(nanoseconds: 30_000_000)
-            if Task.isCancelled { return }
-            // Setting target to 1 — the .animation(.linear, value: progress)
-            // modifier on the fill rect interpolates smoothly over fillDuration.
-            progress = 1
-            try? await Task.sleep(nanoseconds: UInt64(fillDuration * 1_000_000_000))
-            if !Task.isCancelled { onAdvance?() }
-        }
     }
 
     private var cardBody: some View {
@@ -196,24 +181,6 @@ struct ExploreHeroCard: View {
             .padding(12)
     }
 
-    /// Top 4pt accent that fills from left to right over fillDuration.
-    /// The .animation modifier on the fill rectangle interpolates smoothly
-    /// when progress transitions from 0 → 1. Instant resets (between
-    /// picks) are done via Transaction to skip the animation.
-    private var progressBar: some View {
-        GeometryReader { geo in
-            ZStack(alignment: .leading) {
-                Rectangle()
-                    .fill(GQGradients.primary.opacity(0.12))
-                Rectangle()
-                    .fill(GQGradients.primary)
-                    .frame(width: geo.size.width * CGFloat(progress))
-                    .animation(.linear(duration: fillDuration), value: progress)
-            }
-        }
-        .frame(height: 4)
-        .clipShape(RoundedRectangle(cornerRadius: 2))
-    }
 
     @ViewBuilder
     private var thumbnail: some View {
@@ -234,5 +201,38 @@ struct ExploreHeroCard: View {
     private func primaryThumbData() -> Data? {
         if let first = post.mediaItems.first { return first.thumbnailData ?? first.data }
         return post.photoData
+    }
+}
+
+/// Top 4pt accent that fills 0 → 100% over `duration`, then fires
+/// `onComplete`. Parent `.id()`s this view per pick so it mounts fresh
+/// with progress = 0 each time — no reset logic needed, no race between
+/// old-cycle teardown and new-cycle start.
+private struct HeroProgressBar: View {
+    let duration: Double
+    let active: Bool
+    let onComplete: () -> Void
+
+    @State private var progress: Double = 0
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Rectangle()
+                    .fill(GQGradients.primary.opacity(0.12))
+                Rectangle()
+                    .fill(GQGradients.primary)
+                    .frame(width: geo.size.width * CGFloat(progress))
+                    .animation(.linear(duration: duration), value: progress)
+            }
+        }
+        .frame(height: 4)
+        .clipShape(RoundedRectangle(cornerRadius: 2))
+        .task {
+            guard active else { return }
+            progress = 1
+            try? await Task.sleep(nanoseconds: UInt64(duration * 1_000_000_000))
+            if !Task.isCancelled { onComplete() }
+        }
     }
 }
