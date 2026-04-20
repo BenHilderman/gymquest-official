@@ -15,20 +15,23 @@ import SwiftData
 /// the active/home tab when this view is on screen.
 
 /// Top-level visual mode inside Discover. Two states, kept minimal:
-/// Browse = photos + workout suggestions (the scroll-and-scan intent).
+/// All    = everything (photos, videos, carousels, workout suggestions).
+///          Default scroll-and-scan intent.
 /// Watch  = videos only (quick peek at entertainment, tap into Shorts).
+/// (No "photos only" mode — that was an unnecessary third bucket. Users
+/// either want the full feed or just video content.)
 enum DiscoverMode: String, CaseIterable, Identifiable {
     case browse, watch
     var id: String { rawValue }
     var label: String {
         switch self {
-        case .browse: return "Browse"
+        case .browse: return "All"
         case .watch: return "Watch"
         }
     }
     var icon: String {
         switch self {
-        case .browse: return "photo.on.rectangle.angled"
+        case .browse: return "square.grid.2x2.fill"
         case .watch: return "play.rectangle.fill"
         }
     }
@@ -791,14 +794,12 @@ struct ExploreView: View {
             typeFilter: workoutChipFilter(discoverFilter)
         )
 
-        // Post-filter by mode: the builder doesn't know about our two-way
-        // mode toggle so we apply it here. Cheap — the list is already trimmed.
+        // Post-filter by mode. Browse = all media (photos + videos +
+        // carousels, whatever the builder surfaced). Watch = videos only,
+        // for the "I just want to watch stuff" intent.
         switch discoverMode {
         case .browse:
-            return items.filter {
-                if case .video = $0 { return false }
-                return true
-            }
+            return items
         case .watch:
             return items.filter {
                 if case .video = $0 { return true }
