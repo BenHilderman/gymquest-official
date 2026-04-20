@@ -168,27 +168,47 @@ struct ExploreView: View {
             scheduleNotificationsForLiveState()
         }
         .sheet(item: $sheetPostForFollow) { post in
-            // Structured path: render the full SharedWorkoutData. Fallback:
-            // build a minimal stub from whatever the post carries
-            // (workoutType, duration, exerciseHighlight) so tapping Start
-            // on a plain photo/video post still opens the overview screen
-            // before launching.
-            if let data = post.sharedWorkoutData,
-               let shared = try? JSONDecoder().decode(SharedWorkoutData.self, from: data) {
-                FollowWorkoutView(workoutData: shared, profile: profile)
-            } else {
-                FollowWorkoutView(
-                    workoutData: SharedWorkoutData(
-                        title: post.exerciseHighlight ?? post.workoutType?.capitalized ?? "Workout",
-                        workoutType: post.workoutType ?? WorkoutType.push.rawValue,
-                        estimatedDuration: post.duration ?? 0,
-                        exercises: [],
-                        authorName: post.authorName,
-                        authorUsername: post.authorUsername
-                    ),
-                    profile: profile
+            // Overview sheet (WorkoutDetailSheet) — the "normal" workout
+            // preview used everywhere else in the app when tapping into
+            // a shared workout. Start button inside launches the real
+            // session via appState.startWorkout.
+            let shared: SharedWorkoutData = {
+                if let data = post.sharedWorkoutData,
+                   let decoded = try? JSONDecoder().decode(SharedWorkoutData.self, from: data) {
+                    return decoded
+                }
+                // Fallback stub so unstructured posts still get the
+                // overview screen; user can add exercises in the live
+                // session once they press Start.
+                return SharedWorkoutData(
+                    title: post.exerciseHighlight ?? post.workoutType?.capitalized ?? "Workout",
+                    workoutType: post.workoutType ?? WorkoutType.push.rawValue,
+                    estimatedDuration: post.duration ?? 0,
+                    exercises: [],
+                    authorName: post.authorName,
+                    authorUsername: post.authorUsername
                 )
-            }
+            }()
+
+            WorkoutDetailSheet(
+                workoutData: shared,
+                onFollow: {
+                    sheetPostForFollow = nil
+                    let type = WorkoutType(rawValue: shared.workoutType) ?? .push
+                    if let points = shared.routePoints, !points.isEmpty {
+                        appState.startWorkout(type: .cardio, customTitle: shared.title, referenceRoute: points)
+                    } else {
+                        appState.startWorkout(
+                            type: type,
+                            exercises: shared.toActiveExercises(),
+                            customTitle: shared.title
+                        )
+                    }
+                },
+                locationName: post.locationName,
+                songTitle: post.songTitle,
+                artistName: post.artistName
+            )
         }
         .fullScreenCover(item: $sheetPostForDetail) { post in
             PostDetailView(post: post, profile: profile)
