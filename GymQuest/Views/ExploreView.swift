@@ -62,6 +62,7 @@ struct ExploreView: View {
     @State private var sheetPostForFollow: Post?
     @State private var sheetPostForDetail: Post?
     @State private var feedOpenPostId: UUID?
+    @State private var recommendedOpenPostId: UUID?
     @State private var sheetPostForCollection: Post?
 
     // MARK: - Cached feed data (computed once in .task, not per-render)
@@ -125,7 +126,7 @@ struct ExploreView: View {
                             picksCount: heroPicks.count,
                             currentIndex: heroIndex,
                             onStart: { startWorkout(from: hero) },
-                            onPreview: { sheetPostForDetail = hero },
+                            onOpen: { recommendedOpenPostId = hero.id },
                             onToggleSave: { toggleSave(hero, collection: .train) },
                             onAdvance: { advanceHero() },
                             onRewind: { rewindHero() },
@@ -195,6 +196,13 @@ struct ExploreView: View {
                 discoverFilter: $discoverFilter,
                 discoverMode: $discoverMode,
                 discoverChips: discoverChips
+            )
+        }
+        .navigationDestination(item: $recommendedOpenPostId) { postId in
+            RecommendedPostsFeedView(
+                profile: profile,
+                posts: heroPicks,
+                initialPostId: postId
             )
         }
         .sheet(isPresented: $presentingVariants) {

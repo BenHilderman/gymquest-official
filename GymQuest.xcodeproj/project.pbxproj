@@ -513,6 +513,7 @@
 		775863631206B035E792C7BA /* FeedContentService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C9136B4B361513F6595C6F5 /* FeedContentService.swift */; };
 		778646989A4F0FEBE9001FF8 /* FormCheckCameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7487D7B029256B93AC32DDC8 /* FormCheckCameraView.swift */; };
 		78410B87B7AF80FC140111D2 /* 0580.gif in Resources */ = {isa = PBXBuildFile; fileRef = AF093E90D1A3988A38F09B5C /* 0580.gif */; };
+		7860B24BD3BFC941D661B244 /* RecommendedPostsFeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A460B2305563A5DAAD43B7B8 /* RecommendedPostsFeedView.swift */; };
 		7962B78F2AD3A9EA37C3B2AA /* VoiceSearchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE771FAF5340386C6A034D62 /* VoiceSearchService.swift */; };
 		79E1E44124AC60EB6E70F94E /* BodyMeasurementsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5972138A84E8E04406BC118 /* BodyMeasurementsView.swift */; };
 		7A42233A7683FABC22F66BEE /* blinding_lights.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 90CA830D8F83C1C905AE98B2 /* blinding_lights.jpg */; };
@@ -995,6 +996,7 @@
 		F4AA2E9A97CCADF8930660E7 /* ExploreIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F30727608220F3F5B6F2E73 /* ExploreIntent.swift */; };
 		F526B7B1D04F488C7C6BCEE1 /* demo_deadlift.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = 49C59E65635572095808A79C /* demo_deadlift.mp4 */; };
 		F5441F7EFB8C7C0F8339A498 /* 1460.gif in Resources */ = {isa = PBXBuildFile; fileRef = 5EF1398D7EF4C726428E7B76 /* 1460.gif */; };
+		F54748E04A6A7AF4A2283ACB /* RecommendedPostsFeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A460B2305563A5DAAD43B7B8 /* RecommendedPostsFeedView.swift */; };
 		F5484305ECAABB163122FB5B /* SecondChanceOfferView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AC343236048307C3EECA0D7 /* SecondChanceOfferView.swift */; };
 		F59C6267335B5FCCD243D5C4 /* 0274.gif in Resources */ = {isa = PBXBuildFile; fileRef = 159A26267DA79DBC61975593 /* 0274.gif */; };
 		F5F2E9005D97FCF807E5B29E /* FormEnums.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7DAAC9410146D669E78C6FA /* FormEnums.swift */; };
@@ -1331,6 +1333,7 @@
 		A2A10C45431B938816BEA42B /* 0030.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = 0030.gif; sourceTree = "<group>"; };
 		A2F055F6FE71C4E19E10D0A8 /* QuestService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuestService.swift; sourceTree = "<group>"; };
 		A33567FBA850C011BC271413 /* SpeechRecognitionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechRecognitionService.swift; sourceTree = "<group>"; };
+		A460B2305563A5DAAD43B7B8 /* RecommendedPostsFeedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecommendedPostsFeedView.swift; sourceTree = "<group>"; };
 		A515B314D9EC28A6970C9A6F /* sicko_mode.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = sicko_mode.jpg; sourceTree = "<group>"; };
 		A53B9E353BD0D9CEF9E7773C /* GymQuestTVApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GymQuestTVApp.swift; sourceTree = "<group>"; };
 		A5972138A84E8E04406BC118 /* BodyMeasurementsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BodyMeasurementsView.swift; sourceTree = "<group>"; };
@@ -1918,6 +1921,7 @@
 				8E5A4A1BA23435538A8F90F5 /* PostCardComponents.swift */,
 				0D7039D248B9E03824CEE17D /* ProfileView.swift */,
 				F7C62759DBE72B3698573FE5 /* ProgressView.swift */,
+				A460B2305563A5DAAD43B7B8 /* RecommendedPostsFeedView.swift */,
 				8BC1D8AA3AB962FC97A9A29F /* ScrollFeedClip.swift */,
 				DC457FC478E6B3EA0211A8D6 /* ScrollFeedView.swift */,
 				7AC343236048307C3EECA0D7 /* SecondChanceOfferView.swift */,
@@ -3210,6 +3214,7 @@
 				4E03E24998F830268C7D8F7F /* QuestService.swift in Sources */,
 				B921DE93DCC7B9B91D4B5116 /* RecentSearchStore.swift in Sources */,
 				D00F4DB53FB0EF8834CA20E4 /* RecommendationEngine.swift in Sources */,
+				F54748E04A6A7AF4A2283ACB /* RecommendedPostsFeedView.swift in Sources */,
 				842B252A5457757905AFFB9B /* RecoveryAdvisorCard.swift in Sources */,
 				D8819CB881414052081C14E3 /* RelativeDateString.swift in Sources */,
 				2DA9A69AA7EA994953C181D6 /* ReplicateVideoGenerator.swift in Sources */,
@@ -3500,6 +3505,7 @@
 				FA3CE99C8B2163870A112065 /* QuestService.swift in Sources */,
 				1F842D978DDA783264C429E7 /* RecentSearchStore.swift in Sources */,
 				C6D02DFD13D188C3DBDE4A05 /* RecommendationEngine.swift in Sources */,
+				7860B24BD3BFC941D661B244 /* RecommendedPostsFeedView.swift in Sources */,
 				91B75C7D474BC4AE53B1B7AF /* RecoveryAdvisorCard.swift in Sources */,
 				275644D17319277CDBBA9A9A /* RelativeDateString.swift in Sources */,
 				BADE4C7FD30B6D91B0758869 /* ReplicateVideoGenerator.swift in Sources */,

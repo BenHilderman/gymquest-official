@@ -18,7 +18,9 @@ struct ExploreHeroCard: View {
     /// 0-based index of the currently displayed pick.
     let currentIndex: Int
     let onStart: () -> Void
-    let onPreview: () -> Void
+    /// Tap anywhere on the card (not a nested button) opens the full
+    /// post inside a scrolling recommendation feed.
+    let onOpen: () -> Void
     let onToggleSave: () -> Void
     /// Advance to the next pick (right swipe / shuffle button / auto).
     var onAdvance: (() -> Void)? = nil
@@ -54,7 +56,13 @@ struct ExploreHeroCard: View {
             )
             .id(currentIndex)
 
+            // Tap anywhere on the card body (outside the shuffle / Start
+            // / thumbnail / dot buttons) opens the full post in the
+            // recommended-posts feed. Nested Buttons intercept first, so
+            // this only fires on "empty" areas.
             cardBody
+                .contentShape(Rectangle())
+                .onTapGesture(perform: onOpen)
         }
         .background(GQColors.cardBackground)
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(GQColors.borderDefault, lineWidth: 1))
@@ -91,7 +99,7 @@ struct ExploreHeroCard: View {
                         }
                     }
                     .contentShape(Rectangle())
-                    .onTapGesture(perform: onPreview)
+                    .onTapGesture(perform: onOpen)
 
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
