@@ -1358,8 +1358,9 @@ struct TodayView: View {
             // Today's plan — compact companion to calendar
             todayPlanCard
 
-            // Activity — taps through to Activity tab
-            Button { appState.selectedTab = .activity } label: {
+            // Activity preview — jumps to Friends where the bell icon
+            // surfaces the full Activity sheet.
+            Button { appState.selectedTab = .friends } label: {
                 activityVariantsPreview
             }
             .buttonStyle(.plain)
