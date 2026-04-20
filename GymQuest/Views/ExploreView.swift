@@ -13,12 +13,6 @@ import SwiftData
 /// Tabs in the Feed's top nav. Mirrors TodayView's TodaySubTab enum
 /// shape so both bars share the same rendering pattern. "Discover" is
 /// the active/home tab when this view is on screen.
-private enum FeedTopTab: String, CaseIterable {
-    case discover = "Discover"
-    case shorts = "Shorts"
-    case friends = "Friends"
-    case clubs = "Clubs"
-}
 
 /// Top-level visual mode inside Discover. Two states, kept minimal:
 /// Browse = photos + workout suggestions (the scroll-and-scan intent).
@@ -79,14 +73,12 @@ struct ExploreView: View {
     @State private var shortsEntryPostId: UUID?
     @State private var presentingShorts: Bool = false
     @State private var presentingSaves: Bool = false
-    @State private var presentingFriendsFeed: Bool = false
     @State private var showSearchOverlay: Bool = false
     @State private var discoverFilter: String = "For You"
     @State private var discoverMode: DiscoverMode = .browse
     @State private var visibleVideoId: String?
     @State private var livePulse: Bool = false
     @State private var presentedClub: Club?
-    @State private var presentingClubs: Bool = false
     @State private var presentingVariants: Bool = false
 
     /// Nudge IDs the user dismissed this session — suppressed from the
@@ -152,9 +144,6 @@ struct ExploreView: View {
         }
         .scrollContentBackground(.hidden)
         .gqPageBackground()
-        .safeAreaInset(edge: .top, spacing: 0) {
-            pinnedHeader
-        }
         .refreshable {
             if let current = cachedHeroPick { shuffleHero(currentId: current.id) }
             PresenceSeeder.refreshDemoPresence(in: modelContext)
@@ -186,16 +175,10 @@ struct ExploreView: View {
         .fullScreenCover(isPresented: $presentingShorts) {
             ScrollFeedView(profile: profile, initialPostId: shortsEntryPostId)
         }
-        .navigationDestination(isPresented: $presentingFriendsFeed) {
-            FriendsFeedView(profile: profile)
-        }
         .fullScreenCover(isPresented: $presentingSaves) {
             MySavesView(profile: profile)
         }
         .navigationDestination(item: $presentedClub) { _ in
-            ClubFeedView(profile: profile)
-        }
-        .navigationDestination(isPresented: $presentingClubs) {
             ClubFeedView(profile: profile)
         }
         .sheet(isPresented: $presentingVariants) {
@@ -592,61 +575,6 @@ struct ExploreView: View {
 
     /// Four equal-width labels + animated brand-gradient underline under
     /// the active tab — identical treatment to TodayView's Today/Progress
-    /// bar so the two pages share a single nav language. "Discover" is
-    /// the home tab (this view); the others route to their presentations.
-    private var pinnedHeader: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 0) {
-                ForEach(FeedTopTab.allCases, id: \.self) { tab in
-                    Text(tab.rawValue)
-                        .font(.system(size: 13, weight: tab == .discover ? .semibold : .regular))
-                        .foregroundColor(tab == .discover ? GQColors.textPrimary : GQColors.textTertiary)
-                        .frame(maxWidth: .infinity)
-                        .contentShape(Rectangle())
-                        .onTapGesture { handleTopTabTap(tab) }
-                }
-            }
-            .padding(.bottom, 6)
-
-            ZStack(alignment: .leading) {
-                Rectangle()
-                    .fill(GQColors.borderSubtle)
-                    .frame(height: 0.5)
-                GeometryReader { geometry in
-                    let tabWidth = geometry.size.width / CGFloat(FeedTopTab.allCases.count)
-                    Rectangle()
-                        .fill(GQGradients.primary)
-                        .frame(width: tabWidth, height: 1.5)
-                        .clipShape(RoundedRectangle(cornerRadius: 0.75))
-                }
-                .frame(height: 1.5)
-            }
-            .frame(height: 1.5)
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 20)
-        .padding(.bottom, 2)
-        .background(
-            GQColors.background
-                .ignoresSafeArea(edges: .top)
-        )
-        .onAppear { livePulse = true }
-    }
-
-    private func handleTopTabTap(_ tab: FeedTopTab) {
-        switch tab {
-        case .discover:
-            return  // already here — no-op
-        case .shorts:
-            shortsEntryPostId = shortsClips.first?.id
-            presentingShorts = true
-        case .friends:
-            presentingFriendsFeed = true
-        case .clubs:
-            presentingClubs = true
-        }
-    }
-
     /// Horizontal strip of Discover filter chips. Extracted so it can live
     /// in the pinned header (always reachable) instead of being buried in
     /// the Discover section. Updates `discoverFilter` and rebuilds the
@@ -781,104 +709,10 @@ struct ExploreView: View {
         }
     }
 
-    /// Tap a crew member → opens the full Friends feed so the user
+    /// Tap a crew member → switches to the Friends tab so the user
     /// can scroll through all friends' posts comfortably.
     private func openFriendPost(_ member: FriendsMember) {
-        presentingFriendsFeed = true
-    }
-
-    // MARK: - Legacy (unused, kept for reference)
-
-    /// One card: gradient bar + nav buttons + divider + crew with names/status.
-    /// Matches the hero card's gradient-bar language.
-    private var topCard: some View {
-        VStack(spacing: 0) {
-            // Gradient accent bar (from option 20, matching hero)
-            RoundedRectangle(cornerRadius: 2)
-                .fill(GQGradients.primary)
-                .frame(height: 4)
-
-            VStack(spacing: 10) {
-                // Nav row (from option 2: inside the card)
-                HStack(spacing: 8) {
-                    navButton(icon: "person.2.fill", label: "Friends") {
-                        presentingFriendsFeed = true
-                    }
-                    navButton(icon: "play.rectangle.fill", label: "Shorts") {
-                        shortsEntryPostId = shortsClips.first?.id
-                        presentingShorts = true
-                    }
-                    Spacer()
-                    navButton(icon: "magnifyingglass", label: nil) {
-                        withAnimation { showSearchOverlay.toggle() }
-                    }
-                    if hasAnySave { savesButton }
-                }
-
-                Divider().overlay(GQColors.adaptiveOverlay(0.04))
-
-                // Crew row with names + status (from option 15)
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 12) {
-                        ForEach(cachedFriendsMembers.prefix(6)) { member in
-                            Button { presentingFriendsFeed = true } label: {
-                                VStack(spacing: 3) {
-                                    friendAvatar(member, size: 38)
-                                    Text(friendFirstName(member))
-                                        .font(.system(size: 10, weight: .semibold))
-                                        .foregroundColor(GQColors.textPrimary)
-                                        .lineLimit(1)
-                                        .frame(maxWidth: 44)
-                                    Text(member.statusText)
-                                        .font(.system(size: 8, weight: .medium))
-                                        .foregroundColor(GQColors.textTertiary)
-                                        .lineLimit(1)
-                                        .frame(maxWidth: 44)
-                                }
-                            }
-                            .buttonStyle(.plain)
-                        }
-
-                        // Start workout cell
-                        Button { appState.showingLogWorkout = true } label: {
-                            VStack(spacing: 3) {
-                                ZStack {
-                                    Circle()
-                                        .stroke(GQColors.borderDefault, lineWidth: 1.5)
-                                        .frame(width: 38, height: 38)
-                                    Image(systemName: "plus")
-                                        .font(.system(size: 14, weight: .semibold))
-                                        .foregroundStyle(GQGradients.primary)
-                                }
-                                Text("Start")
-                                    .font(.system(size: 10, weight: .semibold))
-                                    .foregroundColor(GQColors.textSecondary)
-                                Text("workout")
-                                    .font(.system(size: 8, weight: .medium))
-                                    .foregroundColor(GQColors.textTertiary)
-                            }
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-
-                // Live count if anyone's training
-                if liveNowStates.count > 0 {
-                    HStack(spacing: 4) {
-                        Circle().fill(GQColors.success).frame(width: 6, height: 6)
-                        Text("\(liveNowStates.count) training now")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundColor(GQColors.success)
-                        Spacer()
-                    }
-                }
-            }
-            .padding(12)
-        }
-        .background(GQColors.cardBackground)
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(GQColors.borderDefault, lineWidth: 1))
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-        .gqShadow(.card)
+        appState.selectedTab = .friends
     }
 
     private func friendAvatar(_ member: FriendsMember, size: CGFloat) -> some View {
