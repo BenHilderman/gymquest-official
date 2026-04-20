@@ -61,6 +61,7 @@ struct ExploreView: View {
 
     @State private var sheetPostForFollow: Post?
     @State private var sheetPostForDetail: Post?
+    @State private var feedOpenPostId: UUID?
     @State private var sheetPostForCollection: Post?
 
     // MARK: - Cached feed data (computed once in .task, not per-render)
@@ -186,6 +187,15 @@ struct ExploreView: View {
         }
         .navigationDestination(item: $presentedClub) { _ in
             ClubFeedView(profile: profile)
+        }
+        .navigationDestination(item: $feedOpenPostId) { postId in
+            DiscoverPostFeedView(
+                profile: profile,
+                initialPostId: postId,
+                discoverFilter: $discoverFilter,
+                discoverMode: $discoverMode,
+                discoverChips: discoverChips
+            )
         }
         .sheet(isPresented: $presentingVariants) {
             FeedVariantsView()
@@ -868,7 +878,10 @@ struct ExploreView: View {
                     presentingShorts = true
                 },
                 onTapPhoto: { post in
-                    sheetPostForDetail = post
+                    // Photo tap now opens a scrolling feed of the same
+                    // filtered pool, seeded to the tapped post (Friends-
+                    // tab card style). Videos still go to Shorts.
+                    feedOpenPostId = post.id
                 },
                 onStartWorkout: { post in
                     startWorkout(from: post)

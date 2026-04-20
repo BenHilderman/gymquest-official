@@ -209,6 +209,7 @@
 		2F2EBBB4E4B10B221A663011 /* 0030.gif in Resources */ = {isa = PBXBuildFile; fileRef = A2A10C45431B938816BEA42B /* 0030.gif */; };
 		2F52E984C7F0503A28F166F4 /* 0285.gif in Resources */ = {isa = PBXBuildFile; fileRef = F6B2528203B18C8C9649E82F /* 0285.gif */; };
 		2F6A298B5497A52306C7C84D /* 0027.gif in Resources */ = {isa = PBXBuildFile; fileRef = 53EDD082823721CDDAD1E86A /* 0027.gif */; };
+		2F7DBAFB0757F40A16D8A583 /* DiscoverPostFeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 766C0C7B70F2F56A0F490945 /* DiscoverPostFeedView.swift */; };
 		2FB708C70DD45A47D82013E7 /* WeekPlanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC248D2471F6DF39181F0368 /* WeekPlanView.swift */; };
 		2FFF5E4C3FF0DFAE193F0ED5 /* ShareService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1C9D7C410F8D5033107884F /* ShareService.swift */; };
 		303E3CA27CA48683538BBE5B /* 0025.gif in Resources */ = {isa = PBXBuildFile; fileRef = F9F454344FDF30442AF17C35 /* 0025.gif */; };
@@ -919,6 +920,7 @@
 		E47B0528F48C156334A09F6D /* demo_pull_ups.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = CFA40FC4EAAFEA49B05AE286 /* demo_pull_ups.mp4 */; };
 		E4E9DD3D4C0D20A908568DD6 /* testStatPill_snapshot.StatPills-iPhone15.png in Resources */ = {isa = PBXBuildFile; fileRef = 2FEC05D45EEBA5A8112FE12C /* testStatPill_snapshot.StatPills-iPhone15.png */; };
 		E4EC41DD6252788BAF6C3B49 /* 0120.gif in Resources */ = {isa = PBXBuildFile; fileRef = EA841549F3546DD065E3BA06 /* 0120.gif */; };
+		E56D2288C80A4BA727424AB8 /* DiscoverPostFeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 766C0C7B70F2F56A0F490945 /* DiscoverPostFeedView.swift */; };
 		E5A34CB4C497FD25EFAC08C6 /* DemoVideoMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD68706BDEFEC6E3D22A4862 /* DemoVideoMetadata.swift */; };
 		E5AD692999FB8134FF60B137 /* 0613.gif in Resources */ = {isa = PBXBuildFile; fileRef = 16BCC21656A0FB5E5F42BBBF /* 0613.gif */; };
 		E5EF9F446927EEFB2DE5DEBC /* DiscoverFeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2134ABCF55C2DDA358F47C72 /* DiscoverFeedView.swift */; };
@@ -1244,6 +1246,7 @@
 		73B7C326C2EFE85352D1FA37 /* UserProfileTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserProfileTests.swift; sourceTree = "<group>"; };
 		7487D7B029256B93AC32DDC8 /* FormCheckCameraView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FormCheckCameraView.swift; sourceTree = "<group>"; };
 		75C26E18D3F2A10652472B55 /* FriendsNudgeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FriendsNudgeService.swift; sourceTree = "<group>"; };
+		766C0C7B70F2F56A0F490945 /* DiscoverPostFeedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscoverPostFeedView.swift; sourceTree = "<group>"; };
 		767FB11FC93903610CB3B7E6 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		780EFE297F48B79E38B03216 /* 3672.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = 3672.gif; sourceTree = "<group>"; };
 		788CAA085D9DBBE4886EFB4E /* AIServiceNetworkTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIServiceNetworkTests.swift; sourceTree = "<group>"; };
@@ -1885,6 +1888,7 @@
 				0169C691FD8D328BB91CB7C7 /* CreatePostView.swift */,
 				D6A35BC69EB838B5BFCC24B4 /* DesignSystem.swift */,
 				2134ABCF55C2DDA358F47C72 /* DiscoverFeedView.swift */,
+				766C0C7B70F2F56A0F490945 /* DiscoverPostFeedView.swift */,
 				9C756600A9443DA38D117641 /* DiscoverSearchView.swift */,
 				8131A8F6BF08AF684495664C /* EnhancedPostEditorView.swift */,
 				B0B804404486E1C13453122F /* ExploreView.swift */,
@@ -3094,6 +3098,7 @@
 				557025B50125A087A6B6D013 /* DiscoverFeedCards.swift in Sources */,
 				C02DD0D88EA37C01204E9400 /* DiscoverFeedView.swift in Sources */,
 				E795052103B4FDF752C9EC4C /* DiscoverGrid.swift in Sources */,
+				E56D2288C80A4BA727424AB8 /* DiscoverPostFeedView.swift in Sources */,
 				4646B712F92867BB90D02A09 /* DiscoverSearchView.swift in Sources */,
 				8221747985E136FFF37ED2E2 /* DiscoverSeeder.swift in Sources */,
 				D24A71FB776191666009E6F6 /* EmotionInsightsService.swift in Sources */,
@@ -3383,6 +3388,7 @@
 				A0BBE5F04A489DE0308DD7EA /* DiscoverFeedCards.swift in Sources */,
 				E5EF9F446927EEFB2DE5DEBC /* DiscoverFeedView.swift in Sources */,
 				B6D29A390CA7CE4658E6AD8F /* DiscoverGrid.swift in Sources */,
+				2F7DBAFB0757F40A16D8A583 /* DiscoverPostFeedView.swift in Sources */,
 				2373D2467EB33A64CBE181AB /* DiscoverSearchView.swift in Sources */,
 				B278F0B1237565E364D381B4 /* DiscoverSeeder.swift in Sources */,
 				11646C23EFD4C7B92F7A812F /* EmotionInsightsService.swift in Sources */,
