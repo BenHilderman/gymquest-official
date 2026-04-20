@@ -443,7 +443,7 @@ struct FloatingTabBar: View {
 
                 FloatingTabButton(tab: .discover, icon: "safari", selectedIcon: "safari.fill", label: "Discover")
 
-                FloatingTabButton(tab: .today, icon: "house", selectedIcon: "house.fill", label: "Today")
+                FloatingTabButton(tab: .today, icon: "house", selectedIcon: "house.fill", label: "Home")
             }
             .padding(.horizontal, 16)
             .padding(.top, 4)
