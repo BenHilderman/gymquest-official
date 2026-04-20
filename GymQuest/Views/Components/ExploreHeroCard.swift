@@ -143,19 +143,33 @@ struct ExploreHeroCard: View {
                         .font(.system(size: 10))
                         .foregroundColor(GQColors.textTertiary)
 
-                        HStack {
+                        // Icon-only actions matching the post card's
+                        // action row: bookmark to save, play.circle to
+                        // start. Same language so behavior is predictable
+                        // whether the user is on a hero card or a post.
+                        HStack(spacing: 14) {
                             Spacer()
-                            Button(action: {
+                            Button {
+                                #if canImport(UIKit)
+                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                #endif
+                                onToggleSave()
+                            } label: {
+                                Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
+                                    .font(.system(size: 18))
+                                    .foregroundStyle(isSaved ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQColors.textTertiary))
+                            }
+                            .buttonStyle(.plain)
+
+                            Button {
                                 #if canImport(UIKit)
                                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                                 #endif
                                 onStart()
-                            }) {
-                                Text("Start ▸")
-                                    .font(.system(size: 12, weight: .semibold))
+                            } label: {
+                                Image(systemName: "play.circle")
+                                    .font(.system(size: 20))
                                     .foregroundStyle(GQGradients.primary)
-                                    .padding(.horizontal, 12).padding(.vertical, 6)
-                                    .background(Capsule().fill(GQGradients.primary.opacity(0.08)))
                             }
                             .buttonStyle(.plain)
                         }
