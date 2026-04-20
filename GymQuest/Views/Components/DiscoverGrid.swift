@@ -17,7 +17,13 @@ struct DiscoverGrid: View {
     /// autoplay on the featured video cell.
     @State private var activeVideoId: String?
 
-    private let spacing: CGFloat = 2
+    /// Tighter than the old 2pt inline spacing — gives every tile room
+    /// to breathe without fragmenting the feed.
+    private let spacing: CGFloat = 6
+    /// 4:5 portrait aspect — matches how fitness content is shot (vertical
+    /// on phones) and makes each tile readable instead of thumbnail-dense.
+    private let aspectRatio: CGFloat = 4.0 / 5.0
+    private let columns = 2
 
     var body: some View {
         // No inner ScrollView — the grid flows directly inside the parent
@@ -30,28 +36,29 @@ struct DiscoverGrid: View {
         #else
         let screenW: CGFloat = 390
         #endif
-        let cellSize = (screenW - spacing * 2 - 32) / 3
-        gridLayout(cellSize: cellSize)
-            .padding(.horizontal, 16)
+        let horizontalPadding: CGFloat = 16
+        let totalSpacing = spacing * CGFloat(columns - 1)
+        let cellWidth = (screenW - horizontalPadding * 2 - totalSpacing) / CGFloat(columns)
+        let cellHeight = cellWidth / aspectRatio
+        gridLayout(cellWidth: cellWidth, cellHeight: cellHeight)
+            .padding(.horizontal, horizontalPadding)
     }
 
-    // MARK: - Grid layout — uniform 3-column grid of equal squares
+    // MARK: - Grid layout — uniform 2-column grid of portrait tiles
 
     @ViewBuilder
-    private func gridLayout(cellSize: CGFloat) -> some View {
-        // Truncate to a clean multiple of 3 so every row is full. No
-        // featured cells, no orphans, no padding. One consistent square
-        // size across the whole feed.
-        let truncated = Array(items.prefix(items.count - (items.count % 3)))
-        let rows = stride(from: 0, to: truncated.count, by: 3).map { start in
-            Array(truncated[start..<min(start + 3, truncated.count)])
+    private func gridLayout(cellWidth: CGFloat, cellHeight: CGFloat) -> some View {
+        // Truncate to a clean multiple of `columns` so every row is full.
+        let truncated = Array(items.prefix(items.count - (items.count % columns)))
+        let rows = stride(from: 0, to: truncated.count, by: columns).map { start in
+            Array(truncated[start..<min(start + columns, truncated.count)])
         }
 
         LazyVStack(spacing: spacing) {
             ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
                 HStack(spacing: spacing) {
                     ForEach(row) { item in
-                        smallCell(item, size: cellSize)
+                        smallCell(item, width: cellWidth, height: cellHeight)
                     }
                 }
             }
@@ -60,60 +67,61 @@ struct DiscoverGrid: View {
 
     // MARK: - Small cell (1×1 square thumbnail)
 
-    private func smallCell(_ item: DiscoverFeedItem, size: CGFloat) -> some View {
+    private func smallCell(_ item: DiscoverFeedItem, width: CGFloat, height: CGFloat) -> some View {
         Button {
             handleTap(item)
         } label: {
             ZStack {
                 thumbnailView(item.post)
-                    .frame(width: size, height: size)
+                    .frame(width: width, height: height)
                     .clipped()
 
-                // Top-right: play icon for video OR multi-image badge
+                // Top-right: play icon for video OR multi-image badge.
+                // Slightly larger glyphs now that cells are bigger.
                 if isVideo(item) {
                     HStack(spacing: 3) {
                         Image(systemName: "play.fill")
-                            .font(.system(size: 8, weight: .bold))
+                            .font(.system(size: 10, weight: .bold))
                         if item.post.mediaItems.count > 1 {
                             Text("\(item.post.mediaItems.count)")
-                                .font(.system(size: 8, weight: .bold))
+                                .font(.system(size: 10, weight: .bold))
                         }
                     }
                     .foregroundColor(.white)
-                    .padding(.horizontal, 5).padding(.vertical, 3)
+                    .padding(.horizontal, 6).padding(.vertical, 4)
                     .background(Capsule().fill(.black.opacity(0.55)))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                    .padding(4)
+                    .padding(6)
                 }
 
                 // Bottom-left: duration badge
                 if let dur = item.post.duration, dur > 0 {
                     Text("\(dur)m")
-                        .font(.system(size: 9, weight: .bold))
+                        .font(.system(size: 11, weight: .bold))
                         .foregroundColor(.white)
-                        .padding(.horizontal, 5).padding(.vertical, 2)
+                        .padding(.horizontal, 6).padding(.vertical, 3)
                         .background(Capsule().fill(.black.opacity(0.55)))
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-                        .padding(4)
+                        .padding(6)
                 }
 
                 // Bottom-right: engagement
                 if item.post.likeCount > 5 {
-                    HStack(spacing: 2) {
-                        Image(systemName: "heart.fill").font(.system(size: 7))
+                    HStack(spacing: 3) {
+                        Image(systemName: "heart.fill").font(.system(size: 9))
                         Text("\(item.post.likeCount)")
-                            .font(.system(size: 8, weight: .semibold))
+                            .font(.system(size: 10, weight: .semibold))
                     }
                     .foregroundColor(.white)
-                    .padding(.horizontal, 4).padding(.vertical, 2)
+                    .padding(.horizontal, 6).padding(.vertical, 3)
                     .background(Capsule().fill(.black.opacity(0.45)))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                    .padding(4)
+                    .padding(6)
                 }
             }
         }
         .buttonStyle(.plain)
-        .clipShape(RoundedRectangle(cornerRadius: 4))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
     // MARK: - Featured cell (2×2 with autoplay video or large photo)
