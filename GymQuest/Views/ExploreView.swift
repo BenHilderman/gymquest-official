@@ -876,12 +876,9 @@ struct ExploreView: View {
             // chips (instead of sharing a row) avoids the horizontal
             // overlap we'd get between the scrolling chip strip and the
             // toggle capsule.
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Spacer()
-                    discoverModeToggle
-                }
-                .padding(.horizontal, 16)
+            VStack(spacing: 8) {
+                discoverModeToggle
+                    .frame(maxWidth: .infinity, alignment: .center)
 
                 discoverFilterChips
             }
