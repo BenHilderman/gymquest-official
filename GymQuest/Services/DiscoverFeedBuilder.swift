@@ -64,7 +64,10 @@ enum DiscoverFeedBuilder {
         let diversified = enforceDiversity(ranked, maxConsecutiveSameType: 2)
 
         // 5. Convert to feed items (video vs photo)
-        var items: [DiscoverFeedItem] = diversified.prefix(80).map { post in
+        // No arbitrary cap — the feed ends only when the filtered pool
+        // runs out, so users who scroll forever keep seeing fresh content
+        // that matches their chip/mode selection.
+        var items: [DiscoverFeedItem] = diversified.map { post in
             isVideo(post) ? .video(post) : .photo(post)
         }
 

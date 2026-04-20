@@ -55,16 +55,22 @@ struct DiscoverGrid: View {
 
     @ViewBuilder
     private func gridGroup(_ group: [DiscoverFeedItem], cellSize: CGFloat, groupOffset: Int) -> some View {
-        // Row 1: 3 small cells
-        if group.count >= 3 {
+        // Row 1: always 3 cells. Pads with empty boxes when the last group
+        // has 1 or 2 items — otherwise those items used to silently drop.
+        if !group.isEmpty {
             HStack(spacing: spacing) {
-                smallCell(group[0], size: cellSize)
-                smallCell(group[1], size: cellSize)
-                smallCell(group[2], size: cellSize)
+                ForEach(0..<min(3, group.count), id: \.self) { i in
+                    smallCell(group[i], size: cellSize)
+                }
+                ForEach(0..<max(0, 3 - group.count), id: \.self) { _ in
+                    emptyCell(size: cellSize)
+                }
             }
         }
 
-        // Row 2-3: featured (2×2) + 2 small stacked (alternating left/right)
+        // Row 2-3: featured (2×2) + 2 small stacked (alternating left/right).
+        // Smalls column is always rendered with exactly 2 slots — real items
+        // fall back to empty tiles so the featured cell has a clean neighbor.
         if group.count >= 4 {
             let featuredOnLeft = groupOffset % 2 == 0
             let featured = group[3]
@@ -74,31 +80,15 @@ struct DiscoverGrid: View {
             HStack(spacing: spacing) {
                 if featuredOnLeft {
                     featuredCell(featured, size: featuredSize)
-                    VStack(spacing: spacing) {
-                        ForEach(smalls) { item in
-                            smallCell(item, size: cellSize)
-                        }
-                        if smalls.count < 2 {
-                            Color.clear.frame(width: cellSize, height: cellSize)
-                        }
-                    }
-                    .frame(width: cellSize)
+                    smallColumn(smalls, cellSize: cellSize)
                 } else {
-                    VStack(spacing: spacing) {
-                        ForEach(smalls) { item in
-                            smallCell(item, size: cellSize)
-                        }
-                        if smalls.count < 2 {
-                            Color.clear.frame(width: cellSize, height: cellSize)
-                        }
-                    }
-                    .frame(width: cellSize)
+                    smallColumn(smalls, cellSize: cellSize)
                     featuredCell(featured, size: featuredSize)
                 }
             }
         }
 
-        // Row 4: remaining small cells (up to 3)
+        // Row 4: trailing small cells. Always padded to 3.
         let remaining = Array(group.dropFirst(6))
         if !remaining.isEmpty {
             HStack(spacing: spacing) {
@@ -106,10 +96,34 @@ struct DiscoverGrid: View {
                     smallCell(item, size: cellSize)
                 }
                 ForEach(0..<max(0, 3 - remaining.count), id: \.self) { _ in
-                    Color.clear.frame(width: cellSize, height: cellSize)
+                    emptyCell(size: cellSize)
                 }
             }
         }
+    }
+
+    /// Two-slot column next to a 2×2 featured cell. Pads with empty tiles
+    /// so the featured is never beside a single floating small tile.
+    private func smallColumn(_ smalls: [DiscoverFeedItem], cellSize: CGFloat) -> some View {
+        VStack(spacing: spacing) {
+            ForEach(0..<min(2, smalls.count), id: \.self) { i in
+                smallCell(smalls[i], size: cellSize)
+            }
+            ForEach(0..<max(0, 2 - smalls.count), id: \.self) { _ in
+                emptyCell(size: cellSize)
+            }
+        }
+        .frame(width: cellSize)
+    }
+
+    /// Visible empty tile that occupies a grid slot. Matches the cell
+    /// corner radius and surface color so the pad reads as a natural
+    /// "end of feed" gap rather than a layout glitch.
+    private func emptyCell(size: CGFloat) -> some View {
+        Rectangle()
+            .fill(GQColors.adaptiveOverlay(0.03))
+            .frame(width: size, height: size)
+            .clipShape(RoundedRectangle(cornerRadius: 4))
     }
 
     // MARK: - Small cell (1×1 square thumbnail)

@@ -140,16 +140,8 @@ struct ExploreView: View {
                     // and workout suggestions.
                     discoverSection
 
-                    // ── 8. Clubs (lower priority — below shelves) ──
-                    if !myClubs.isEmpty {
-                        ClubsShelf(
-                            clubs: myClubs,
-                            trainingThisWeekByClub: clubTrainingCounts,
-                            onTap: { club in presentedClub = club }
-                        )
-                    }
-
-                    // Search is in the top overlay (magnifying glass icon)
+                    // Clubs lives in its own tab now — no need for a
+                    // "Your Clubs" shelf at the bottom of Discover.
                 }
             }
             .padding(.bottom, 100)
