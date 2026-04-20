@@ -45,6 +45,15 @@ struct FriendsFeedView: View {
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
+                // Unread activity banner — surfaces likes/comments from the
+                // bell as a row the user can't miss while scrolling Friends.
+                // Reinforces the tab-bar badge: same count, two surfaces.
+                if unreadActivityCount > 0 {
+                    unreadActivityBanner
+                        .padding(.horizontal, 16)
+                        .padding(.top, 10)
+                }
+
                 // Presence strip — moved here from Discover so the Friends
                 // tab owns "who's live / who posted recently" in one place.
                 if !friendsMembers.isEmpty {
@@ -104,6 +113,50 @@ struct FriendsFeedView: View {
                 SocialActivityView(profile: profile)
             }
         }
+    }
+
+    private var unreadActivityBanner: some View {
+        Button {
+            #if canImport(UIKit)
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            #endif
+            presentingActivity = true
+        } label: {
+            HStack(spacing: 10) {
+                ZStack {
+                    Circle()
+                        .fill(GQGradients.primary.opacity(0.12))
+                        .frame(width: 32, height: 32)
+                    Image(systemName: "bell.fill")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(GQGradients.primary)
+                }
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(bannerHeadline)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(GQColors.textPrimary)
+                        .lineLimit(1)
+                    Text("Tap to see who")
+                        .font(.system(size: 11))
+                        .foregroundColor(GQColors.textTertiary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .homeSocialCard(cornerRadius: 12)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var bannerHeadline: String {
+        let n = unreadActivityCount
+        if n == 1 { return "1 new like or comment" }
+        if n > 9 { return "9+ new likes and comments" }
+        return "\(n) new likes and comments"
     }
 
     private var activityBellButton: some View {

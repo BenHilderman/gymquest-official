@@ -293,8 +293,26 @@ struct ContentView: View {
 
 struct FloatingTabBar: View {
     @EnvironmentObject var appState: AppState
+    @Environment(\.modelContext) private var modelContext
+    @Query(filter: #Predicate<UserProfile> { $0.isAuthenticated == true }) private var authenticatedProfiles: [UserProfile]
+    @Query private var likes: [Like]
+    @Query private var comments: [Comment]
+    @Query(sort: \Post.timestamp, order: .reverse) private var allPosts: [Post]
     @State private var workoutSeconds: Int = 0
     @State private var workoutTimer: Timer?
+
+    /// Shared unread activity count so the Friends tab icon, the bell
+    /// inside Friends, and the in-feed banner all read from one number.
+    private var unreadActivityCount: Int {
+        guard let profile = authenticatedProfiles.first else { return 0 }
+        let key = "activity_last_seen_\(profile.id.uuidString)"
+        let t = UserDefaults.standard.double(forKey: key)
+        let since = t > 0 ? Date(timeIntervalSince1970: t) : .distantPast
+        let myPostIds = Set(allPosts.filter { $0.authorId == profile.id }.map(\.id))
+        let newLikes = likes.filter { myPostIds.contains($0.postId) && $0.userId != profile.id && $0.timestamp > since }.count
+        let newComments = comments.filter { myPostIds.contains($0.postId) && $0.authorId != profile.id && $0.timestamp > since }.count
+        return newLikes + newComments
+    }
 
     private var workoutProgress: CGFloat {
         guard let status = appState.liveWorkoutStatus, status.totalSets > 0 else { return 0 }
@@ -313,13 +331,25 @@ struct FloatingTabBar: View {
                 ZStack(alignment: .topTrailing) {
                     FloatingTabButton(tab: .friends, icon: "person.2", selectedIcon: "person.2.fill", label: "Friends")
 
-                    if SocialActivityService.shared.hasLiveFriends {
+                    if unreadActivityCount > 0 {
+                        // Numeric badge on the Friends tab icon itself —
+                        // shows likes/comments on your posts since you last
+                        // opened the Activity sheet. Reaches further than
+                        // the bell inside Friends (visible from any tab).
+                        Text(unreadActivityCount > 9 ? "9+" : "\(unreadActivityCount)")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 4)
+                            .frame(minWidth: 14, minHeight: 14)
+                            .background(Circle().fill(Color.red))
+                            .offset(x: -14, y: 2)
+                    } else if SocialActivityService.shared.hasLiveFriends {
                         SocialActivityBadge()
                             .offset(x: -14, y: 2)
                     }
                 }
 
-                FloatingTabButton(tab: .clubs, icon: "building.2", selectedIcon: "building.2.fill", label: "Clubs")
+                FloatingTabButton(tab: .clubs, icon: "person.3", selectedIcon: "person.3.fill", label: "Clubs")
 
                 // Center button — workout indicator when active, "+" when idle
                 if appState.isWorkoutActive {
@@ -379,9 +409,9 @@ struct FloatingTabBar: View {
                     .accessibilityLabel("Start workout")
                 }
 
-                FloatingTabButton(tab: .discover, icon: "sparkles", selectedIcon: "sparkles", label: "Discover")
+                FloatingTabButton(tab: .discover, icon: "safari", selectedIcon: "safari.fill", label: "Discover")
 
-                FloatingTabButton(tab: .today, icon: "chart.bar", selectedIcon: "chart.bar.fill", label: "Today")
+                FloatingTabButton(tab: .today, icon: "house", selectedIcon: "house.fill", label: "Today")
             }
             .padding(.horizontal, 16)
             .padding(.top, 4)

@@ -374,10 +374,10 @@ class AppState: ObservableObject {
         var icon: String {
             switch self {
             case .friends: return "person.2.fill"
-            case .clubs: return "building.2.fill"
-            case .discover: return "sparkles"
-            case .today: return "chart.bar.fill"
-            case .home: return "house.fill"
+            case .clubs: return "person.3.fill"
+            case .discover: return "safari.fill"
+            case .today: return "house.fill"
+            case .home: return "figure.strengthtraining.traditional"
             case .coach: return "bubble.left.and.text.bubble.right.fill"
             case .activity: return "chart.line.uptrend.xyaxis"
             case .profile: return "person.fill"
