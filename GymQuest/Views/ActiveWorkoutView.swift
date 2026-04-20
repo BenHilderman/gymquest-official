@@ -23,6 +23,15 @@ import MapKit
 
 @MainActor
 enum UseWorkoutService {
+    /// True when the post can launch a session — either the full
+    /// structured workout (sharedWorkoutData) or just the inferred
+    /// workout type (any cardio/run/lift post with a workoutType).
+    static func canUse(post: Post) -> Bool {
+        if post.getSharedWorkout() != nil { return true }
+        if let type = post.workoutType, WorkoutType(rawValue: type) != nil { return true }
+        return false
+    }
+
     /// Start a workout sourced from a post. Returns true if the session was launched.
     @discardableResult
     static func use(
@@ -31,9 +40,25 @@ enum UseWorkoutService {
         appState: AppState,
         modelContext: ModelContext
     ) -> Bool {
-        // Require serialized workout data — without it, there's nothing to copy.
-        guard let shared = post.getSharedWorkout() else { return false }
+        // Preferred path: structured workout data → run that exact session.
+        // Fallback: post has only a workoutType → launch a blank session of
+        // that type so the viewer can mirror the intent (run, push, legs,
+        // etc.) and fill in their own details live.
+        if post.getSharedWorkout() == nil {
+            guard let rawType = post.workoutType,
+                  let workoutType = WorkoutType(rawValue: rawType) else { return false }
+            post.timesUsed += 1
+            try? modelContext.save()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                appState.startWorkout(type: workoutType, exercises: [], customTitle: nil)
+            }
+            #if canImport(UIKit)
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            #endif
+            return true
+        }
 
+        guard let shared = post.getSharedWorkout() else { return false }
         let exercises = shared.toActiveExercises()
         let workoutType = WorkoutType(rawValue: shared.workoutType) ?? .push
 

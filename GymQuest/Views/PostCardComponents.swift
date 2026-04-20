@@ -264,7 +264,10 @@ struct PostCardV2: View {
         }
         .buttonStyle(.plain)
 
-        if sharedWorkout != nil, post.authorId != currentUserId {
+        // Show the Try button on any post we can launch from — the full
+        // structured workout if available, otherwise a blank session of
+        // the post's workoutType (runs, gym, anything tagged).
+        if post.authorId != currentUserId, UseWorkoutService.canUse(post: post) {
             Button { useThisWorkout() } label: {
                 Image(systemName: "play.circle")
                     .font(.system(size: 20))
@@ -745,16 +748,42 @@ struct PostCardV2: View {
                 DoubleTapHeartBurst(isActive: true, location: doubleTapLocation)
             }
 
-            // Single-tap mute indicator — brief center icon that scales in
-            // and fades out. Flipped to match the state the user just
-            // moved to (muted -> slash, playing -> wave).
+            // Single-tap mute indicator — subtle center icon that scales
+            // in and fades out. Smaller than before (52pt capsule vs 74pt
+            // circle) and lower opacity so it acknowledges the tap
+            // without dominating the photo.
             if showMuteOverlay {
                 Image(systemName: muteOverlayIcon)
-                    .font(.system(size: 34, weight: .semibold))
+                    .font(.system(size: 20, weight: .semibold))
                     .foregroundColor(.white)
-                    .frame(width: 74, height: 74)
-                    .background(Circle().fill(.black.opacity(0.55)))
-                    .transition(.scale(scale: 0.6).combined(with: .opacity))
+                    .frame(width: 52, height: 52)
+                    .background(Circle().fill(.black.opacity(0.38)))
+                    .transition(.scale(scale: 0.7).combined(with: .opacity))
+            }
+
+            // Persistent mute affordance on photo posts with music —
+            // matches the video player's corner button so the gesture
+            // language is consistent across media types.
+            if post.songPreviewURL != nil {
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        Button {
+                            toggleMusicPreview()
+                        } label: {
+                            Image(systemName: isPlayingMusic ? "speaker.wave.2.fill" : "speaker.slash.fill")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(.white)
+                                .padding(7)
+                                .background(.ultraThinMaterial)
+                                .environment(\.colorScheme, .dark)
+                                .clipShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .padding(10)
+                    }
+                }
             }
         }
         .clipShape(Rectangle())
