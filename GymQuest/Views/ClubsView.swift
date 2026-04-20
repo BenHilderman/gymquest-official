@@ -465,6 +465,29 @@ enum ClubViewMode: String, CaseIterable {
     case map = "Map"
 }
 
+/// Lightweight sort for the Your Clubs rail. Optimizes the "I'm in a lot of
+/// clubs and need to find the one I care about right now" flow.
+enum YourClubsSort: String, CaseIterable, Identifiable {
+    case recent, nearby, upNext, active
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .recent: return "All"
+        case .nearby: return "Nearby"
+        case .upNext: return "Up next"
+        case .active: return "Active"
+        }
+    }
+    var icon: String {
+        switch self {
+        case .recent: return "square.grid.2x2"
+        case .nearby: return "location.fill"
+        case .upNext: return "calendar"
+        case .active: return "bolt.fill"
+        }
+    }
+}
+
 struct ClubFeedView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var allClubs: [Club]
@@ -482,6 +505,7 @@ struct ClubFeedView: View {
     @State private var clubViewMode: ClubViewMode = .list
     @State private var searchText: String = ""
     @State private var selectedMapClub: Club? = nil
+    @State private var yourClubsSort: YourClubsSort = .recent
 
     // Demo "user location" — Kingston, ON. Replace with CoreLocation once
     // the real auth flow lands. Keeping the haversine helper lets us
@@ -497,6 +521,31 @@ struct ClubFeedView: View {
 
     private var yourClubs: [Club] {
         topLevelClubs.filter { $0.memberIds.contains(profile.id) }
+    }
+
+    /// yourClubs reordered by the active sort. Keeps the original order for
+    /// `.recent` so joins stay where they landed.
+    private var sortedYourClubs: [Club] {
+        switch yourClubsSort {
+        case .recent:
+            return yourClubs
+        case .nearby:
+            return yourClubs.sorted {
+                let a = distanceKm(lat: $0.latitude ?? 90, lon: $0.longitude ?? 0)
+                let b = distanceKm(lat: $1.latitude ?? 90, lon: $1.longitude ?? 0)
+                return a < b
+            }
+        case .upNext:
+            // Clubs with an upcoming event first, sorted by soonest. Clubs
+            // with no events fall to the bottom in original order.
+            return yourClubs.sorted { a, b in
+                let da = nextEvent(for: a)?.date ?? .distantFuture
+                let db = nextEvent(for: b)?.date ?? .distantFuture
+                return da < db
+            }
+        case .active:
+            return yourClubs.sorted { liveCount(for: $0) > liveCount(for: $1) }
+        }
     }
 
     private var recommendedClubs: [Club] {
@@ -1249,9 +1298,11 @@ struct ClubFeedView: View {
             }
             .padding(.horizontal, 20)
 
+            yourClubsSortChips
+
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 14) {
-                    ForEach(yourClubs) { club in
+                    ForEach(sortedYourClubs) { club in
                         Button { selectedClub = club } label: {
                             VStack(spacing: 8) {
                                 yourClubAvatar(club)
@@ -1261,12 +1312,97 @@ struct ClubFeedView: View {
                                     .lineLimit(2)
                                     .multilineTextAlignment(.center)
                                     .frame(width: 72)
+                                yourClubSubtitle(for: club)
                             }
                         }
                         .buttonStyle(.plain)
                     }
                 }
                 .padding(.horizontal, 16)
+            }
+        }
+    }
+
+    /// Compact sort chips above the shelf. Only meaningful once the user is
+    /// in a few clubs — hidden below 3 so it doesn't add chrome for light users.
+    @ViewBuilder
+    private var yourClubsSortChips: some View {
+        if yourClubs.count >= 3 {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(YourClubsSort.allCases) { sort in
+                        let selected = yourClubsSort == sort
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.18)) { yourClubsSort = sort }
+                        } label: {
+                            HStack(spacing: 5) {
+                                Image(systemName: sort.icon)
+                                    .font(.system(size: 10, weight: .semibold))
+                                Text(sort.label)
+                                    .font(.system(size: 12, weight: .semibold))
+                            }
+                            .foregroundColor(selected ? .white : GQColors.textSecondary)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                Group {
+                                    if selected {
+                                        GQGradients.primary
+                                    } else {
+                                        GQColors.surfaceBase
+                                    }
+                                }
+                            )
+                            .clipShape(Capsule())
+                            .overlay(
+                                Capsule().stroke(
+                                    selected ? Color.clear : GQColors.borderDefault,
+                                    lineWidth: 1
+                                )
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+        }
+    }
+
+    /// Tiny subtitle under each avatar name. Shows the signal that matches
+    /// the active sort — distance when sorting by Nearby, next event date
+    /// when sorting by Up next, live count when sorting by Active. Keeps the
+    /// shelf scannable at 100+ clubs.
+    @ViewBuilder
+    private func yourClubSubtitle(for club: Club) -> some View {
+        switch yourClubsSort {
+        case .recent:
+            EmptyView()
+        case .nearby:
+            if let dist = distanceString(for: club) {
+                Text(dist)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(GQColors.textTertiary)
+                    .frame(width: 72)
+            }
+        case .upNext:
+            if let ev = nextEvent(for: club) {
+                Text(eventDayLabel(ev.date))
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(GQColors.deepBlue)
+                    .frame(width: 72)
+                    .lineLimit(1)
+            }
+        case .active:
+            let live = liveCount(for: club)
+            if live > 0 {
+                HStack(spacing: 3) {
+                    Circle().fill(GQColors.success).frame(width: 5, height: 5)
+                    Text("\(live) live")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(GQColors.success)
+                }
+                .frame(width: 72)
             }
         }
     }
