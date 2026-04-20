@@ -102,7 +102,7 @@ struct ExploreHeroCard: View {
 
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
-                            Text("TONIGHT'S PICK")
+                            Text("FOR YOU")
                                 .font(.system(size: 10, weight: .semibold))
                                 .tracking(1.2)
                                 .foregroundColor(GQColors.textTertiary)
@@ -162,10 +162,9 @@ struct ExploreHeroCard: View {
                 }
 
                 // Tappable position indicator — each pick is a button so
-                // users can jump directly to any of the 5 picks instead
-                // of waiting for the auto-advance or swiping through.
-                // Capsule is larger (8pt tall, 8-22pt wide) and wrapped
-                // in a generous 24x24 hit target so it's finger-friendly.
+                // users can jump directly to any of the 5 picks. Hit
+                // target tightened (14pt tall vs 24) to remove the
+                // extra vertical air that made the card bottom feel long.
                 if picksCount > 1 {
                     HStack(spacing: 6) {
                         ForEach(0..<picksCount, id: \.self) { i in
@@ -179,18 +178,19 @@ struct ExploreHeroCard: View {
                                     .fill(i == currentIndex
                                           ? AnyShapeStyle(GQGradients.primary)
                                           : AnyShapeStyle(GQColors.adaptiveOverlay(0.18)))
-                                    .frame(width: i == currentIndex ? 22 : 8, height: 8)
+                                    .frame(width: i == currentIndex ? 22 : 8, height: 6)
                                     .animation(.spring(response: 0.3, dampingFraction: 0.85), value: currentIndex)
-                                    .frame(height: 24)    // expand hit target
+                                    .frame(height: 14)
                                     .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
                         }
                     }
-                    .padding(.top, 2)
                 }
             }
-            .padding(12)
+            .padding(.horizontal, 12)
+            .padding(.top, 12)
+            .padding(.bottom, 8)
     }
 
 
