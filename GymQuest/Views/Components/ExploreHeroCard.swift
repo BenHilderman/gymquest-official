@@ -85,23 +85,23 @@ struct ExploreHeroCard: View {
     }
 
     private var cardBody: some View {
-        VStack(spacing: 6) {
-            HStack(spacing: 12) {
+        VStack(spacing: 4) {
+            HStack(spacing: 10) {
                     ZStack {
                         thumbnail
-                            .frame(width: 80, height: 80)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .frame(width: 64, height: 64)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
                         ZStack {
-                            Circle().fill(.black.opacity(0.35)).frame(width: 28, height: 28)
+                            Circle().fill(.black.opacity(0.35)).frame(width: 24, height: 24)
                             Image(systemName: "play.fill")
-                                .font(.system(size: 10, weight: .bold))
+                                .font(.system(size: 9, weight: .bold))
                                 .foregroundColor(.white)
                         }
                     }
                     .contentShape(Rectangle())
                     .onTapGesture(perform: onOpen)
 
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: 2) {
                         HStack {
                             Text("FOR YOU")
                                 .font(.system(size: 10, weight: .semibold))
@@ -143,24 +143,11 @@ struct ExploreHeroCard: View {
                         .font(.system(size: 10))
                         .foregroundColor(GQColors.textTertiary)
 
-                        // Icon-only actions matching the post card's
-                        // action row: bookmark to save, play.circle to
-                        // start. Same language so behavior is predictable
-                        // whether the user is on a hero card or a post.
-                        HStack(spacing: 14) {
+                        // Single play action — Save lives elsewhere (long
+                        // press on the card or in the overview sheet),
+                        // so the hero keeps the row minimal.
+                        HStack {
                             Spacer()
-                            Button {
-                                #if canImport(UIKit)
-                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                                #endif
-                                onToggleSave()
-                            } label: {
-                                Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
-                                    .font(.system(size: 18))
-                                    .foregroundStyle(isSaved ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQColors.textTertiary))
-                            }
-                            .buttonStyle(.plain)
-
                             Button {
                                 #if canImport(UIKit)
                                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
@@ -204,8 +191,8 @@ struct ExploreHeroCard: View {
                 }
             }
             .padding(.horizontal, 12)
-            .padding(.top, 12)
-            .padding(.bottom, 8)
+            .padding(.top, 10)
+            .padding(.bottom, 6)
     }
 
 
