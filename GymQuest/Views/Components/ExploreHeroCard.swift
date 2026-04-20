@@ -28,11 +28,9 @@ struct ExploreHeroCard: View {
 
     /// Seconds the progress bar takes to fill before auto-advancing.
     private let fillDuration: Double = 8
-    /// Progress 0.0 → 1.0. Animates continuously; resets to 0 on advance.
+    /// Progress 0.0 → 1.0. Driven by a single linear animation over
+    /// fillDuration so the fill is continuous (not stepped by a timer).
     @State private var progress: Double = 0
-    /// Timer ticks 10 times per second to drive the progress animation
-    /// and trigger auto-advance when the bar hits full.
-    private let tick = Timer.publish(every: 0.1, on: .main, in: .common).autoconnect()
 
     private var ttl: String {
         if let d = post.sharedWorkoutData, let s = try? JSONDecoder().decode(SharedWorkoutData.self, from: d), !s.title.isEmpty { return s.title }
@@ -47,8 +45,46 @@ struct ExploreHeroCard: View {
     var body: some View {
         VStack(spacing: 0) {
             progressBar
-            VStack(spacing: 6) {
-                HStack(spacing: 12) {
+            cardBody
+                .id(post.id)
+                .transition(.asymmetric(
+                    insertion: .opacity.combined(with: .move(edge: .trailing)),
+                    removal: .opacity.combined(with: .move(edge: .leading))
+                ))
+                .animation(.easeInOut(duration: 0.28), value: post.id)
+        }
+        .background(GQColors.cardBackground)
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(GQColors.borderDefault, lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .gqShadow(.elevated)
+        .gesture(
+            // Horizontal swipe: left → advance, right → rewind. Threshold
+            // avoids accidental triggers from vertical scroll motion.
+            DragGesture(minimumDistance: 30)
+                .onEnded { value in
+                    let horizontal = value.translation.width
+                    guard abs(horizontal) > abs(value.translation.height) else { return }
+                    if horizontal < -40 {
+                        onAdvance?()
+                    } else if horizontal > 40 {
+                        onRewind?()
+                    }
+                }
+        )
+        .task(id: currentIndex) {
+            guard picksCount > 1 else { return }
+            progress = 0
+            withAnimation(.linear(duration: fillDuration)) { progress = 1 }
+            do {
+                try await Task.sleep(nanoseconds: UInt64(fillDuration * 1_000_000_000))
+                if !Task.isCancelled { onAdvance?() }
+            } catch { }
+        }
+    }
+
+    private var cardBody: some View {
+        VStack(spacing: 6) {
+            HStack(spacing: 12) {
                     ZStack {
                         thumbnail
                             .frame(width: 80, height: 80)
@@ -151,44 +187,11 @@ struct ExploreHeroCard: View {
                 }
             }
             .padding(12)
-        }
-        .background(GQColors.cardBackground)
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(GQColors.borderDefault, lineWidth: 1))
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-        .gqShadow(.elevated)
-        .gesture(
-            // Horizontal swipe: left → advance, right → rewind. Threshold
-            // avoids accidental triggers from vertical scroll motion.
-            DragGesture(minimumDistance: 30)
-                .onEnded { value in
-                    let horizontal = value.translation.width
-                    guard abs(horizontal) > abs(value.translation.height) else { return }
-                    if horizontal < -40 {
-                        onAdvance?()
-                    } else if horizontal > 40 {
-                        onRewind?()
-                    }
-                }
-        )
-        .onReceive(tick) { _ in
-            guard picksCount > 1 else { return }
-            let step = 0.1 / fillDuration
-            if progress + step >= 1.0 {
-                progress = 0
-                onAdvance?()
-            } else {
-                progress += step
-            }
-        }
-        .onChange(of: currentIndex) { _, _ in
-            // External index change (swipe, shuffle button) — restart the
-            // progress bar from zero.
-            withAnimation(.easeOut(duration: 0.2)) { progress = 0 }
-        }
     }
 
     /// Top 4pt accent that fills from left to right over fillDuration.
-    /// Replaces the static gradient bar from the previous design.
+    /// The .task-driven progress animation handles motion — no secondary
+    /// animation modifier here or the two would fight.
     private var progressBar: some View {
         GeometryReader { geo in
             ZStack(alignment: .leading) {
@@ -197,7 +200,6 @@ struct ExploreHeroCard: View {
                 Rectangle()
                     .fill(GQGradients.primary)
                     .frame(width: geo.size.width * CGFloat(progress))
-                    .animation(.linear(duration: 0.1), value: progress)
             }
         }
         .frame(height: 4)
