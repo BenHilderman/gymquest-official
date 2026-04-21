@@ -120,6 +120,8 @@ struct FriendsRow: View {
                     Circle()
                         .fill(GQColors.success)
                         .frame(width: 6, height: 6)
+                        .scaleEffect(pulse ? 1.35 : 1.0)
+                        .animation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true), value: pulse)
                     Text("ACTIVE NOW")
                         .font(.system(size: 10, weight: .semibold))
                         .tracking(1.2)
