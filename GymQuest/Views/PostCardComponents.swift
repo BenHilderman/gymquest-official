@@ -105,24 +105,31 @@ struct PostCardV2: View {
             }
         }
         .background(GQColors.surfaceBase)
-        .confirmationDialog("Post actions", isPresented: $showActionDialog, titleVisibility: .hidden) {
-            if post.authorId != currentUserId {
-                Button("Report Post", role: .destructive) {
+        .sheet(isPresented: $showActionDialog) {
+            PostActionSheet(
+                username: post.authorUsername,
+                onReport: {
                     PermissionsService.shared.reportContent(
                         reporterId: currentUserId,
                         contentType: "post",
                         contentId: post.id,
                         reason: "inappropriate"
                     )
-                }
-                Button("Mute @\(post.authorUsername)") {
+                    showActionDialog = false
+                },
+                onMute: {
                     PermissionsService.shared.muteUser(userId: currentUserId, targetId: post.authorId)
-                }
-                Button("Block @\(post.authorUsername)", role: .destructive) {
+                    showActionDialog = false
+                },
+                onBlock: {
                     PermissionsService.shared.blockUser(userId: currentUserId, targetId: post.authorId)
-                }
-                Button("Cancel", role: .cancel) { }
-            }
+                    showActionDialog = false
+                },
+                onCancel: { showActionDialog = false }
+            )
+            .presentationDetents([.height(320)])
+            .presentationDragIndicator(.visible)
+            .presentationBackground(GQColors.surfaceBase)
         }
         .opacity(hasAppeared ? 1 : 0)
         .task {
@@ -5480,6 +5487,103 @@ enum StealSetService {
     private static func currentActorName(userId: UUID, modelContext: ModelContext) -> String {
         let descriptor = FetchDescriptor<UserProfile>(predicate: #Predicate { $0.id == userId })
         return (try? modelContext.fetch(descriptor).first?.name) ?? "Someone"
+    }
+}
+
+// MARK: - Post Action Sheet (Report / Mute / Block)
+
+/// Custom bottom sheet used in place of iOS confirmationDialog. The
+/// native dialog forces system red on destructive roles and system
+/// blue on everything else — neither matches the app. This sheet uses
+/// the brand color language: warning orange on Report/Block, muted
+/// textSecondary on Mute, brand primary on Cancel.
+private struct PostActionSheet: View {
+    let username: String
+    let onReport: () -> Void
+    let onMute: () -> Void
+    let onBlock: () -> Void
+    let onCancel: () -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            VStack(spacing: 0) {
+                actionRow(
+                    icon: "flag.fill",
+                    title: "Report post",
+                    subtitle: "Send to our moderation team",
+                    tint: GQColors.error,
+                    action: onReport
+                )
+                Rectangle().fill(GQColors.borderSubtle).frame(height: 0.5)
+                    .padding(.leading, 60)
+
+                actionRow(
+                    icon: "speaker.slash.fill",
+                    title: "Mute @\(username)",
+                    subtitle: "Their posts won't show on your feed",
+                    tint: GQColors.textSecondary,
+                    action: onMute
+                )
+                Rectangle().fill(GQColors.borderSubtle).frame(height: 0.5)
+                    .padding(.leading, 60)
+
+                actionRow(
+                    icon: "hand.raised.fill",
+                    title: "Block @\(username)",
+                    subtitle: "They can't see or message you",
+                    tint: GQColors.error,
+                    action: onBlock
+                )
+            }
+            .background(GQColors.background)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .padding(.horizontal, 16)
+            .padding(.top, 18)
+
+            Spacer()
+
+            Button(action: onCancel) {
+                Text("Cancel")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(Capsule().fill(GQGradients.primary))
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 20)
+        }
+    }
+
+    private func actionRow(icon: String, title: String, subtitle: String, tint: Color, action: @escaping () -> Void) -> some View {
+        Button(action: {
+            #if canImport(UIKit)
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            #endif
+            action()
+        }) {
+            HStack(spacing: 14) {
+                Image(systemName: icon)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundColor(tint)
+                    .frame(width: 28)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(GQColors.textPrimary)
+                    Text(subtitle)
+                        .font(.system(size: 12))
+                        .foregroundColor(GQColors.textTertiary)
+                }
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }
 
