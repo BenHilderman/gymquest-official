@@ -45,11 +45,15 @@ struct FriendsFeedView: View {
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
+                // Small top pad so the first content (presence strip or
+                // banner) has breathing room from the nav bar instead
+                // of sitting flush against it.
+                Color.clear.frame(height: 8)
+
                 LazyVStack(spacing: 0) {
                     if unreadActivityCount > 0 {
                         unreadActivityBanner
                             .padding(.horizontal, 16)
-                            .padding(.top, 10)
                             .padding(.bottom, 4)
                     }
 
