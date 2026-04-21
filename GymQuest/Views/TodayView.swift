@@ -1640,40 +1640,36 @@ struct TodayView: View {
     // MARK: - Date Header
 
     private var dateHeader: some View {
-        HStack(alignment: .bottom) {
+        HStack(alignment: .center) {
             VStack(alignment: .leading, spacing: 3) {
-                Text(greeting)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(GQColors.textTertiary)
-                Text(Date(), format: .dateTime.weekday(.wide).month(.abbreviated).day())
+                Text("Hi, \(firstName)")
                     .font(.system(size: 22, weight: .bold, design: .rounded))
                     .foregroundStyle(GQColors.textPrimary)
+                Text(Date(), format: .dateTime.weekday(.wide).month(.abbreviated).day())
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(GQColors.textTertiary)
             }
             Spacer()
+            if dailyStreak > 0 {
+                AnimatedFlameBadge(streak: dailyStreak)
+            }
         }
         .padding(.top, 16)
         .padding(.bottom, 6)
     }
 
-    private var greeting: String {
-        // Context-aware noticing, not just clock
-        if consistencyState == .comeback || consistencyState == .atRisk {
-            let workedOutToday = nonRestWorkouts.contains { Calendar.current.isDateInToday($0.date) }
-            if workedOutToday { return "You came back." }
-            return "Day one is available."
+    /// First name falls back to @username when the profile name is
+    /// empty. Keeps the greeting personal without showing "Hi, "
+    /// with a dangling comma if both are missing.
+    private var firstName: String {
+        let trimmed = profile.name.trimmingCharacters(in: .whitespaces)
+        if let first = trimmed.split(separator: " ").first, !first.isEmpty {
+            return String(first)
         }
-        if dailyStreak >= 7 { return "Day \(dailyStreak)." }
-        let target = profile.daysPerWeek
-        if workoutsThisWeek == target - 1 && target > 1 { return "One more this week." }
-        if workoutsThisWeek >= target && target > 0 { return "Weekly goal hit." }
-        if let last = nonRestWorkouts.first, Calendar.current.isDateInYesterday(last.date) { return "Back again." }
-        // Default: time-based
-        let hour = Calendar.current.component(.hour, from: Date())
-        switch hour {
-        case 0..<12: return "Good morning"
-        case 12..<17: return "Good afternoon"
-        default: return "Good evening"
+        if !profile.username.isEmpty {
+            return "@\(profile.username)"
         }
+        return "there"
     }
 
     // MARK: - Start Workout Hero Button
@@ -3757,6 +3753,82 @@ struct SegmentedRing: View {
                     .frame(width: diameter, height: diameter)
             }
             Text("\(Int(progress * 100))%").font(.system(size: 16, weight: .bold, design: .rounded)).foregroundColor(GQColors.textPrimary)
+        }
+    }
+}
+
+// MARK: - Animated Flame Badge
+
+/// Streak counter with a flame glyph. Static on streaks under a week;
+/// after 7+ days the flame flickers — subtle scale + rotation pulse
+/// plus SF Symbols' variableColor effect so it reads as "alive."
+struct AnimatedFlameBadge: View {
+    let streak: Int
+
+    @State private var flicker: Bool = false
+
+    private var isAlive: Bool { streak >= 7 }
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ZStack {
+                // Soft glow layer — only after 7 days. Makes the
+                // flame feel like it's emitting warmth.
+                if isAlive {
+                    Image(systemName: "flame.fill")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(Color.orange.opacity(0.35))
+                        .blur(radius: 6)
+                        .scaleEffect(flicker ? 1.15 : 0.92)
+                }
+
+                Image(systemName: "flame.fill")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(
+                        isAlive
+                            ? AnyShapeStyle(LinearGradient(colors: [.yellow, .orange, .red],
+                                                           startPoint: .top, endPoint: .bottom))
+                            : AnyShapeStyle(GQColors.textTertiary)
+                    )
+                    .scaleEffect(isAlive && flicker ? 1.08 : 1.0)
+                    .rotationEffect(.degrees(isAlive ? (flicker ? -2 : 2) : 0))
+                    .symbolEffectIfAvailable()
+            }
+
+            Text("\(streak)")
+                .font(.system(size: 14, weight: .bold, design: .rounded))
+                .foregroundStyle(isAlive ? GQColors.textPrimary : GQColors.textSecondary)
+                .monospacedDigit()
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(
+            Capsule()
+                .fill(isAlive ? Color.orange.opacity(0.10) : GQColors.adaptiveOverlay(0.05))
+        )
+        .overlay(
+            Capsule()
+                .stroke(isAlive ? Color.orange.opacity(0.25) : GQColors.borderDefault, lineWidth: 1)
+        )
+        .onAppear {
+            guard isAlive else { return }
+            // Real-flame-ish: fast asymmetric cycle that never looks
+            // mechanical. 0.55s out, 0.75s back — easeInOut repeating.
+            withAnimation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true)) {
+                flicker = true
+            }
+        }
+    }
+}
+
+private extension View {
+    /// iOS 17+ symbol shimmer; no-op on older platforms.
+    @ViewBuilder
+    func symbolEffectIfAvailable() -> some View {
+        if #available(iOS 17.0, *) {
+            self.symbolEffect(.variableColor.iterative.reversing)
+        } else {
+            self
         }
     }
 }
