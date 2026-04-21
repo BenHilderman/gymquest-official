@@ -28,6 +28,13 @@ struct MealLogView: View {
     @State private var manualProtein = ""
     @State private var manualCarbs = ""
     @State private var manualFat = ""
+    /// True when any macro has been manually edited — flips the
+    /// nutrition section from "AI estimate" to "Custom" labeling.
+    private var isCustomized: Bool {
+        !manualCalories.isEmpty || !manualProtein.isEmpty ||
+        !manualCarbs.isEmpty || !manualFat.isEmpty
+    }
+    @FocusState private var foodFieldFocused: Bool
 
     private var estimation: FoodNutritionEstimator.NutritionInfo {
         FoodNutritionEstimator.estimate(from: foodText, weightGrams: nil)
@@ -44,6 +51,16 @@ struct MealLogView: View {
                 VStack(spacing: 20) {
                     // 1. Input row — photo + camera
                     inputRow
+
+                    // Small hint so users know what the buttons do. The
+                    // old version was just labeled "Photo / Camera" with
+                    // no sign that AI estimation was the point.
+                    Text("Snap a pic or pick one from your library — we'll estimate the macros from it. You can tweak anything before logging.")
+                        .font(.system(size: 11))
+                        .foregroundColor(GQColors.textTertiary)
+                        .multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 4)
 
                     // 2. Photo preview
                     photoPreview
@@ -195,7 +212,8 @@ struct MealLogView: View {
     @ViewBuilder
     private var foodInputSection: some View {
         HStack(alignment: .top, spacing: 8) {
-            TextField("What did you eat?", text: $foodText, axis: .vertical)
+            TextField("What did you eat? e.g. 2 eggs, toast, oat milk latte", text: $foodText, axis: .vertical)
+                .focused($foodFieldFocused)
                 .lineLimit(2...4)
                 .textFieldStyle(.plain)
                 .padding()
@@ -211,11 +229,31 @@ struct MealLogView: View {
                     .padding(.top, 12)
             }
         }
+        .onAppear {
+            // Auto-focus the food field so the keyboard comes up the
+            // moment the sheet opens. Halves the steps to log by
+            // removing the extra tap.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                foodFieldFocused = true
+            }
+        }
     }
 
     @ViewBuilder
     private var nutritionSection: some View {
         VStack(alignment: .leading, spacing: 8) {
+            // Tiny badge so it's obvious the pill values aren't exact —
+            // they're an AI estimate the user can tap to override.
+            HStack(spacing: 6) {
+                Image(systemName: isCustomized ? "pencil" : "sparkles")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(GQGradients.primary)
+                Text(isCustomized ? "Custom" : "AI estimate · tap any pill to adjust")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(GQColors.textTertiary)
+                    .tracking(0.4)
+            }
+
             HStack(spacing: 8) {
                 nutritionPill(label: "Cal", value: calories, color: GQColors.textSecondary, editing: $editingCalories, manualValue: $manualCalories)
                 nutritionPill(label: "Protein", value: protein, color: GQColors.textSecondary, editing: $editingProtein, manualValue: $manualProtein)

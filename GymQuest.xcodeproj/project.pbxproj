@@ -430,6 +430,7 @@
 		63DAFB72275CC6C7C4B0B5F5 /* SubscriptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 935E116A8C7D6398E7CAFBB1 /* SubscriptionService.swift */; };
 		643D5DF554E016F7DD965EEC /* 1757.gif in Resources */ = {isa = PBXBuildFile; fileRef = 884B2333E25B38B33CA907AC /* 1757.gif */; };
 		65256AD30EAF1840939B37EA /* 0262.gif in Resources */ = {isa = PBXBuildFile; fileRef = 4C5310D3948A282446857945 /* 0262.gif */; };
+		65330363966C8E4902916691 /* BluetoothScaleService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29E8E4066E18BFBD90C1609A /* BluetoothScaleService.swift */; };
 		6563DD7A0D2CECDEBF98CE5D /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 767FB11FC93903610CB3B7E6 /* ContentView.swift */; };
 		65DE3098A35A2D658D09910B /* QuestService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2F055F6FE71C4E19E10D0A8 /* QuestService.swift */; };
 		66059DA7BC2F65ED3737230D /* 3769.gif in Resources */ = {isa = PBXBuildFile; fileRef = AEFDCFD180E8E15D2F71F1D3 /* 3769.gif */; };
@@ -968,6 +969,7 @@
 		ED6AB331F2FD5D4CAB7BA203 /* ClubsShelf.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB041BC1A2CEFB51F7042814 /* ClubsShelf.swift */; };
 		ED6D3957426E4F040F5FF437 /* StatsFeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27331576C3EA75AC0B8C5373 /* StatsFeedView.swift */; };
 		ED737E31815214C458BE4BF8 /* CommunityModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96FE4244CE94F23AB9ACF3BA /* CommunityModelsTests.swift */; };
+		EDE881918CB8FA0D3E2A07DB /* BluetoothScaleService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29E8E4066E18BFBD90C1609A /* BluetoothScaleService.swift */; };
 		EE150CF5ACA84A0BDD610572 /* starboy.jpg in Resources */ = {isa = PBXBuildFile; fileRef = EC6B704FF725CCBA8999B888 /* starboy.jpg */; };
 		EE70AB92C67448654A35DA19 /* 0291.gif in Resources */ = {isa = PBXBuildFile; fileRef = 18B6BCA4F32AEB06FB455FDD /* 0291.gif */; };
 		EED17FED36A221884D7F47D2 /* 0058.gif in Resources */ = {isa = PBXBuildFile; fileRef = 88CBCD2C034D0CCC2EB096BE /* 0058.gif */; };
@@ -1130,6 +1132,7 @@
 		27908D9264CF6267D32B6A65 /* FollowWorkoutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FollowWorkoutView.swift; sourceTree = "<group>"; };
 		28A90ADE94B9D3762EDD131B /* 3360.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = 3360.gif; sourceTree = "<group>"; };
 		29BD654EDE51231F41CC9248 /* CoachView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachView.swift; sourceTree = "<group>"; };
+		29E8E4066E18BFBD90C1609A /* BluetoothScaleService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BluetoothScaleService.swift; sourceTree = "<group>"; };
 		2A5B9150D9EC70B595D1ED5E /* 0662.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = 0662.gif; sourceTree = "<group>"; };
 		2A7192B55676E054C52A00CB /* FriendsRecapService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FriendsRecapService.swift; sourceTree = "<group>"; };
 		2AA264F4618F33D42B6C9ADB /* CollectionPickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionPickerSheet.swift; sourceTree = "<group>"; };
@@ -1685,6 +1688,7 @@
 				3DA59902F77FA7D6F64F9B48 /* AlbumArtService.swift */,
 				4978182100C2755CFC9AA0D3 /* AnalyticsService.swift */,
 				F2CB109373E443E95FA26418 /* AuthService.swift */,
+				29E8E4066E18BFBD90C1609A /* BluetoothScaleService.swift */,
 				BCDF82A5969FBD2C73629835 /* ChallengeService.swift */,
 				6F672FCEF01D0D408E762AED /* ClipPreloader.swift */,
 				B074404B2A3FD8D16B0E7A5C /* ClubInviteService.swift */,
@@ -3079,6 +3083,7 @@
 				F717AFECC7C1E53CF4B4ADDB /* AlbumArtService.swift in Sources */,
 				87426548E502507566E323FC /* AnalyticsService.swift in Sources */,
 				9D8C960155AE8AF2B2A9B586 /* AuthService.swift in Sources */,
+				EDE881918CB8FA0D3E2A07DB /* BluetoothScaleService.swift in Sources */,
 				79E1E44124AC60EB6E70F94E /* BodyMeasurementsView.swift in Sources */,
 				5188766DF8998A77C2696089 /* CalendarHistoryView.swift in Sources */,
 				5D4441DFD02C0FCFD874F577 /* CameraView.swift in Sources */,
@@ -3371,6 +3376,7 @@
 				73637C0AE0DB9489E16BC4BB /* AlbumArtService.swift in Sources */,
 				BF827FD3A1E71FE03AC59B84 /* AnalyticsService.swift in Sources */,
 				967679E279C6BFF828D2EBEA /* AuthService.swift in Sources */,
+				65330363966C8E4902916691 /* BluetoothScaleService.swift in Sources */,
 				26212A341342C762C686E413 /* BodyMeasurementsView.swift in Sources */,
 				7B80F0A7C540168EC9176EE7 /* CalendarHistoryView.swift in Sources */,
 				01FE80F0CBBD3BC0CEEBF24C /* CameraView.swift in Sources */,

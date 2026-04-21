@@ -307,16 +307,28 @@ struct AddMeasurementSheet: View {
     let measurementType: MeasurementType
 
     @State private var value: String = ""
+    @StateObject private var scale = BluetoothScaleService.shared
+    @State private var autoCaptured: Double?
 
     private var lastMeasurement: BodyMeasurement? {
         allMeasurements
             .first { $0.userId == profile.id && $0.type == measurementType }
     }
 
+    /// Only offer the scale flow for weight — other measurement types
+    /// (waist, chest, etc.) stay manual.
+    private var showsScaleFlow: Bool { measurementType == .weight }
+
     var body: some View {
         NavigationStack {
-            VStack(spacing: 24) {
-                Spacer()
+            VStack(spacing: 20) {
+                if showsScaleFlow {
+                    scaleCard
+                }
+
+                Text(showsScaleFlow ? "Or enter it manually" : " ")
+                    .font(.system(size: 12))
+                    .foregroundColor(GQColors.textTertiary)
 
                 HStack(spacing: 4) {
                     TextField(lastMeasurement.map { String(format: "%.1f", $0.value) } ?? "0.0", text: $value)
@@ -340,8 +352,9 @@ struct AddMeasurementSheet: View {
                 .disabled(value.isEmpty)
                 .padding(.horizontal)
 
-                Spacer()
+                Spacer(minLength: 0)
             }
+            .padding(.top, 18)
             .gqPageBackground()
             .tint(GQColors.textPrimary)
             .navigationTitle("Log \(measurementType.rawValue)")
@@ -354,8 +367,79 @@ struct AddMeasurementSheet: View {
                         .foregroundColor(GQColors.textSecondary)
                 }
             }
+            .onChange(of: scale.lastWeight) { _, new in
+                guard let new, showsScaleFlow else { return }
+                autoCaptured = new
+                value = String(format: "%.1f", new)
+                HapticManager.shared.success()
+                // Give the user a beat to see the captured value,
+                // then auto-save. Matches how dedicated scale apps
+                // (Withings, Renpho) feel.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                    saveMeasurement()
+                }
+            }
+            .onDisappear { scale.stopScan() }
         }
-        .presentationDetents([.height(220)])
+        .presentationDetents([showsScaleFlow ? .height(420) : .height(220)])
+    }
+
+    /// Hero card for the scale flow. Starts inactive ("Connect a scale"),
+    /// moves through searching/waiting, lands on "Step on now" with a
+    /// live weight readout, then auto-saves.
+    @ViewBuilder
+    private var scaleCard: some View {
+        let state = scale.state
+        VStack(spacing: 10) {
+            ZStack {
+                Circle()
+                    .fill(GQGradients.primary.opacity(0.1))
+                    .frame(width: 64, height: 64)
+                Image(systemName: "scalemass.fill")
+                    .font(.system(size: 26, weight: .semibold))
+                    .foregroundStyle(GQGradients.primary)
+            }
+
+            VStack(spacing: 3) {
+                Text(state.title)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(GQColors.textPrimary)
+                Text(state.subtitle)
+                    .font(.system(size: 12))
+                    .foregroundColor(GQColors.textTertiary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
+            }
+
+            if case .idle = state {
+                Button {
+                    scale.startScan()
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "dot.radiowaves.left.and.right")
+                            .font(.system(size: 11, weight: .semibold))
+                        Text("Connect a scale")
+                            .font(.system(size: 13, weight: .semibold))
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(Capsule().fill(GQGradients.primary))
+                }
+                .buttonStyle(.plain)
+            } else if case .scanning = state {
+                ProgressView()
+                    .scaleEffect(0.8)
+            } else if case .waiting = state, let w = autoCaptured {
+                Text("\(String(format: "%.1f", w)) lbs captured")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(GQColors.success)
+            }
+        }
+        .padding(.vertical, 16)
+        .frame(maxWidth: .infinity)
+        .homeSocialCard(cornerRadius: 14)
+        .padding(.horizontal, 16)
     }
 
     private func saveMeasurement() {
