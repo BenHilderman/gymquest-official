@@ -75,12 +75,28 @@ struct ProgressAnalyticsView: View {
         return validWorkouts.filter { $0.date >= start }.count
     }
 
+    /// Week-over-week volume trend. Forgiving rules so a partial week
+    /// doesn't read as "Down 100%":
+    /// - If either week has 0 volume → return 0 (rendered as neutral).
+    /// - If the current week is less than ~40% complete → return 0;
+    ///   comparing a Tuesday against a full prior week is unfair.
+    /// - Clamp the result to ±150% so a blowup (10×) doesn't dominate
+    ///   the ring.
     private var volumeTrend: Double {
         guard weeklyVolumes.count >= 2 else { return 0 }
         let last = weeklyVolumes.last?.volume ?? 0
         let prev = weeklyVolumes[weeklyVolumes.count - 2].volume
-        guard prev > 0 else { return 0 }
-        return ((last - prev) / prev) * 100
+        guard prev > 0, last > 0 else { return 0 }
+
+        // Partial-week fairness: only compare after ~3 days elapsed.
+        let weekday = Calendar.current.component(.weekday, from: Date())
+        // weekday is 1..7 (Sun..Sat); convert to 0..6 days-into-week
+        // with Monday-start to keep parity with the weeklyVolumes grouping.
+        let daysIntoWeek = max(0, weekday - 2)
+        if daysIntoWeek < 3 { return 0 }
+
+        let raw = ((last - prev) / prev) * 100
+        return max(-150, min(150, raw))
     }
 
     private var weightMeasurements: [BodyMeasurement] {

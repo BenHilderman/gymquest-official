@@ -143,10 +143,18 @@ struct TodayDashboardSection: View {
     }
 
     private var weightDisplay: (value: String, sub: String) {
-        if let w = latestWeight {
-            return (formatWeight(w.value), "lbs · \(relativeDate(w.date))")
+        let latest = latestWeight.map { formatWeight($0.value) }
+        let goal = profile.goalWeight.map { formatWeight($0) }
+        switch (latest, goal) {
+        case let (current?, target?):
+            return ("\(current)/\(target)", "lbs")
+        case let (current?, nil):
+            return (current, "lbs")
+        case let (nil, target?):
+            return ("--/\(target)", "lbs")
+        case (nil, nil):
+            return ("--", "lbs")
         }
-        return ("--", "no weight yet")
     }
 
     private var stepsDisplay: String {
@@ -201,10 +209,11 @@ struct TodayDashboardSection: View {
             : "\(todayProtein)g"
     }
     private var stepsValue: String {
-        if let goal = profile.stepsGoal, goal > 0, healthKit.steps > 0 {
-            return "\(formatSteps(healthKit.steps))/\(formatSteps(goal))"
+        let todayStr = healthKit.steps > 0 ? formatSteps(healthKit.steps) : "--"
+        if let goal = profile.stepsGoal, goal > 0 {
+            return "\(todayStr)/\(formatSteps(goal))"
         }
-        return stepsDisplay
+        return todayStr
     }
 
     // O2 — 2×2 grid with SF icons

@@ -1640,36 +1640,14 @@ struct TodayView: View {
     // MARK: - Date Header
 
     private var dateHeader: some View {
-        HStack(alignment: .center) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Hi, \(firstName)")
-                    .font(.system(size: 22, weight: .bold, design: .rounded))
-                    .foregroundStyle(GQColors.textPrimary)
-                Text(Date(), format: .dateTime.weekday(.wide).month(.abbreviated).day())
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(GQColors.textTertiary)
-            }
+        HStack(alignment: .bottom) {
+            Text(Date(), format: .dateTime.weekday(.wide).month(.abbreviated).day())
+                .font(.system(size: 22, weight: .bold, design: .rounded))
+                .foregroundStyle(GQColors.textPrimary)
             Spacer()
-            if dailyStreak > 0 {
-                AnimatedFlameBadge(streak: dailyStreak)
-            }
         }
         .padding(.top, 16)
         .padding(.bottom, 6)
-    }
-
-    /// First name falls back to @username when the profile name is
-    /// empty. Keeps the greeting personal without showing "Hi, "
-    /// with a dangling comma if both are missing.
-    private var firstName: String {
-        let trimmed = profile.name.trimmingCharacters(in: .whitespaces)
-        if let first = trimmed.split(separator: " ").first, !first.isEmpty {
-            return String(first)
-        }
-        if !profile.username.isEmpty {
-            return "@\(profile.username)"
-        }
-        return "there"
     }
 
     // MARK: - Start Workout Hero Button
