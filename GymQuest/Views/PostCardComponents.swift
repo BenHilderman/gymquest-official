@@ -742,7 +742,7 @@ struct PostCardV2: View {
             VStack(spacing: 0) {
                 LinearGradient(
                     colors: [
-                        GQColors.adaptiveOverlay(0.12),
+                        GQColors.adaptiveOverlay(0.10),
                         Color.clear
                     ],
                     startPoint: .top,

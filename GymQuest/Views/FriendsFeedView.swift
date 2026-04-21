@@ -45,19 +45,19 @@ struct FriendsFeedView: View {
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                // Small top pad so the first content (presence strip or
-                // banner) has breathing room from the nav bar instead
-                // of sitting flush against it.
-                Color.clear.frame(height: 8)
-
                 LazyVStack(spacing: 0) {
                     if unreadActivityCount > 0 {
                         unreadActivityBanner
                             .padding(.horizontal, 16)
+                            .padding(.top, 8)
                             .padding(.bottom, 4)
                     }
 
                     if !friendsMembers.isEmpty {
+                        // Presence strip lives on the page color, not
+                        // surfaceBase — makes it a distinct utility
+                        // band above the feed so it doesn't blend into
+                        // the first post below.
                         FriendsRow(
                             members: friendsMembers,
                             onTapMember: { member in
@@ -73,6 +73,8 @@ struct FriendsFeedView: View {
                             onStartWorkout: { dismiss() }
                         )
                         .padding(.vertical, 8)
+                        .frame(maxWidth: .infinity)
+                        .background(GQColors.background)
                     }
 
                     if friendPosts.isEmpty {
