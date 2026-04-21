@@ -934,10 +934,11 @@ struct ExploreView: View {
                 }
             )
         } header: {
-            // Utility-only sticky header. Matches the page background so
-            // it blends in, with just a hairline at the bottom to mark
-            // the boundary between filters and the grid below — the
-            // line alone is enough to define the zone.
+            // Utility-only sticky header. Uses an ultraThinMaterial so
+            // the bar reads as a translucent filter strip attached to
+            // the grid below — matches the iOS pattern for sticky
+            // filter bars (IG Explore, Apple Music, Mail search). More
+            // distinct than "match the page" but softer than surfaceBase.
             VStack(spacing: 0) {
                 HStack(spacing: 10) {
                     discoverFilterChips
@@ -948,10 +949,10 @@ struct ExploreView: View {
                 .padding(.bottom, 6)
 
                 Rectangle()
-                    .fill(GQColors.adaptiveOverlay(0.06))
+                    .fill(GQColors.adaptiveOverlay(0.08))
                     .frame(height: 0.5)
             }
-            .background(GQColors.background)
+            .background(.ultraThinMaterial)
         }
     }
 
