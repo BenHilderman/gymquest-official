@@ -133,7 +133,7 @@ struct ExploreView: View {
                             onJumpTo: { idx in jumpHero(to: idx) },
                             onLongPressSave: { sheetPostForCollection = hero }
                         )
-                        .padding(.horizontal, 8)
+                        .padding(.horizontal, 12)
                     }
 
                     // ── 5. Unified discover feed ────────────────

@@ -67,7 +67,10 @@ struct ExploreHeroCard: View {
         .background(GQColors.cardBackground)
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(GQColors.borderDefault, lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: 14))
-        .gqShadow(.elevated)
+        // .card shadow has radius 8 (vs .elevated's 12) — fits within
+        // the hero's 12pt horizontal padding so the scroll view no
+        // longer clips its right/left edges.
+        .gqShadow(.card)
         .gesture(
             // Horizontal swipe: left → advance, right → rewind. Threshold
             // avoids accidental triggers from vertical scroll motion.
@@ -143,10 +146,34 @@ struct ExploreHeroCard: View {
                         .font(.system(size: 10))
                         .foregroundColor(GQColors.textTertiary)
 
-                        // Single play action — Save lives elsewhere (long
-                        // press on the card or in the overview sheet),
-                        // so the hero keeps the row minimal.
-                        HStack {
+                        // Action row — position dots on the left, play
+                        // button on the right, same vertical level.
+                        // Combining them into one row removes the
+                        // previous stacked-dots row beneath the card and
+                        // cuts the hero's total height.
+                        HStack(spacing: 8) {
+                            if picksCount > 1 {
+                                HStack(spacing: 6) {
+                                    ForEach(0..<picksCount, id: \.self) { i in
+                                        Button {
+                                            #if canImport(UIKit)
+                                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                            #endif
+                                            onJumpTo?(i)
+                                        } label: {
+                                            Capsule()
+                                                .fill(i == currentIndex
+                                                      ? AnyShapeStyle(GQGradients.primary)
+                                                      : AnyShapeStyle(GQColors.adaptiveOverlay(0.18)))
+                                                .frame(width: i == currentIndex ? 20 : 6, height: 5)
+                                                .animation(.spring(response: 0.3, dampingFraction: 0.85), value: currentIndex)
+                                                .frame(height: 22)
+                                                .contentShape(Rectangle())
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                            }
                             Spacer()
                             Button {
                                 #if canImport(UIKit)
@@ -163,32 +190,8 @@ struct ExploreHeroCard: View {
                     }
                 }
 
-                // Tappable position indicator — each pick is a button so
-                // users can jump directly to any of the 5 picks. Hit
-                // target tightened (14pt tall vs 24) to remove the
-                // extra vertical air that made the card bottom feel long.
-                if picksCount > 1 {
-                    HStack(spacing: 6) {
-                        ForEach(0..<picksCount, id: \.self) { i in
-                            Button {
-                                #if canImport(UIKit)
-                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                                #endif
-                                onJumpTo?(i)
-                            } label: {
-                                Capsule()
-                                    .fill(i == currentIndex
-                                          ? AnyShapeStyle(GQGradients.primary)
-                                          : AnyShapeStyle(GQColors.adaptiveOverlay(0.18)))
-                                    .frame(width: i == currentIndex ? 22 : 8, height: 6)
-                                    .animation(.spring(response: 0.3, dampingFraction: 0.85), value: currentIndex)
-                                    .frame(height: 14)
-                                    .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                }
+                // Dots moved inline with the Start button above — no
+                // separate position row needed.
             }
             .padding(.horizontal, 12)
             .padding(.top, 10)
