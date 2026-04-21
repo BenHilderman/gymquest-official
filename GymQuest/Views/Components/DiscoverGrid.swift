@@ -17,9 +17,8 @@ struct DiscoverGrid: View {
     /// autoplay on the featured video cell.
     @State private var activeVideoId: String?
 
-    /// More breathing room between tiles — 3-col density preserved,
-    /// just less crammed visually.
-    private let spacing: CGFloat = 8
+    /// Breathing room between tiles — 3-col density preserved.
+    private let spacing: CGFloat = 6
 
     var body: some View {
         // No inner ScrollView — the grid flows directly inside the parent
@@ -104,7 +103,7 @@ struct DiscoverGrid: View {
             }
         }
         .buttonStyle(.plain)
-        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 
     // MARK: - Featured cell (2×2 with autoplay video or large photo)
