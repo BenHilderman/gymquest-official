@@ -74,13 +74,13 @@ struct FriendsFeedView: View {
                     if friendPosts.isEmpty {
                         emptyState
                     } else {
-                        // Single top separator below the presence strip,
-                        // matching the ones between posts — no more
-                        // orphan hairline with awkward padding.
+                        // 8pt gap in the page color between each post —
+                        // reads as a clear row break without the harsh
+                        // hairline the previous design used.
                         ForEach(Array(friendPosts.enumerated()), id: \.element.id) { index, post in
                             Rectangle()
-                                .fill(GQColors.borderSubtle)
-                                .frame(height: 0.5)
+                                .fill(GQColors.background)
+                                .frame(height: 8)
 
                             PostCardV2(
                                 post: post,

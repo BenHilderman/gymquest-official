@@ -3554,17 +3554,23 @@ final class SquadChallenge {
 // impossible for me"). These four are the only sanctioned reactions.
 
 enum ReactionType: String, Codable, CaseIterable {
-    case strong = "Respect"       // 💪 — gym-native: "I see the effort"
+    case strong = "Respect"        // 💪 — gym-native: "I see the effort"
     case raisedHands = "Locked in" // 🙌 — gym-native: "you're dialed"
-    case eyes = "Seen"            // 👀 — "I'm watching, you're showing up"
-    case fire = "Clean reps"      // 🔥 — gym-native: "that was sharp"
+    case fire = "Clean reps"       // 🔥 — gym-native: "that was sharp"
+    case goat = "GOAT"             // 🐐 — "that's a goat set"
+    case grind = "Grinding"        // 😤 — "deep in the work"
+    case hundred = "Hundred"       // 💯 — "hit it, no notes"
+    case eyes = "Seen"             // 👀 — "I'm watching, you're showing up"
 
     var emoji: String {
         switch self {
         case .strong: return "💪"
         case .raisedHands: return "🙌"
-        case .eyes: return "👀"
         case .fire: return "🔥"
+        case .goat: return "🐐"
+        case .grind: return "😤"
+        case .hundred: return "💯"
+        case .eyes: return "👀"
         }
     }
 }
