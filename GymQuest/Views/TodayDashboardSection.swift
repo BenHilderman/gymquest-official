@@ -11,7 +11,10 @@ import SwiftUI
 import SwiftData
 
 struct TodayDashboardSection: View {
-    let profile: UserProfile
+    // @Bindable so the view observes profile property changes —
+    // goal updates from GoalEditorSheet now re-render the widget
+    // immediately instead of waiting for a parent refresh.
+    @Bindable var profile: UserProfile
     let workoutsThisWeek: Int
     let allWorkouts: [Workout]
 

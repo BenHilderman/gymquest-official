@@ -1641,13 +1641,29 @@ struct TodayView: View {
 
     private var dateHeader: some View {
         HStack(alignment: .bottom) {
-            Text(Date(), format: .dateTime.weekday(.wide).month(.abbreviated).day())
-                .font(.system(size: 22, weight: .bold, design: .rounded))
-                .foregroundStyle(GQColors.textPrimary)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(timeOfDayGreeting)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(GQColors.textTertiary)
+                Text(Date(), format: .dateTime.weekday(.wide).month(.abbreviated).day())
+                    .font(.system(size: 22, weight: .bold, design: .rounded))
+                    .foregroundStyle(GQColors.textPrimary)
+            }
             Spacer()
         }
         .padding(.top, 16)
         .padding(.bottom, 6)
+    }
+
+    /// Simple time-of-day greeting — matches the original screenshot
+    /// design (no name, no flame, no streak coupling).
+    private var timeOfDayGreeting: String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        switch hour {
+        case 0..<12:  return "Good morning"
+        case 12..<17: return "Good afternoon"
+        default:      return "Good evening"
+        }
     }
 
     // MARK: - Start Workout Hero Button

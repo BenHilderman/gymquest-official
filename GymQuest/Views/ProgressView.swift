@@ -19,6 +19,10 @@ struct ProgressAnalyticsView: View {
 
     let profile: UserProfile
     var inline: Bool = false
+    /// Optional anchor — when set (e.g. "nutrition" or "weight") the
+    /// page scrolls to that section on appear. Used by the log sheets'
+    /// "Progress" toolbar button to deep-link to the relevant chart.
+    var scrollTarget: String? = nil
 
     @State private var selectedExerciseName: String = ""
     @State private var showingExerciseTrend = false
@@ -114,9 +118,19 @@ struct ProgressAnalyticsView: View {
         if inline {
             analyticsContent
         } else {
-            ScrollView { analyticsContent }
-                .gqPageBackground()
-                .navigationTitle("Progress")
+            ScrollViewReader { proxy in
+                ScrollView { analyticsContent }
+                    .gqPageBackground()
+                    .navigationTitle("Progress")
+                    .onAppear {
+                        guard let target = scrollTarget else { return }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                            withAnimation(.easeInOut(duration: 0.4)) {
+                                proxy.scrollTo(target, anchor: .top)
+                            }
+                        }
+                    }
+            }
         }
     }
 
@@ -129,6 +143,9 @@ struct ProgressAnalyticsView: View {
             ringStatsRow
             volumeCard
             splitAndBodyRow
+                .id("weight")
+            nutritionCard
+                .id("nutrition")
             if !recentPRs.isEmpty { prsCard }
             exerciseTrendCard
         }
@@ -626,6 +643,81 @@ struct ProgressAnalyticsView: View {
         }
         .padding(16)
         .homeSocialCard(cornerRadius: 16)
+    }
+
+    // MARK: - Nutrition (7-day calories bar chart)
+
+    private var nutritionCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
+                Image(systemName: "flame.fill")
+                    .font(.system(size: 13))
+                    .foregroundStyle(GQGradients.primary)
+                Text("Nutrition")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(GQColors.textPrimary)
+                Spacer()
+                if profile.dailyCalorieGoal > 0 {
+                    Text("\(profile.dailyCalorieGoal) cal goal")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(GQColors.textTertiary)
+                }
+            }
+
+            nutritionBars
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .homeSocialCard(cornerRadius: 16)
+    }
+
+    private var nutritionWeeklyTotals: [(date: Date, cal: Int)] {
+        let service = NutritionService.shared
+        service.configure(modelContext: modelContext)
+        let cal = Calendar.current
+        return (0..<7).reversed().compactMap { offset -> (date: Date, cal: Int)? in
+            guard let start = cal.date(byAdding: .day, value: -offset, to: cal.startOfDay(for: Date())) else { return nil }
+            guard let end = cal.date(byAdding: .day, value: 1, to: start) else { return nil }
+            let meals = service.getMeals(userId: profile.id, from: start, to: end)
+            let total = meals.reduce(0) { $0 + ($1.estimatedCalories ?? 0) }
+            return (start, total)
+        }
+    }
+
+    /// Single-letter weekday for the mini bar chart labels.
+    private func weekdayInitial(_ date: Date) -> String {
+        let df = DateFormatter()
+        df.dateFormat = "EEE"
+        return String(df.string(from: date).prefix(1))
+    }
+
+    @ViewBuilder
+    private var nutritionBars: some View {
+        let totals = nutritionWeeklyTotals
+        let anyLogged = totals.contains { $0.cal > 0 }
+        if !anyLogged {
+            emptyState(icon: "flame", text: "No meals logged yet")
+        } else {
+            let maxCal = max(totals.map(\.cal).max() ?? 0, profile.dailyCalorieGoal > 0 ? profile.dailyCalorieGoal : 2000)
+            HStack(alignment: .bottom, spacing: 6) {
+                ForEach(Array(totals.enumerated()), id: \.offset) { _, entry in
+                    VStack(spacing: 4) {
+                        ZStack(alignment: .bottom) {
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(GQColors.adaptiveOverlay(0.05))
+                                .frame(height: 70)
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(GQGradients.primary)
+                                .frame(height: maxCal > 0 ? 70 * CGFloat(entry.cal) / CGFloat(maxCal) : 0)
+                        }
+                        Text(weekdayInitial(entry.date))
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(GQColors.textTertiary)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+            }
+        }
     }
 
     // MARK: - Exercise Trends

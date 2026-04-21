@@ -366,6 +366,21 @@ struct AddMeasurementSheet: View {
                     Button("Cancel") { dismiss() }
                         .foregroundColor(GQColors.textSecondary)
                 }
+                if measurementType == .weight {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        NavigationLink {
+                            ProgressAnalyticsView(profile: profile, inline: false, scrollTarget: "weight")
+                        } label: {
+                            HStack(spacing: 3) {
+                                Image(systemName: "chart.xyaxis.line")
+                                    .font(.system(size: 12, weight: .semibold))
+                                Text("Progress")
+                                    .font(.system(size: 13, weight: .medium))
+                            }
+                            .foregroundColor(GQColors.textSecondary)
+                        }
+                    }
+                }
             }
             .onChange(of: scale.lastWeight) { _, new in
                 guard let new, showsScaleFlow else { return }

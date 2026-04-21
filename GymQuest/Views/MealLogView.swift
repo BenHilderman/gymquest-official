@@ -99,6 +99,22 @@ struct MealLogView: View {
                     Button("Cancel") { dismiss() }
                         .foregroundColor(GQColors.textSecondary)
                 }
+                ToolbarItem(placement: .topBarTrailing) {
+                    // One tap to jump to the nutrition trend inside
+                    // Progress. Pushes onto the sheet's own nav stack
+                    // so users return via the back button.
+                    NavigationLink {
+                        ProgressAnalyticsView(profile: profile, inline: false, scrollTarget: "nutrition")
+                    } label: {
+                        HStack(spacing: 3) {
+                            Image(systemName: "chart.xyaxis.line")
+                                .font(.system(size: 12, weight: .semibold))
+                            Text("Progress")
+                                .font(.system(size: 13, weight: .medium))
+                        }
+                        .foregroundColor(GQColors.textSecondary)
+                    }
+                }
             }
             .onChange(of: photoItem) { _, newItem in
                 Task {
