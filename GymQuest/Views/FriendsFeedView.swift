@@ -72,7 +72,8 @@ struct FriendsFeedView: View {
                             },
                             onStartWorkout: { dismiss() }
                         )
-                        .padding(.vertical, 8)
+                        .padding(.top, 2)
+                        .padding(.bottom, 6)
                         .frame(maxWidth: .infinity)
                         .background(GQColors.background)
                     }
