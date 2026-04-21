@@ -1371,9 +1371,10 @@ struct TodayView: View {
             }
             .buttonStyle(.plain)
 
-            // Progressive challenges (3 at a time, tier-based)
-            TodayChallengesSection(profile: profile)
-
+            // Food + weight logging moved directly under activity —
+            // user called out that this section was buried at the
+            // bottom; it's a daily-log affordance so it belongs near
+            // the top of the page, not behind challenges.
             TodayDashboardSection(
                 profile: profile,
                 workoutsThisWeek: workoutsThisWeek,
@@ -1381,6 +1382,8 @@ struct TodayView: View {
             )
             .environment(\.modelContext, modelContext)
 
+            // Progressive challenges (3 at a time, tier-based)
+            TodayChallengesSection(profile: profile)
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 100)
