@@ -401,7 +401,6 @@ struct TodayView: View {
         let target = profile.daysPerWeek
         let flame = dailyStreak
         let weeks = weeklyStreak
-        let flameGrad = LinearGradient(colors: [.orange, .red.opacity(0.8)], startPoint: .bottom, endPoint: .top)
 
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .bottom) {
@@ -417,7 +416,7 @@ struct TodayView: View {
                 VStack(alignment: .trailing, spacing: 2) {
                     Text("STREAK").font(.system(size: 10, weight: .semibold)).tracking(1.2).foregroundColor(GQColors.textTertiary)
                     HStack(alignment: .firstTextBaseline, spacing: 4) {
-                        Image(systemName: "flame.fill").font(.system(size: 15)).foregroundStyle(flameGrad)
+                        StreakFlame(streak: flame)
                         Text("\(flame)").font(.system(size: 24, weight: .bold, design: .rounded)).foregroundColor(GQColors.textPrimary)
                     }
                     Text("\(weeks) week streak").font(.system(size: 11, weight: .medium)).foregroundColor(GQColors.textTertiary)
@@ -3748,6 +3747,75 @@ struct SegmentedRing: View {
             }
             Text("\(Int(progress * 100))%").font(.system(size: 16, weight: .bold, design: .rounded)).foregroundColor(GQColors.textPrimary)
         }
+    }
+}
+
+// MARK: - Streak Flame (weekly-card glyph with spark animation)
+
+/// Flame glyph used in the THIS WEEK streak column. Static at < 7-day
+/// streak; once the user crosses a week, the flame flickers slightly
+/// and three small sparks drift upward on a staggered loop.
+struct StreakFlame: View {
+    let streak: Int
+
+    @State private var flicker: Bool = false
+    @State private var sparkPhase: CGFloat = 0
+
+    private var isAlive: Bool { streak >= 7 }
+    private let flameGrad = LinearGradient(
+        colors: [.yellow, .orange, .red.opacity(0.85)],
+        startPoint: .bottom, endPoint: .top
+    )
+    private let dullGrad = LinearGradient(
+        colors: [.orange, .red.opacity(0.8)],
+        startPoint: .bottom, endPoint: .top
+    )
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            // Sparks. Three small dots rising at staggered phases so
+            // the effect looks organic — not a mechanical trio.
+            if isAlive {
+                spark(size: 2.5, xOffset: -3, delay: 0)
+                spark(size: 2.0, xOffset: 3, delay: 0.55)
+                spark(size: 1.8, xOffset: 0, delay: 1.1)
+            }
+
+            Image(systemName: "flame.fill")
+                .font(.system(size: 15))
+                .foregroundStyle(isAlive ? flameGrad : dullGrad)
+                .scaleEffect(isAlive && flicker ? 1.06 : 1.0)
+                .rotationEffect(.degrees(isAlive ? (flicker ? -2 : 2) : 0))
+        }
+        .frame(width: 18, height: 22)
+        .onAppear {
+            guard isAlive else { return }
+            withAnimation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true)) {
+                flicker = true
+            }
+        }
+    }
+
+    /// A single upward-drifting spark. Scales from 1 to 0 and rises
+    /// ~14pt over 1.6s, staggered by `delay`. Loops forever.
+    @ViewBuilder
+    private func spark(size: CGFloat, xOffset: CGFloat, delay: Double) -> some View {
+        TimelineView(.animation) { context in
+            let elapsed = context.date.timeIntervalSinceReferenceDate
+            // One cycle per 1.6s, offset by delay for stagger.
+            let cycle = 1.6
+            let localPhase = ((elapsed - delay).truncatingRemainder(dividingBy: cycle)) / cycle
+            let clamped = max(0, localPhase)
+            let rise = CGFloat(clamped) * 14.0
+            let opacity = (1 - clamped) * 0.85
+            Circle()
+                .fill(Color.orange)
+                .frame(width: size, height: size)
+                .offset(x: xOffset, y: -rise)
+                .opacity(opacity)
+                .blur(radius: 0.4)
+        }
+        .frame(width: 1, height: 1, alignment: .center)
     }
 }
 
