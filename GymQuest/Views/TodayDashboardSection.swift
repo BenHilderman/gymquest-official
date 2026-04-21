@@ -26,6 +26,9 @@ struct TodayDashboardSection: View {
     @State private var showingAddMeasurement = false
     @State private var showingNutritionDetail = false
     @State private var showingWeightDetail = false
+    /// Which goal (if any) is currently being edited in the quick
+    /// goal-editor sheet. nil when closed.
+    @State private var editingGoal: GoalKind?
 
     private var latestWeight: BodyMeasurement? {
         measurements.first { $0.userId == profile.id && $0.type == .weight }
@@ -61,6 +64,48 @@ struct TodayDashboardSection: View {
                     }
             }
         }
+        .sheet(item: $editingGoal) { kind in
+            GoalEditorSheet(
+                kind: kind,
+                initialValue: currentGoal(for: kind),
+                onSave: { newValue in
+                    applyGoal(kind, value: newValue)
+                    editingGoal = nil
+                },
+                onRemove: {
+                    applyGoal(kind, value: nil)
+                    editingGoal = nil
+                },
+                onCancel: { editingGoal = nil }
+            )
+            .presentationDetents([.height(300)])
+            .presentationDragIndicator(.visible)
+        }
+    }
+
+    // MARK: - Goal editing
+
+    private func currentGoal(for kind: GoalKind) -> Double? {
+        switch kind {
+        case .calories: return profile.dailyCalorieGoal > 0 ? Double(profile.dailyCalorieGoal) : nil
+        case .protein:  return profile.proteinGoalGrams > 0 ? Double(profile.proteinGoalGrams) : nil
+        case .steps:    return profile.stepsGoal.map(Double.init)
+        case .weight:   return profile.goalWeight
+        }
+    }
+
+    private func applyGoal(_ kind: GoalKind, value: Double?) {
+        switch kind {
+        case .calories:
+            profile.dailyCalorieGoal = value.map { Int($0) } ?? 0
+        case .protein:
+            profile.proteinGoalGrams = value.map { Int($0) } ?? 0
+        case .steps:
+            profile.stepsGoal = value.map { Int($0) }
+        case .weight:
+            profile.goalWeight = value
+        }
+        try? modelContext.save()
     }
 
     // MARK: - Variants
@@ -108,17 +153,31 @@ struct TodayDashboardSection: View {
         healthKit.steps > 0 ? formatSteps(healthKit.steps) : "--"
     }
 
-    // O1 — Minimal: drop "· today", keep 4 stats + 2 buttons, tight labels
+    // O1 — Minimal: drop "· today", keep 4 stats + 2 buttons, tight labels.
+    // Each stat is now tappable — opens the quick goal editor so the
+    // user can adjust or clear the goal without drilling into settings.
     private var variant1_Minimal: some View {
         VStack(spacing: 10) {
             HStack(spacing: 0) {
-                stat("\(todayCalories)/\(profile.dailyCalorieGoal)", "cal")
+                Button { editingGoal = .calories } label: {
+                    stat(calorieValue, "cal")
+                }
+                .buttonStyle(.plain)
                 divider
-                stat("\(todayProtein)/\(profile.proteinGoalGrams)g", "protein")
+                Button { editingGoal = .protein } label: {
+                    stat(proteinValue, "protein")
+                }
+                .buttonStyle(.plain)
                 divider
-                stat(stepsDisplay, "steps")
+                Button { editingGoal = .steps } label: {
+                    stat(stepsValue, "steps")
+                }
+                .buttonStyle(.plain)
                 divider
-                stat(weightDisplay.value, weightDisplay.sub)
+                Button { editingGoal = .weight } label: {
+                    stat(weightDisplay.value, weightDisplay.sub)
+                }
+                .buttonStyle(.plain)
             }
             HStack(spacing: 8) {
                 logButton("Log Food") { showingMealLog = true }
@@ -127,6 +186,25 @@ struct TodayDashboardSection: View {
         }
         .padding(.horizontal, 14).padding(.vertical, 12)
         .homeSocialCard(cornerRadius: 14)
+    }
+
+    // MARK: - Stat display helpers (drop "/goal" when no goal is set)
+
+    private var calorieValue: String {
+        profile.dailyCalorieGoal > 0
+            ? "\(todayCalories)/\(profile.dailyCalorieGoal)"
+            : "\(todayCalories)"
+    }
+    private var proteinValue: String {
+        profile.proteinGoalGrams > 0
+            ? "\(todayProtein)/\(profile.proteinGoalGrams)g"
+            : "\(todayProtein)g"
+    }
+    private var stepsValue: String {
+        if let goal = profile.stepsGoal, goal > 0, healthKit.steps > 0 {
+            return "\(formatSteps(healthKit.steps))/\(formatSteps(goal))"
+        }
+        return stepsDisplay
     }
 
     // O2 — 2×2 grid with SF icons
@@ -671,5 +749,162 @@ struct NutritionDetailSheet: View {
             let total = dayMeals.reduce(0) { $0 + ($1.estimatedCalories ?? 0) }
             return (start, total)
         }
+    }
+}
+
+// MARK: - Goal editor
+
+/// Tap-target for the dashboard stat. Drives which goal the
+/// GoalEditorSheet is currently editing.
+enum GoalKind: String, Identifiable {
+    case calories, protein, steps, weight
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .calories: return "Daily Calorie Goal"
+        case .protein:  return "Daily Protein Goal"
+        case .steps:    return "Daily Step Goal"
+        case .weight:   return "Target Weight"
+        }
+    }
+
+    var unit: String {
+        switch self {
+        case .calories: return "cal"
+        case .protein:  return "g"
+        case .steps:    return "steps"
+        case .weight:   return "lbs"
+        }
+    }
+
+    var step: Double {
+        switch self {
+        case .calories: return 50
+        case .protein:  return 5
+        case .steps:    return 500
+        case .weight:   return 1
+        }
+    }
+
+    var range: ClosedRange<Double> {
+        switch self {
+        case .calories: return 500...6000
+        case .protein:  return 20...400
+        case .steps:    return 1000...30000
+        case .weight:   return 60...500
+        }
+    }
+
+    var defaultValue: Double {
+        switch self {
+        case .calories: return 2000
+        case .protein:  return 150
+        case .steps:    return 8000
+        case .weight:   return 170
+        }
+    }
+}
+
+/// Compact sheet for quick-editing a goal on the home dashboard.
+/// Stepper + text field + Save + Remove. No navigation hops.
+struct GoalEditorSheet: View {
+    let kind: GoalKind
+    let initialValue: Double?
+    let onSave: (Double) -> Void
+    let onRemove: () -> Void
+    let onCancel: () -> Void
+
+    @State private var value: Double = 0
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        VStack(spacing: 20) {
+            VStack(spacing: 4) {
+                Text(kind.title)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundColor(GQColors.textPrimary)
+                Text(initialValue == nil ? "Not set" : "Current: \(formatted(initialValue ?? 0)) \(kind.unit)")
+                    .font(.system(size: 12))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+            .padding(.top, 12)
+
+            HStack(spacing: 16) {
+                stepButton("minus") {
+                    value = max(kind.range.lowerBound, value - kind.step)
+                }
+
+                VStack(spacing: 2) {
+                    TextField("", value: $value, format: .number)
+                        .keyboardType(.numberPad)
+                        .multilineTextAlignment(.center)
+                        .font(.system(size: 34, weight: .bold, design: .rounded))
+                        .foregroundColor(GQColors.textPrimary)
+                        .focused($focused)
+                        .frame(minWidth: 120)
+                    Text(kind.unit)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(GQColors.textTertiary)
+                }
+
+                stepButton("plus") {
+                    value = min(kind.range.upperBound, value + kind.step)
+                }
+            }
+
+            VStack(spacing: 8) {
+                Button {
+                    onSave(value)
+                } label: {
+                    Text("Save")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 13)
+                        .background(RoundedRectangle(cornerRadius: 12).fill(GQGradients.primary))
+                }
+                .buttonStyle(.plain)
+
+                if initialValue != nil {
+                    Button(action: onRemove) {
+                        Text("Remove Goal")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(GQColors.textSecondary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 16)
+
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity)
+        .onAppear {
+            value = initialValue ?? kind.defaultValue
+        }
+    }
+
+    private func stepButton(_ icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: {
+            #if canImport(UIKit)
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            #endif
+            action()
+        }) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(GQColors.textPrimary)
+                .frame(width: 40, height: 40)
+                .background(Circle().fill(GQColors.adaptiveOverlay(0.06)))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func formatted(_ v: Double) -> String {
+        if v == v.rounded() { return "\(Int(v))" }
+        return String(format: "%.1f", v)
     }
 }

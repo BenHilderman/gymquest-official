@@ -1313,6 +1313,10 @@ final class UserProfile {
     var carbsGoalGrams: Int = 250
     var fatGoalGrams: Int = 65
     var goalWeight: Double?
+    // Optional step target — nil means no goal set, hides the "/N"
+    // suffix on the home dashboard stat and removes the progress
+    // comparison.
+    var stepsGoal: Int?
 
     // Privacy & social counts
     var isProfilePublic: Bool = true
