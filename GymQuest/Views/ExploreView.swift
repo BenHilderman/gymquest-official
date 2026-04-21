@@ -934,17 +934,24 @@ struct ExploreView: View {
                 }
             )
         } header: {
-            // Utility-only sticky header: chips + mode toggle on one
-            // line. Tighter vertical padding so the first media row
-            // sits close to the filters — used to feel disconnected.
-            HStack(spacing: 10) {
-                discoverFilterChips
-                discoverModeToggle
-                    .padding(.trailing, 12)
+            // Utility-only sticky header. surfaceBase gives it a subtle
+            // distinct shade from the page, and a hairline at the bottom
+            // sets it apart from the grid below so it reads as its own
+            // filter zone instead of blending into the scroll.
+            VStack(spacing: 0) {
+                HStack(spacing: 10) {
+                    discoverFilterChips
+                    discoverModeToggle
+                        .padding(.trailing, 12)
+                }
+                .padding(.top, 6)
+                .padding(.bottom, 6)
+
+                Rectangle()
+                    .fill(GQColors.borderSubtle)
+                    .frame(height: 0.5)
             }
-            .padding(.top, 6)
-            .padding(.bottom, 4)
-            .background(GQColors.background)
+            .background(GQColors.surfaceBase)
         }
     }
 
