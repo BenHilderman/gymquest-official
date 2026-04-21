@@ -113,11 +113,24 @@ struct FriendsRow: View {
     var body: some View {
         if members.isEmpty { EmptyView() } else {
             VStack(alignment: .leading, spacing: 6) {
-                Text("FRIENDS")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundColor(GQColors.textTertiary)
-                    .tracking(1.2)
-                    .padding(.horizontal, 16)
+                // "ACTIVE NOW · N friends today" — compact header with
+                // a green presence dot, matches the cleaner shipped
+                // design instead of a loud "FRIENDS" label.
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(GQColors.success)
+                        .frame(width: 6, height: 6)
+                    Text("ACTIVE NOW")
+                        .font(.system(size: 10, weight: .semibold))
+                        .tracking(1.2)
+                        .foregroundColor(GQColors.textTertiary)
+                    Text("·")
+                        .foregroundColor(GQColors.textTertiary)
+                    Text(activeLabel)
+                        .font(.system(size: 10))
+                        .foregroundColor(GQColors.textTertiary)
+                }
+                .padding(.horizontal, 16)
 
                 ScrollView(.horizontal, showsIndicators: false) {
                     LazyHStack(spacing: 14) {
@@ -127,14 +140,21 @@ struct FriendsRow: View {
                         startCell
                     }
                     .padding(.horizontal, 16)
-                    // Vertical padding so the live-ring pulse has room
-                    // at the top and doesn't clip against the element
-                    // above. Only change kept from the cleanup pass.
                     .padding(.vertical, 4)
                 }
             }
             .onAppear { pulse = true }
         }
+    }
+
+    /// Small status string in the header — "N active today" reads as
+    /// presence rather than a static count.
+    private var activeLabel: String {
+        let liveCount = members.filter { isLive($0) }.count
+        if liveCount > 0 {
+            return "\(liveCount) training now"
+        }
+        return "\(members.count) friends"
     }
 
     private func memberCell(_ member: FriendsMember) -> some View {
@@ -177,12 +197,6 @@ struct FriendsRow: View {
                     .foregroundColor(GQColors.textPrimary)
                     .lineLimit(1)
                     .frame(maxWidth: 56)
-
-                Text(member.statusText)
-                    .font(.system(size: 9, weight: .medium))
-                    .foregroundColor(GQColors.textTertiary)
-                    .lineLimit(1)
-                    .frame(maxWidth: 56)
             }
         }
         .buttonStyle(.plain)
@@ -202,9 +216,6 @@ struct FriendsRow: View {
                 Text("Start")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(GQColors.textSecondary)
-                Text("workout")
-                    .font(.system(size: 9, weight: .medium))
-                    .foregroundColor(GQColors.textTertiary)
             }
         }
         .buttonStyle(.plain)
