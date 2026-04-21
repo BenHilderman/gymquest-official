@@ -198,38 +198,17 @@ struct FriendsRow: View {
                     .lineLimit(1)
                     .frame(maxWidth: 56)
 
-                // Tiny workout-type glyph for live members — no text,
-                // just the icon in textTertiary so it reads as a quiet
-                // hint ("she's doing pull"). Stays out of the way when
-                // there's no current workout.
-                if let icon = workoutIcon(for: member) {
-                    Image(systemName: icon)
-                        .font(.system(size: 9, weight: .semibold))
-                        .foregroundColor(GQColors.textTertiary)
-                        .frame(height: 10)
-                }
+                // Second line — workout type + elapsed (or total when
+                // completed), e.g. "Push · 6m" / "Pull · 42m". Tertiary
+                // text so it stays subtle under the name.
+                Text(member.statusText)
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundColor(GQColors.textTertiary)
+                    .lineLimit(1)
+                    .frame(maxWidth: 56)
             }
         }
         .buttonStyle(.plain)
-    }
-
-    /// SF symbol matching the member's current workout type, when live.
-    private func workoutIcon(for member: FriendsMember) -> String? {
-        guard case let .live(workoutType) = member.status, let raw = workoutType else { return nil }
-        switch raw.lowercased() {
-        case "push": return "figure.strengthtraining.traditional"
-        case "pull": return "figure.rower"
-        case "legs": return "figure.squat"
-        case "cardio", "run", "running": return "figure.run"
-        case "upper body", "upper": return "figure.arms.open"
-        case "lower body", "lower": return "figure.cross.training"
-        case "full body": return "figure.cross.training"
-        case "yoga": return "figure.yoga"
-        case "hiit": return "figure.highintensity.intervaltraining"
-        case "glutes": return "figure.stair.stepper"
-        case "abs": return "figure.core.training"
-        default: return "dumbbell.fill"
-        }
     }
 
     private var startCell: some View {
