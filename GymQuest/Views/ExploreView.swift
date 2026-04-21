@@ -934,29 +934,20 @@ struct ExploreView: View {
                 }
             )
         } header: {
-            // Utility-only sticky header. Bracketed with hairlines top
-            // AND bottom so the filter bar reads as a symmetric zone
-            // rather than a floating row with an orphan line under it.
-            // ultraThinMaterial keeps the bar translucent over the
-            // scrolled content.
-            VStack(spacing: 0) {
-                Rectangle()
-                    .fill(GQColors.adaptiveOverlay(0.08))
-                    .frame(height: 0.5)
-
-                HStack(spacing: 10) {
-                    discoverFilterChips
-                    discoverModeToggle
-                        .padding(.trailing, 12)
-                }
-                .padding(.top, 6)
-                .padding(.bottom, 6)
-
-                Rectangle()
-                    .fill(GQColors.adaptiveOverlay(0.08))
-                    .frame(height: 0.5)
+            // Utility-only sticky header. surfaceBase shade makes it
+            // distinct from the page; no hairlines — the shade alone
+            // defines the zone and the bar blends with the card-style
+            // elements above/below rather than breaking the page with
+            // explicit dividers.
+            HStack(spacing: 10) {
+                discoverFilterChips
+                discoverModeToggle
+                    .padding(.trailing, 12)
             }
-            .background(.ultraThinMaterial)
+            .padding(.top, 8)
+            .padding(.bottom, 8)
+            .frame(maxWidth: .infinity)
+            .background(GQColors.surfaceBase)
         }
     }
 
