@@ -74,13 +74,18 @@ struct FriendsFeedView: View {
                     if friendPosts.isEmpty {
                         emptyState
                     } else {
-                        // 10pt gap in the page color between each post.
-                        // Wider than the old 8pt so the row break reads
-                        // cleanly on first scroll.
+                        // Subtle hairline between posts, padded with a
+                        // bit of surface above and below. Reads as a
+                        // clean row break without the heavier 10pt bg
+                        // strip from the previous pass.
                         ForEach(Array(friendPosts.enumerated()), id: \.element.id) { index, post in
-                            Rectangle()
-                                .fill(GQColors.background)
-                                .frame(height: 10)
+                            VStack(spacing: 0) {
+                                Color.clear.frame(height: 6)
+                                Rectangle()
+                                    .fill(GQColors.borderDefault)
+                                    .frame(height: 0.5)
+                                Color.clear.frame(height: 6)
+                            }
 
                             PostCardV2(
                                 post: post,
