@@ -74,13 +74,15 @@ struct FriendsFeedView: View {
                     if friendPosts.isEmpty {
                         emptyState
                     } else {
-                        // Continuous surface, single full-width hairline
-                        // between posts. No gaps, no shadows.
+                        // Continuous surface, single 1pt borderProminent
+                        // hairline between posts. Thicker + more
+                        // contrast than before so you can actually see
+                        // where one post ends and the next begins.
                         ForEach(Array(friendPosts.enumerated()), id: \.element.id) { index, post in
                             if index > 0 {
                                 Rectangle()
-                                    .fill(GQColors.borderDefault)
-                                    .frame(height: 0.5)
+                                    .fill(GQColors.borderProminent)
+                                    .frame(height: 1)
                             }
 
                             PostCardV2(

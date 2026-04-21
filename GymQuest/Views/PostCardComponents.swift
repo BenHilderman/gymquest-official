@@ -98,6 +98,12 @@ struct PostCardV2: View {
                 headerRow
                 inspiredByBadge
                 workoutIdentityBadge
+                // Subtle hairline between the header block and the
+                // hero media so the two zones read as distinct — used
+                // to blur together because they share the same bg.
+                Rectangle()
+                    .fill(GQColors.borderSubtle)
+                    .frame(height: 0.5)
                 heroSection
                 inlineMusicRow
                 useThisWorkoutBar
@@ -771,25 +777,24 @@ struct PostCardV2: View {
                     .transition(.scale(scale: 0.7).combined(with: .opacity))
             }
 
-            // Persistent mute affordance on any post that has audio to
-            // toggle (video track or music preview). Matches the video
-            // player's corner button so the gesture language is
-            // consistent across media types.
+            // Persistent mute toggle. Top-right, white glyph with a
+            // subtle shadow — no pill background, matches the other
+            // tile overlays (duration, workout icon) instead of the
+            // heavier ultraThinMaterial circle it was before.
             if hasToggleableAudio {
                 Button {
                     toggleMusicPreview()
                 } label: {
                     Image(systemName: isPlayingMusic ? "speaker.wave.2.fill" : "speaker.slash.fill")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(.white)
-                        .padding(7)
-                        .background(.ultraThinMaterial)
-                        .environment(\.colorScheme, .dark)
-                        .clipShape(Circle())
+                        .shadow(color: .black.opacity(0.45), radius: 2, y: 1)
+                        .padding(8)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .padding(10)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                .padding(6)
             }
         }
         .clipShape(Rectangle())
