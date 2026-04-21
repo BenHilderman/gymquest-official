@@ -66,25 +66,42 @@ struct DiscoverGrid: View {
             handleTap(item)
         } label: {
             ZStack {
-                thumbnailView(item.post)
-                    .frame(width: size, height: size)
-                    .clipped()
+                // Video posts: autoplay muted video preview. Photo posts:
+                // static thumbnail. The play badge in the corner is gone
+                // since videos now actually play, which is a clearer
+                // signal than a static icon overlay.
+                if isVideo(item), let data = effectiveVideoData(item.post) {
+                    GridVideoTile(videoData: data)
+                        .frame(width: size, height: size)
+                        .clipped()
+                } else {
+                    thumbnailView(item.post)
+                        .frame(width: size, height: size)
+                        .clipped()
+                }
 
-                // Top-right: play icon for video OR multi-image badge
-                if isVideo(item) {
-                    HStack(spacing: 3) {
-                        Image(systemName: "play.fill")
-                            .font(.system(size: 8, weight: .bold))
-                        if item.post.mediaItems.count > 1 {
-                            Text("\(item.post.mediaItems.count)")
-                                .font(.system(size: 8, weight: .bold))
-                        }
-                    }
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 5).padding(.vertical, 3)
-                    .background(Capsule().fill(.black.opacity(0.55)))
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                    .padding(4)
+                // Top-right: multi-image badge (count only — no play icon).
+                if item.post.mediaItems.count > 1 {
+                    Text("\(item.post.mediaItems.count)")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 5).padding(.vertical, 2)
+                        .background(Capsule().fill(.black.opacity(0.55)))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                        .padding(4)
+                }
+
+                // Top-left: workout type icon so the viewer can sort the
+                // grid by intent at a glance (push/pull/legs/cardio).
+                if let rawType = item.post.workoutType,
+                   let type = WorkoutType(rawValue: rawType) {
+                    Image(systemName: type.icon)
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(width: 22, height: 22)
+                        .background(Circle().fill(.black.opacity(0.55)))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                        .padding(4)
                 }
 
                 // Bottom-left: duration badge
@@ -97,9 +114,6 @@ struct DiscoverGrid: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
                         .padding(4)
                 }
-
-                // Like-count badge removed — on-tile noise without real
-                // browse value. Engagement already drives ranking.
             }
         }
         .buttonStyle(.plain)
@@ -203,5 +217,72 @@ struct DiscoverGrid: View {
         case .photo(let post): onTapPhoto(post)
         case .suggestion(let post, _): onTapPhoto(post)
         }
+    }
+}
+
+/// Minimal muted looping video tile for the Discover grid. No controls,
+/// no mute toggle overlay — the tile is its own preview. Tap routes
+/// through the parent's Button which pushes into Shorts for sound + UI.
+private struct GridVideoTile: View {
+    let videoData: Data
+
+    @State private var player: AVPlayer?
+    @State private var tempURL: URL?
+    @State private var loopObserver: NSObjectProtocol?
+
+    var body: some View {
+        ZStack {
+            if let player = player {
+                VideoPlayer(player: player)
+                    .disabled(true)
+                    .aspectRatio(contentMode: .fill)
+            } else {
+                Color.black
+            }
+        }
+        .onAppear { setup() }
+        .onDisappear { teardown() }
+    }
+
+    private func setup() {
+        guard player == nil else {
+            player?.play()
+            return
+        }
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString + ".mov")
+        do {
+            try videoData.write(to: url)
+            tempURL = url
+            let item = AVPlayerItem(url: url)
+            let p = AVPlayer(playerItem: item)
+            p.isMuted = true
+            p.actionAtItemEnd = .none
+            loopObserver = NotificationCenter.default.addObserver(
+                forName: .AVPlayerItemDidPlayToEndTime,
+                object: item,
+                queue: .main
+            ) { _ in
+                p.seek(to: .zero)
+                p.play()
+            }
+            player = p
+            p.play()
+        } catch {
+            // Fallback: leave player nil — black background shown.
+        }
+    }
+
+    private func teardown() {
+        player?.pause()
+        if let obs = loopObserver {
+            NotificationCenter.default.removeObserver(obs)
+            loopObserver = nil
+        }
+        if let url = tempURL {
+            try? FileManager.default.removeItem(at: url)
+            tempURL = nil
+        }
+        player = nil
     }
 }
