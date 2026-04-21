@@ -149,7 +149,10 @@ struct ExploreView: View {
             .padding(.bottom, 100)
         }
         .scrollContentBackground(.hidden)
-        .gqPageBackground()
+        // Continuous surfaceBase under the whole Discover page —
+        // matches the Friends feed. Filter bar and grid both sit on
+        // the same white so there's no two-tone look.
+        .background(GQColors.surfaceBase)
         .refreshable {
             PresenceSeeder.refreshDemoPresence(in: modelContext)
             rebuildFeedCache()
@@ -934,19 +937,24 @@ struct ExploreView: View {
                 }
             )
         } header: {
-            // Utility-only sticky header. surfaceBase shade makes it
-            // distinct from the page; no hairlines — the shade alone
-            // defines the zone and the bar blends with the card-style
-            // elements above/below rather than breaking the page with
-            // explicit dividers.
-            HStack(spacing: 10) {
-                discoverFilterChips
-                discoverModeToggle
-                    .padding(.trailing, 12)
+            // Filter bar + 1pt borderProminent hairline underneath —
+            // same divider style used between Friends posts. Separates
+            // the filter zone from the grid while both sit on the same
+            // surfaceBase.
+            VStack(spacing: 0) {
+                HStack(spacing: 10) {
+                    discoverFilterChips
+                    discoverModeToggle
+                        .padding(.trailing, 12)
+                }
+                .padding(.top, 8)
+                .padding(.bottom, 8)
+                .frame(maxWidth: .infinity)
+
+                Rectangle()
+                    .fill(GQColors.borderProminent)
+                    .frame(height: 1)
             }
-            .padding(.top, 8)
-            .padding(.bottom, 8)
-            .frame(maxWidth: .infinity)
             .background(GQColors.surfaceBase)
         }
     }
