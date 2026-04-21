@@ -934,12 +934,16 @@ struct ExploreView: View {
                 }
             )
         } header: {
-            // Utility-only sticky header. Uses an ultraThinMaterial so
-            // the bar reads as a translucent filter strip attached to
-            // the grid below — matches the iOS pattern for sticky
-            // filter bars (IG Explore, Apple Music, Mail search). More
-            // distinct than "match the page" but softer than surfaceBase.
+            // Utility-only sticky header. Bracketed with hairlines top
+            // AND bottom so the filter bar reads as a symmetric zone
+            // rather than a floating row with an orphan line under it.
+            // ultraThinMaterial keeps the bar translucent over the
+            // scrolled content.
             VStack(spacing: 0) {
+                Rectangle()
+                    .fill(GQColors.adaptiveOverlay(0.08))
+                    .frame(height: 0.5)
+
                 HStack(spacing: 10) {
                     discoverFilterChips
                     discoverModeToggle
