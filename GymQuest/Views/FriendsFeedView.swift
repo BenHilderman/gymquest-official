@@ -50,17 +50,13 @@ struct FriendsFeedView: View {
                         unreadActivityBanner
                             .padding(.horizontal, 16)
                             .padding(.top, 10)
+                            .padding(.bottom, 4)
                     }
 
                     if !friendsMembers.isEmpty {
                         FriendsRow(
                             members: friendsMembers,
                             onTapMember: { member in
-                                // Tap an avatar -> scroll the feed to
-                                // that member's most recent post. If
-                                // they have no posts in the feed it
-                                // means they're live but haven't
-                                // posted — no-op is fine.
                                 if let target = friendPosts.first(where: { $0.authorId == member.id }) {
                                     #if canImport(UIKit)
                                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -72,18 +68,20 @@ struct FriendsFeedView: View {
                             },
                             onStartWorkout: { dismiss() }
                         )
-                        .padding(.top, 8)
-
-                        Rectangle()
-                            .fill(GQColors.borderSubtle)
-                            .frame(height: 1)
-                            .padding(.top, 10)
+                        .padding(.vertical, 8)
                     }
 
                     if friendPosts.isEmpty {
                         emptyState
                     } else {
+                        // Single top separator below the presence strip,
+                        // matching the ones between posts — no more
+                        // orphan hairline with awkward padding.
                         ForEach(Array(friendPosts.enumerated()), id: \.element.id) { index, post in
+                            Rectangle()
+                                .fill(GQColors.borderSubtle)
+                                .frame(height: 0.5)
+
                             PostCardV2(
                                 post: post,
                                 currentUserId: profile.id,
@@ -91,10 +89,6 @@ struct FriendsFeedView: View {
                                 profile: profile
                             )
                             .id(post.id)
-
-                            Rectangle()
-                                .fill(GQColors.borderSubtle)
-                                .frame(height: 1)
                         }
 
                         backToTrainingFooter
@@ -102,16 +96,10 @@ struct FriendsFeedView: View {
                 }
                 .padding(.bottom, 100)
                 .frame(maxWidth: .infinity)
-                // surfaceBase fills the whole feed column so the strip
-                // of page color between cards disappears — posts,
-                // dividers, and banners all sit on one continuous
-                // white surface.
-                .background(GQColors.surfaceBase)
             }
             .scrollContentBackground(.hidden)
             .background(GQColors.surfaceBase)
         }
-        .gqPageBackground()
         .navigationTitle("Friends")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
