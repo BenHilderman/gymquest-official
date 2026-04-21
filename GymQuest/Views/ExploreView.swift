@@ -934,10 +934,10 @@ struct ExploreView: View {
                 }
             )
         } header: {
-            // Utility-only sticky header. surfaceBase gives it a subtle
-            // distinct shade from the page, and a hairline at the bottom
-            // sets it apart from the grid below so it reads as its own
-            // filter zone instead of blending into the scroll.
+            // Utility-only sticky header. Matches the page background so
+            // it blends in, with just a hairline at the bottom to mark
+            // the boundary between filters and the grid below — the
+            // line alone is enough to define the zone.
             VStack(spacing: 0) {
                 HStack(spacing: 10) {
                     discoverFilterChips
@@ -948,10 +948,10 @@ struct ExploreView: View {
                 .padding(.bottom, 6)
 
                 Rectangle()
-                    .fill(GQColors.borderSubtle)
+                    .fill(GQColors.adaptiveOverlay(0.06))
                     .frame(height: 0.5)
             }
-            .background(GQColors.surfaceBase)
+            .background(GQColors.background)
         }
     }
 
