@@ -524,12 +524,19 @@ struct ClubFeedView: View {
         topLevelClubs.filter { $0.memberIds.contains(profile.id) }
     }
 
-    /// yourClubs reordered by the active sort. Keeps the original order for
-    /// `.recent` so joins stay where they landed.
+    /// yourClubs reordered by the active sort. `.recent` means "most
+    /// recently on" — clubs with live members first, then by latest
+    /// activity, so the list mirrors where people are right now.
     private var sortedYourClubs: [Club] {
         switch yourClubsSort {
         case .recent:
-            return yourClubs
+            return yourClubs.sorted { a, b in
+                let la = liveCount(for: a), lb = liveCount(for: b)
+                if la != lb { return la > lb }
+                let ta = a.lastActivityDate ?? a.createdAt
+                let tb = b.lastActivityDate ?? b.createdAt
+                return ta > tb
+            }
         case .nearby:
             return yourClubs.sorted {
                 let a = distanceKm(lat: $0.latitude ?? 90, lon: $0.longitude ?? 0)
@@ -577,7 +584,20 @@ struct ClubFeedView: View {
     private var searchFilteredRecommended: [Club] {
         let clubs = recommendedClubs.filter { matchesSearch($0) }
         let filtered = selectedCategory == nil ? clubs : clubs.filter { $0.resolvedCategory == selectedCategory }
-        return filtered.sorted { ($0.location != nil ? 0 : 1) < ($1.location != nil ? 0 : 1) }
+        // Sort by distance (when coordinates exist) then by member count —
+        // nearest + largest first so Discover leads with the strongest picks.
+        return filtered.sorted { a, b in
+            let da: Double = {
+                guard let la = a.latitude, let lo = a.longitude else { return .infinity }
+                return distanceKm(lat: la, lon: lo)
+            }()
+            let db: Double = {
+                guard let la = b.latitude, let lo = b.longitude else { return .infinity }
+                return distanceKm(lat: la, lon: lo)
+            }()
+            if da != db { return da < db }
+            return a.memberCount > b.memberCount
+        }
     }
 
     private var featuredChallenge: ClubChallenge? {
@@ -618,12 +638,14 @@ struct ClubFeedView: View {
     }
 
     /// Upcoming events in clubs the user has NOT joined yet (discovery).
+    /// Pulls from ALL non-joined clubs (not just the recommended shortlist)
+    /// so the Events block has something to render even when the user's
+    /// own clubs are quiet.
     private var upcomingEventsNearby: [ClubEvent] {
         let now = Date()
         let myIds = Set(yourClubs.map(\.id))
-        let visibleIds = Set(searchFilteredRecommended.map(\.id))
         return allEvents
-            .filter { $0.date > now && visibleIds.contains($0.clubId) && !myIds.contains($0.clubId) }
+            .filter { $0.date > now && !myIds.contains($0.clubId) }
             .sorted { $0.date < $1.date }
     }
 
@@ -975,66 +997,114 @@ struct ClubFeedView: View {
     }
 
     /// Events feed — in-your-clubs events first, then nearby events.
-    /// Single "UPCOMING" header, rows separated by hairlines, no
-    /// nested cards.
+    /// Rows separated by hairlines so it reads as one continuous list.
     @ViewBuilder
     private var eventsBlock: some View {
+        let myEvents = Array(upcomingEventsInMyClubs.prefix(4))
+        let nearbyEvents = Array(upcomingEventsNearby.prefix(max(0, 6 - myEvents.count)))
+        let rows: [(event: ClubEvent, joined: Bool)] =
+            myEvents.map { ($0, true) } + nearbyEvents.map { ($0, false) }
+
         VStack(alignment: .leading, spacing: 0) {
-            Text("UPCOMING EVENTS")
-                .font(.system(size: 10, weight: .semibold))
-                .tracking(1.2)
-                .foregroundColor(GQColors.textTertiary)
-                .padding(.horizontal, 16)
-                .padding(.bottom, 4)
+            sectionHeaderLabel("UPCOMING EVENTS", trailing: "\(rows.count)")
 
-            // "Your clubs" events first — highest priority
-            ForEach(Array(upcomingEventsInMyClubs.prefix(3))) { event in
-                Button { selectedEvent = event } label: {
-                    eventRow(event, isJoinedClub: true)
+            ForEach(Array(rows.enumerated()), id: \.element.event.id) { idx, item in
+                Button { selectedEvent = item.event } label: {
+                    eventRow(item.event, isJoinedClub: item.joined)
                 }
                 .buttonStyle(.plain)
-            }
 
-            // Nearby (clubs you're not in yet)
-            ForEach(Array(upcomingEventsNearby.prefix(3))) { event in
-                Button { selectedEvent = event } label: {
-                    eventRow(event, isJoinedClub: false)
+                if idx < rows.count - 1 {
+                    rowDivider
                 }
-                .buttonStyle(.plain)
             }
         }
     }
 
-    /// One event row — matches the Friends post-card language
-    /// (icon + title + subtitle + trailing meta). Small, scannable.
+    /// One event row — date tile on the left, title + club name + meta
+    /// in the middle, "GOING" pill on the right when attending.
     private func eventRow(_ event: ClubEvent, isJoinedClub: Bool) -> some View {
-        HStack(spacing: 12) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(GQGradients.primary.opacity(0.12))
-                    .frame(width: 40, height: 40)
-                Image(systemName: "calendar")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(GQGradients.primary)
-            }
-            VStack(alignment: .leading, spacing: 2) {
+        let club = allClubs.first { $0.id == event.clubId }
+        let isGoing = event.attendeeIds.contains(profile.id)
+        return HStack(spacing: 12) {
+            eventDateTile(event.date)
+
+            VStack(alignment: .leading, spacing: 3) {
                 Text(event.title)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(GQColors.textPrimary)
                     .lineLimit(1)
                 Text(eventSubtitle(event, isJoinedClub: isJoinedClub))
-                    .font(.system(size: 11))
+                    .font(.system(size: 12))
                     .foregroundColor(GQColors.textTertiary)
                     .lineLimit(1)
+                HStack(spacing: 8) {
+                    Label(event.date.formatted(date: .omitted, time: .shortened), systemImage: "clock")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(GQColors.textSecondary)
+                    if let loc = event.location ?? club?.location, !loc.isEmpty {
+                        Label(loc, systemImage: "mappin")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(GQColors.textSecondary)
+                            .lineLimit(1)
+                    }
+                }
             }
-            Spacer()
-            Text(eventDayLabel(event.date))
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundColor(GQColors.textSecondary)
+
+            Spacer(minLength: 8)
+
+            if isGoing {
+                Text("GOING")
+                    .font(.system(size: 10, weight: .bold))
+                    .tracking(0.4)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(GQGradients.primary))
+            } else {
+                HStack(spacing: 3) {
+                    Image(systemName: "person.2.fill")
+                        .font(.system(size: 10, weight: .semibold))
+                    Text("\(event.attendeeIds.count)")
+                        .font(.system(size: 11, weight: .semibold))
+                }
+                .foregroundColor(GQColors.textTertiary)
+            }
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        .padding(.vertical, 12)
         .contentShape(Rectangle())
+    }
+
+    /// Calendar-style date tile — month label on top, day number below.
+    /// Gives each event row a scannable, app-gradient anchor.
+    private func eventDateTile(_ date: Date) -> some View {
+        let cal = Calendar.current
+        let monthFmt = DateFormatter()
+        monthFmt.dateFormat = "MMM"
+        let month = monthFmt.string(from: date).uppercased()
+        let day = "\(cal.component(.day, from: date))"
+
+        return VStack(spacing: 0) {
+            Text(month)
+                .font(.system(size: 9, weight: .bold))
+                .tracking(0.5)
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 2)
+                .background(GQGradients.primary)
+            Text(day)
+                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .foregroundColor(GQColors.textPrimary)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .frame(width: 44, height: 44)
+        .background(GQColors.surfaceBase)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .strokeBorder(GQColors.borderDefault.opacity(0.6), lineWidth: 0.5)
+        )
     }
 
     private func eventSubtitle(_ event: ClubEvent, isJoinedClub: Bool) -> String {
@@ -1047,15 +1117,15 @@ struct ClubFeedView: View {
         return clubName
     }
 
-    /// Discover block — clubs you haven't joined yet. Same monogram +
-    /// two-line row language as Your Clubs so the page reads as one
-    /// continuous list.
+    /// Discover block — clubs you haven't joined yet, sorted nearest
+    /// first by `searchFilteredRecommended`. Same monogram + two-line
+    /// row language as Your Clubs so the page reads as one list.
     @ViewBuilder
     private var discoverBlock: some View {
+        let rows = Array(searchFilteredRecommended.prefix(8))
         VStack(alignment: .leading, spacing: 0) {
-            sectionHeaderLabel("DISCOVER", trailing: searchFilteredRecommended.count > 5 ? "\(searchFilteredRecommended.count)" : nil)
+            sectionHeaderLabel("CLUBS NEAR YOU", trailing: "\(searchFilteredRecommended.count)")
 
-            let rows = Array(searchFilteredRecommended.prefix(6))
             ForEach(Array(rows.enumerated()), id: \.element.id) { idx, club in
                 Button { selectedClub = club } label: {
                     discoverClubRow(club)
@@ -4418,33 +4488,10 @@ struct ClubMonogramAvatar: View {
     let club: Club
     let size: CGFloat
 
-    static let palette: [Color] = [
-        Color(red: 0.42, green: 0.35, blue: 0.92),  // indigo
-        Color(red: 0.29, green: 0.63, blue: 0.85),  // ocean
-        Color(red: 0.22, green: 0.70, blue: 0.56),  // emerald
-        Color(red: 0.95, green: 0.60, blue: 0.28),  // amber
-        Color(red: 0.88, green: 0.35, blue: 0.55),  // rose
-        Color(red: 0.56, green: 0.45, blue: 0.78),  // lavender
-        Color(red: 0.30, green: 0.58, blue: 0.72),  // teal
-        Color(red: 0.92, green: 0.48, blue: 0.38),  // coral
-    ]
-
-    static func accent(for club: Club) -> Color {
-        // UUID's hashValue is randomized per run; stable scalar sum keeps the
-        // color consistent across launches.
-        let seed = club.id.uuidString.unicodeScalars.reduce(0) { $0 &+ Int($1.value) }
-        return palette[abs(seed) % palette.count]
-    }
-
     var body: some View {
-        let accent = Self.accent(for: club)
         let initial = String(club.name.trimmingCharacters(in: .whitespaces).prefix(1)).uppercased()
         Circle()
-            .fill(LinearGradient(
-                colors: [accent, accent.opacity(0.78)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            ))
+            .fill(GQGradients.primary)
             .frame(width: size, height: size)
             .overlay(
                 Text(initial)
