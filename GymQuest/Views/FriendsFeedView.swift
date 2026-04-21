@@ -74,13 +74,14 @@ struct FriendsFeedView: View {
                     if friendPosts.isEmpty {
                         emptyState
                     } else {
-                        // Each post reads as its own card with a subtle
-                        // drop shadow on a page-color backdrop — the
-                        // classic iOS feed pattern (Apple News, Threads).
-                        // No separator lines; the shadow + gap is the
-                        // row break.
+                        // Continuous surface, single full-width hairline
+                        // between posts. No gaps, no shadows.
                         ForEach(Array(friendPosts.enumerated()), id: \.element.id) { index, post in
-                            Color.clear.frame(height: 10)
+                            if index > 0 {
+                                Rectangle()
+                                    .fill(GQColors.borderDefault)
+                                    .frame(height: 0.5)
+                            }
 
                             PostCardV2(
                                 post: post,
@@ -89,7 +90,6 @@ struct FriendsFeedView: View {
                                 profile: profile
                             )
                             .id(post.id)
-                            .shadow(color: Color.black.opacity(0.05), radius: 6, y: 2)
                         }
 
                         backToTrainingFooter
@@ -99,7 +99,7 @@ struct FriendsFeedView: View {
                 .frame(maxWidth: .infinity)
             }
             .scrollContentBackground(.hidden)
-            .background(GQColors.background)
+            .background(GQColors.surfaceBase)
         }
         .navigationTitle("Friends")
         .navigationBarTitleDisplayMode(.inline)
