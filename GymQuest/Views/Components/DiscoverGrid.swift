@@ -80,39 +80,40 @@ struct DiscoverGrid: View {
                         .clipped()
                 }
 
-                // Top-right: multi-image badge (count only — no play icon).
+                // Top-right: carousel icon only when the post has
+                // multiple media items. No count, just a subtle glyph.
                 if item.post.mediaItems.count > 1 {
-                    Text("\(item.post.mediaItems.count)")
-                        .font(.system(size: 9, weight: .bold))
+                    Image(systemName: "square.on.square")
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(.white)
-                        .padding(.horizontal, 5).padding(.vertical, 2)
-                        .background(Capsule().fill(.black.opacity(0.55)))
+                        .shadow(color: .black.opacity(0.35), radius: 2, y: 1)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                        .padding(4)
+                        .padding(7)
                 }
 
-                // Top-left: workout type icon so the viewer can sort the
-                // grid by intent at a glance (push/pull/legs/cardio).
+                // Top-left: workout type icon. No pill background — just
+                // a white glyph with a subtle shadow so it reads on any
+                // media color without chrome.
                 if let rawType = item.post.workoutType,
                    let type = WorkoutType(rawValue: rawType) {
                     Image(systemName: type.icon)
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.system(size: 12, weight: .semibold))
                         .foregroundColor(.white)
-                        .frame(width: 22, height: 22)
-                        .background(Circle().fill(.black.opacity(0.55)))
+                        .shadow(color: .black.opacity(0.45), radius: 2, y: 1)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                        .padding(4)
+                        .padding(7)
                 }
 
-                // Bottom-left: duration badge
+                // Bottom-left: duration. Plain white text with a shadow
+                // instead of a filled capsule — matches the new subtler
+                // overlay language.
                 if let dur = item.post.duration, dur > 0 {
                     Text("\(dur)m")
-                        .font(.system(size: 9, weight: .bold))
+                        .font(.system(size: 11, weight: .semibold))
                         .foregroundColor(.white)
-                        .padding(.horizontal, 5).padding(.vertical, 2)
-                        .background(Capsule().fill(.black.opacity(0.55)))
+                        .shadow(color: .black.opacity(0.45), radius: 2, y: 1)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-                        .padding(4)
+                        .padding(7)
                 }
             }
         }
