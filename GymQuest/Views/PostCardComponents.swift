@@ -127,7 +127,7 @@ struct PostCardV2: View {
                 },
                 onCancel: { showActionDialog = false }
             )
-            .presentationDetents([.height(320)])
+            .presentationDetents([.height(240)])
             .presentationDragIndicator(.visible)
             .presentationBackground(GQColors.surfaceBase)
         }
@@ -5492,11 +5492,10 @@ enum StealSetService {
 
 // MARK: - Post Action Sheet (Report / Mute / Block)
 
-/// Custom bottom sheet used in place of iOS confirmationDialog. The
-/// native dialog forces system red on destructive roles and system
-/// blue on everything else — neither matches the app. This sheet uses
-/// the brand color language: warning orange on Report/Block, muted
-/// textSecondary on Mute, brand primary on Cancel.
+/// Custom bottom sheet in place of iOS confirmationDialog. Apple-style
+/// monochrome: titles in textPrimary, icons in textSecondary, thin
+/// dividers, and a subtle Cancel row beneath the action group. No
+/// brand color fills — the sheet is quiet and utilitarian.
 private struct PostActionSheet: View {
     let username: String
     let onReport: () -> Void
@@ -5505,82 +5504,59 @@ private struct PostActionSheet: View {
     let onCancel: () -> Void
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: 10) {
             VStack(spacing: 0) {
-                actionRow(
-                    icon: "flag.fill",
-                    title: "Report post",
-                    subtitle: "Send to our moderation team",
-                    tint: GQColors.error,
-                    action: onReport
-                )
-                Rectangle().fill(GQColors.borderSubtle).frame(height: 0.5)
-                    .padding(.leading, 60)
-
-                actionRow(
-                    icon: "speaker.slash.fill",
-                    title: "Mute @\(username)",
-                    subtitle: "Their posts won't show on your feed",
-                    tint: GQColors.textSecondary,
-                    action: onMute
-                )
-                Rectangle().fill(GQColors.borderSubtle).frame(height: 0.5)
-                    .padding(.leading, 60)
-
-                actionRow(
-                    icon: "hand.raised.fill",
-                    title: "Block @\(username)",
-                    subtitle: "They can't see or message you",
-                    tint: GQColors.error,
-                    action: onBlock
-                )
+                actionRow(icon: "flag", title: "Report post", action: onReport)
+                divider
+                actionRow(icon: "speaker.slash", title: "Mute @\(username)", action: onMute)
+                divider
+                actionRow(icon: "hand.raised", title: "Block @\(username)", action: onBlock)
             }
             .background(GQColors.background)
             .clipShape(RoundedRectangle(cornerRadius: 14))
-            .padding(.horizontal, 16)
-            .padding(.top, 18)
-
-            Spacer()
 
             Button(action: onCancel) {
                 Text("Cancel")
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
-                    .background(Capsule().fill(GQGradients.primary))
+                    .background(GQColors.background)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
             }
             .buttonStyle(.plain)
-            .padding(.horizontal, 16)
-            .padding(.bottom, 20)
         }
+        .padding(.horizontal, 16)
+        .padding(.top, 14)
     }
 
-    private func actionRow(icon: String, title: String, subtitle: String, tint: Color, action: @escaping () -> Void) -> some View {
+    private var divider: some View {
+        Rectangle()
+            .fill(GQColors.borderSubtle)
+            .frame(height: 0.5)
+            .padding(.leading, 54)
+    }
+
+    private func actionRow(icon: String, title: String, action: @escaping () -> Void) -> some View {
         Button(action: {
             #if canImport(UIKit)
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
             #endif
             action()
         }) {
             HStack(spacing: 14) {
                 Image(systemName: icon)
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundColor(tint)
-                    .frame(width: 28)
+                    .font(.system(size: 16, weight: .regular))
+                    .foregroundColor(GQColors.textSecondary)
+                    .frame(width: 24)
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(GQColors.textPrimary)
-                    Text(subtitle)
-                        .font(.system(size: 12))
-                        .foregroundColor(GQColors.textTertiary)
-                }
+                Text(title)
+                    .font(.system(size: 15))
+                    .foregroundColor(GQColors.textPrimary)
                 Spacer()
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 14)
+            .padding(.vertical, 13)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
