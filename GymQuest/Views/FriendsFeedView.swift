@@ -23,6 +23,12 @@ struct FriendsFeedView: View {
     @Query private var clubs: [Club]
 
     @State private var presentingActivity: Bool = false
+    /// Tick that advances once a minute so times in the presence strip
+    /// ("Push · 6m") stay current without a full app refresh. Referenced
+    /// in friendsMembers so SwiftUI invalidates the computed list each
+    /// tick and the builder re-runs with a fresh Date().
+    @State private var minuteTick: Date = Date()
+    private let minuteTimer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
 
     /// UserDefaults key holding the timestamp of the last Activity view
     /// for this user. Anything newer is counted as unread on the bell icon.
@@ -128,6 +134,9 @@ struct FriendsFeedView: View {
                 SocialActivityView(profile: profile)
             }
         }
+        .onReceive(minuteTimer) { now in
+            minuteTick = now
+        }
     }
 
     private var unreadActivityBanner: some View {
@@ -209,6 +218,11 @@ struct FriendsFeedView: View {
     }
 
     private var friendsMembers: [FriendsMember] {
+        // Read minuteTick so SwiftUI registers this computed as
+        // dependent on the timer — "Push · 6m" becomes "Push · 7m"
+        // automatically as the minute rolls over, and the avatar row
+        // re-sorts when someone starts/ends a session.
+        _ = minuteTick
         let followedIds = Set(follows.filter { $0.userId == profile.id }.map(\.odId))
         let liveNow = PresenceService.liveNow(
             from: presenceStates,
