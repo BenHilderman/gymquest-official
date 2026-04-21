@@ -744,35 +744,33 @@ struct ClubFeedView: View {
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
-                // 1. Active-now presence strip — matches Friends' ACTIVE NOW
-                //    header + avatars pattern. Top of the page, quiet
-                //    until someone is live.
-                activeNowBlock
-                    .padding(.top, 4)
-
-                // 2. Your Clubs horizontal shelf. Kept unchanged — it's
-                //    already clean and is the primary "go back to a
-                //    club" affordance.
+                // Your clubs — rich vertical list. Each row shows what's
+                // happening in that specific club right now, so the live
+                // signal stays with the club instead of floating at the
+                // top of the page.
                 if !yourClubs.isEmpty {
-                    rowDivider
-                    yourClubsShelf
-                        .padding(.vertical, 8)
+                    yourClubsListBlock
+                        .padding(.top, 4)
                 }
 
-                // 3. Upcoming events — one list, "your clubs" first then
-                //    nearby. Continuous, no nested cards.
+                // Upcoming events — "your clubs" first, then nearby.
                 if !upcomingEventsInMyClubs.isEmpty || !upcomingEventsNearby.isEmpty {
-                    rowDivider
+                    if !yourClubs.isEmpty { rowDivider }
                     eventsBlock
-                        .padding(.vertical, 8)
+                        .padding(.vertical, 10)
                 }
 
-                // 4. Nearby clubs you haven't joined — discovery without
-                //    the old "Browse categories" / "Nearby section" split.
+                // Discover — clubs you're not in yet. Rich rows so they
+                // read as destinations, not categories.
                 if !searchFilteredRecommended.isEmpty {
                     rowDivider
-                    nearbyClubsBlock
-                        .padding(.vertical, 8)
+                    discoverBlock
+                        .padding(.vertical, 10)
+                }
+
+                if yourClubs.isEmpty && searchFilteredRecommended.isEmpty {
+                    emptyStateBlock
+                        .padding(.top, 40)
                 }
 
                 Spacer(minLength: 60)
@@ -825,41 +823,155 @@ struct ClubFeedView: View {
             .padding(.horizontal, 16)
     }
 
-    /// ACTIVE NOW block — a compact header ("ACTIVE NOW · N training
-    /// now") plus a horizontal rail of live members across the user's
-    /// clubs. Hidden entirely when nobody's live.
+    /// Your clubs — rich vertical list with a live status line under each
+    /// club name. Replaces the old horizontal avatar shelf. Each row shows
+    /// what's actually happening right now in that specific club (live
+    /// members, event today, next event, or fallback) so the user can
+    /// scan the list and pick the one worth opening.
     @ViewBuilder
-    private var activeNowBlock: some View {
-        let liveMembers = activeMembersInMyClubs
-        if !liveMembers.isEmpty {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 6) {
-                    Circle()
-                        .fill(GQColors.success)
-                        .frame(width: 6, height: 6)
-                    Text("ACTIVE NOW")
-                        .font(.system(size: 10, weight: .semibold))
-                        .tracking(1.2)
-                        .foregroundColor(GQColors.textTertiary)
-                    Text("·").foregroundColor(GQColors.textTertiary)
-                    Text("\(liveMembers.count) training now")
-                        .font(.system(size: 10))
-                        .foregroundColor(GQColors.textTertiary)
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 6)
+    private var yourClubsListBlock: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            sectionHeaderLabel("YOUR CLUBS", trailing: "\(yourClubs.count)")
 
-                ScrollView(.horizontal, showsIndicators: false) {
-                    LazyHStack(spacing: 14) {
-                        ForEach(liveMembers, id: \.userId) { member in
-                            activeMemberCell(member)
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 4)
+            ForEach(Array(sortedYourClubs.enumerated()), id: \.element.id) { idx, club in
+                Button { selectedClub = club } label: {
+                    yourClubRow(club)
+                }
+                .buttonStyle(.plain)
+
+                if idx < sortedYourClubs.count - 1 {
+                    rowDivider
                 }
             }
         }
+    }
+
+    /// One rich club row — matches the Friends post-card spacing
+    /// language (avatar + two-line content + trailing status).
+    @ViewBuilder
+    private func yourClubRow(_ club: Club) -> some View {
+        let live = liveCount(for: club)
+        let eventToday = hasEventToday(club)
+
+        HStack(spacing: 12) {
+            clubAvatar(club, size: 48)
+
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 5) {
+                    Text(club.name)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(GQColors.textPrimary)
+                        .lineLimit(1)
+                    if club.isVerified {
+                        Image(systemName: "checkmark.seal.fill")
+                            .font(.system(size: 11))
+                            .foregroundStyle(GQGradients.primary)
+                    }
+                }
+                yourClubSubtitleText(club, live: live, eventToday: eventToday)
+            }
+
+            Spacer(minLength: 8)
+
+            yourClubTrailing(club, live: live, eventToday: eventToday)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .contentShape(Rectangle())
+    }
+
+    /// Live > event today > next event > friends > members, in that
+    /// priority order. One subtitle line keeps the row scannable.
+    @ViewBuilder
+    private func yourClubSubtitleText(_ club: Club, live: Int, eventToday: Bool) -> some View {
+        if live > 0 {
+            HStack(spacing: 5) {
+                Circle().fill(GQColors.success).frame(width: 6, height: 6)
+                Text("\(live) training now")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(GQColors.success)
+            }
+        } else if eventToday, let ev = nextEvent(for: club), Calendar.current.isDateInToday(ev.date) {
+            Text("Today · \(ev.date.formatted(date: .omitted, time: .shortened)) — \(ev.title)")
+                .font(.system(size: 12))
+                .foregroundColor(GQColors.textSecondary)
+                .lineLimit(1)
+        } else if let ev = nextEvent(for: club) {
+            Text("\(eventDayLabelShort(ev.date)) · \(ev.title)")
+                .font(.system(size: 12))
+                .foregroundColor(GQColors.textTertiary)
+                .lineLimit(1)
+        } else {
+            let friends = friendsInClub(club)
+            if friends > 0, let firstName = firstFriendNameInClub(club) {
+                Text(friends == 1 ? "\(firstName) is in" : "\(firstName) + \(friends - 1) friends")
+                    .font(.system(size: 12))
+                    .foregroundColor(GQColors.textTertiary)
+                    .lineLimit(1)
+            } else {
+                Text("\(club.memberCount == 1 ? "1 member" : "\(club.memberCount) members") · \(club.resolvedCategory.rawValue)")
+                    .font(.system(size: 12))
+                    .foregroundColor(GQColors.textTertiary)
+                    .lineLimit(1)
+            }
+        }
+    }
+
+    /// Trailing badge: live pill (green), today pill (amber), or chevron.
+    @ViewBuilder
+    private func yourClubTrailing(_ club: Club, live: Int, eventToday: Bool) -> some View {
+        if live > 0 {
+            Text("\(live) LIVE")
+                .font(.system(size: 10, weight: .bold))
+                .tracking(0.4)
+                .foregroundColor(.white)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 3)
+                .background(Capsule().fill(GQColors.success))
+        } else if eventToday {
+            Text("TODAY")
+                .font(.system(size: 10, weight: .bold))
+                .tracking(0.4)
+                .foregroundColor(.white)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 3)
+                .background(Capsule().fill(Color.orange))
+        } else {
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(GQColors.textTertiary)
+        }
+    }
+
+    /// Short date label for the clubs list — "Today", "Tomorrow",
+    /// "Tue", or "Apr 28".
+    private func eventDayLabelShort(_ date: Date) -> String {
+        let cal = Calendar.current
+        if cal.isDateInToday(date) { return "Today" }
+        if cal.isDateInTomorrow(date) { return "Tomorrow" }
+        let soon = cal.date(byAdding: .day, value: 7, to: Date()) ?? Date()
+        let fmt = DateFormatter()
+        fmt.dateFormat = date < soon ? "EEE" : "MMM d"
+        return fmt.string(from: date)
+    }
+
+    /// Reusable section header (uppercase label + right-aligned meta).
+    private func sectionHeaderLabel(_ title: String, trailing: String? = nil) -> some View {
+        HStack {
+            Text(title)
+                .font(.system(size: 10, weight: .semibold))
+                .tracking(1.2)
+                .foregroundColor(GQColors.textTertiary)
+            Spacer()
+            if let trailing {
+                Text(trailing)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 10)
+        .padding(.bottom, 6)
     }
 
     /// Events feed — in-your-clubs events first, then nearby events.
@@ -935,63 +1047,125 @@ struct ClubFeedView: View {
         return clubName
     }
 
-    /// Nearby clubs block — single header + tappable rows, no card
-    /// overhead. Replaces the old categoriesGrid + nearbySection split.
+    /// Discover block — clubs you haven't joined yet. Same monogram +
+    /// two-line row language as Your Clubs so the page reads as one
+    /// continuous list.
     @ViewBuilder
-    private var nearbyClubsBlock: some View {
+    private var discoverBlock: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("NEARBY CLUBS")
-                .font(.system(size: 10, weight: .semibold))
-                .tracking(1.2)
-                .foregroundColor(GQColors.textTertiary)
-                .padding(.horizontal, 16)
-                .padding(.bottom, 4)
+            sectionHeaderLabel("DISCOVER", trailing: searchFilteredRecommended.count > 5 ? "\(searchFilteredRecommended.count)" : nil)
 
-            ForEach(Array(searchFilteredRecommended.prefix(5))) { club in
+            let rows = Array(searchFilteredRecommended.prefix(6))
+            ForEach(Array(rows.enumerated()), id: \.element.id) { idx, club in
                 Button { selectedClub = club } label: {
-                    nearbyClubRow(club)
+                    discoverClubRow(club)
                 }
                 .buttonStyle(.plain)
+
+                if idx < rows.count - 1 {
+                    rowDivider
+                }
             }
         }
     }
 
-    private func nearbyClubRow(_ club: Club) -> some View {
+    private func discoverClubRow(_ club: Club) -> some View {
         HStack(spacing: 12) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(GQGradients.primary.opacity(0.12))
-                    .frame(width: 40, height: 40)
-                Image(systemName: "person.3.fill")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(GQGradients.primary)
-            }
-            VStack(alignment: .leading, spacing: 2) {
-                Text(club.name)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(GQColors.textPrimary)
-                    .lineLimit(1)
-                Text(nearbyClubSubtitle(club))
-                    .font(.system(size: 11))
+            clubAvatar(club, size: 44)
+
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 5) {
+                    Text(club.name)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(GQColors.textPrimary)
+                        .lineLimit(1)
+                    if club.isVerified {
+                        Image(systemName: "checkmark.seal.fill")
+                            .font(.system(size: 11))
+                            .foregroundStyle(GQGradients.primary)
+                    }
+                }
+                Text(discoverSubtitle(club))
+                    .font(.system(size: 12))
                     .foregroundColor(GQColors.textTertiary)
                     .lineLimit(1)
             }
-            Spacer()
+
+            Spacer(minLength: 8)
+
             if let dist = distanceString(for: club) {
                 Text(dist)
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(GQColors.textSecondary)
+            } else {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(GQColors.textTertiary)
             }
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        .padding(.vertical, 12)
         .contentShape(Rectangle())
     }
 
-    private func nearbyClubSubtitle(_ club: Club) -> String {
-        var parts: [String] = [club.resolvedCategory.rawValue.capitalized]
-        parts.append("\(club.memberIds.count) members")
-        return parts.joined(separator: " · ")
+    /// Prioritize what makes this club worth opening:
+    /// friends-in > location > category + member count.
+    private func discoverSubtitle(_ club: Club) -> String {
+        let friends = friendsInClub(club)
+        if friends > 0, let firstName = firstFriendNameInClub(club) {
+            return friends == 1 ? "\(firstName) is in · \(club.memberCount) members"
+                                : "\(firstName) + \(friends - 1) friends · \(club.memberCount) members"
+        }
+        if let loc = club.location, !loc.isEmpty {
+            return "\(club.resolvedCategory.rawValue) · \(loc)"
+        }
+        return "\(club.resolvedCategory.rawValue) · \(club.memberCount) members"
+    }
+
+    /// Empty state — only shown when the user has zero clubs AND there
+    /// are no recommendations. Nudges them to browse or create.
+    @ViewBuilder
+    private var emptyStateBlock: some View {
+        VStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(GQGradients.primary.opacity(0.12))
+                    .frame(width: 72, height: 72)
+                Image(systemName: "person.3.fill")
+                    .font(.system(size: 28, weight: .semibold))
+                    .foregroundStyle(GQGradients.primary)
+            }
+            VStack(spacing: 4) {
+                Text("No clubs yet")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundColor(GQColors.textPrimary)
+                Text("Browse nearby clubs or start your own.")
+                    .font(.system(size: 13))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+            HStack(spacing: 10) {
+                Button { presentingSearch = true } label: {
+                    Text("Browse")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(GQColors.textPrimary)
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 10)
+                        .background(Capsule().fill(GQColors.adaptiveOverlay(0.08)))
+                }
+                .buttonStyle(.plain)
+                Button { showingCreateClub = true } label: {
+                    Text("Create Club")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 10)
+                        .background(Capsule().fill(GQGradients.primary))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 20)
     }
 
     /// Search sheet — reuses the existing search-result UI so the old
@@ -2355,16 +2529,10 @@ struct ClubFeedView: View {
         .buttonStyle(.plain)
     }
 
+    /// Monogram-style default avatar — first letter of the club name on a
+    /// per-club gradient tile. Photo overrides this when imageData is set.
     private func categoryIcon(for club: Club, size: CGFloat) -> some View {
-        let cat = club.resolvedCategory
-        return Circle()
-            .fill(GQGradients.primary.opacity(0.12))
-            .frame(width: size, height: size)
-            .overlay(
-                Image(systemName: cat.icon)
-                    .font(.system(size: size * 0.42, weight: .semibold))
-                    .foregroundStyle(GQGradients.primary)
-            )
+        ClubMonogramAvatar(club: club, size: size)
     }
 
     @ViewBuilder
@@ -2907,6 +3075,7 @@ struct ClubDetailView: View {
     @Query private var allMemberships: [ClubMembership]
     @Query private var allEvents: [ClubEvent]
     @Query private var allClubMemberships: [ClubMembership]
+    @Query private var presenceStates: [UserPresenceState]
 
     let club: Club
     let profile: UserProfile
@@ -2966,6 +3135,7 @@ struct ClubDetailView: View {
             ScrollView {
                 VStack(spacing: 14) {
                     detailHeader
+                    activeInThisClubStrip
                     joinButton
                     clubSectionPicker
                     sectionContent
@@ -3009,9 +3179,8 @@ struct ClubDetailView: View {
 
     @ViewBuilder
     private var detailHeader: some View {
-        let cat = club.resolvedCategory
         HStack(alignment: .top, spacing: 14) {
-            // Avatar — matches Today's icon-on-tinted-circle language
+            // Avatar — per-club monogram matches the landing list
             #if canImport(UIKit)
             if let imageData = club.imageData, let uiImage = UIImage(data: imageData) {
                 Image(uiImage: uiImage)
@@ -3020,24 +3189,10 @@ struct ClubDetailView: View {
                     .frame(width: 54, height: 54)
                     .clipShape(Circle())
             } else {
-                Circle()
-                    .fill(GQGradients.primary.opacity(0.12))
-                    .frame(width: 54, height: 54)
-                    .overlay(
-                        Image(systemName: cat.icon)
-                            .font(.system(size: 22, weight: .semibold))
-                            .foregroundStyle(GQGradients.primary)
-                    )
+                ClubMonogramAvatar(club: club, size: 54)
             }
             #else
-            Circle()
-                .fill(GQGradients.primary.opacity(0.12))
-                .frame(width: 54, height: 54)
-                .overlay(
-                    Image(systemName: cat.icon)
-                        .font(.system(size: 22, weight: .semibold))
-                        .foregroundStyle(GQGradients.primary)
-                )
+            ClubMonogramAvatar(club: club, size: 54)
             #endif
 
             VStack(alignment: .leading, spacing: 6) {
@@ -3087,6 +3242,88 @@ struct ClubDetailView: View {
         .padding(14)
         .homeSocialCard(cornerRadius: 16)
         .padding(.horizontal, 16)
+    }
+
+    // MARK: - Active Now (this club)
+
+    /// Members of THIS club training right now. Matches the Friends feed
+    /// ACTIVE NOW rail but scoped to the single club.
+    @ViewBuilder
+    private var activeInThisClubStrip: some View {
+        let live = liveMembersInThisClub
+        if !live.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(GQColors.success)
+                        .frame(width: 6, height: 6)
+                    Text("ACTIVE NOW")
+                        .font(.system(size: 10, weight: .semibold))
+                        .tracking(1.2)
+                        .foregroundColor(GQColors.textTertiary)
+                    Text("·").foregroundColor(GQColors.textTertiary)
+                    Text("\(live.count) training now")
+                        .font(.system(size: 10))
+                        .foregroundColor(GQColors.textTertiary)
+                    Spacer()
+                }
+                .padding(.horizontal, 20)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 14) {
+                        ForEach(live, id: \.userId) { m in
+                            activeInClubCell(m)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 2)
+                }
+            }
+        }
+    }
+
+    private var liveMembersInThisClub: [(userId: UUID, name: String, workoutType: String?)] {
+        let memberIds = Set(club.memberIds).subtracting([profile.id])
+        return presenceStates
+            .filter { $0.status == .training && memberIds.contains($0.userId) }
+            .compactMap { state in
+                let name = SocialSeeder.fakeUsers.first(where: { $0.id == state.userId })?.name
+                    ?? "Member"
+                return (state.userId, name, state.workoutTypeRaw)
+            }
+    }
+
+    @ViewBuilder
+    private func activeInClubCell(_ m: (userId: UUID, name: String, workoutType: String?)) -> some View {
+        VStack(spacing: 5) {
+            ZStack {
+                Circle()
+                    .stroke(GQColors.success, lineWidth: 1.5)
+                    .frame(width: 44, height: 44)
+                Circle()
+                    .fill(GQGradients.primary)
+                    .frame(width: 38, height: 38)
+                    .overlay(
+                        Text(String(m.name.prefix(1)).uppercased())
+                            .font(.system(size: 14, weight: .semibold, design: .rounded))
+                            .foregroundColor(.white)
+                    )
+                Circle()
+                    .fill(GQColors.success)
+                    .frame(width: 9, height: 9)
+                    .overlay(Circle().stroke(GQColors.background, lineWidth: 1.5))
+                    .frame(width: 44, height: 44, alignment: .bottomTrailing)
+            }
+            Text(m.name.components(separatedBy: " ").first ?? m.name)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundColor(GQColors.textPrimary)
+                .lineLimit(1)
+            Text((m.workoutType?.capitalized) ?? "Training")
+                .font(.system(size: 9, weight: .medium))
+                .foregroundColor(GQColors.textTertiary)
+                .lineLimit(1)
+        }
+        .frame(width: 58)
     }
 
     // MARK: - Join Button
@@ -4172,4 +4409,47 @@ struct NewClubPostSheet: View {
     }
 }
 
+// MARK: - Shared club monogram avatar
 
+/// Per-club fallback avatar — first letter on a deterministic gradient
+/// pulled from a curated palette. Gives every club a distinct identity
+/// so the list doesn't read as a wall of identical dumbbell icons.
+struct ClubMonogramAvatar: View {
+    let club: Club
+    let size: CGFloat
+
+    static let palette: [Color] = [
+        Color(red: 0.42, green: 0.35, blue: 0.92),  // indigo
+        Color(red: 0.29, green: 0.63, blue: 0.85),  // ocean
+        Color(red: 0.22, green: 0.70, blue: 0.56),  // emerald
+        Color(red: 0.95, green: 0.60, blue: 0.28),  // amber
+        Color(red: 0.88, green: 0.35, blue: 0.55),  // rose
+        Color(red: 0.56, green: 0.45, blue: 0.78),  // lavender
+        Color(red: 0.30, green: 0.58, blue: 0.72),  // teal
+        Color(red: 0.92, green: 0.48, blue: 0.38),  // coral
+    ]
+
+    static func accent(for club: Club) -> Color {
+        // UUID's hashValue is randomized per run; stable scalar sum keeps the
+        // color consistent across launches.
+        let seed = club.id.uuidString.unicodeScalars.reduce(0) { $0 &+ Int($1.value) }
+        return palette[abs(seed) % palette.count]
+    }
+
+    var body: some View {
+        let accent = Self.accent(for: club)
+        let initial = String(club.name.trimmingCharacters(in: .whitespaces).prefix(1)).uppercased()
+        Circle()
+            .fill(LinearGradient(
+                colors: [accent, accent.opacity(0.78)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ))
+            .frame(width: size, height: size)
+            .overlay(
+                Text(initial)
+                    .font(.system(size: size * 0.42, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
+            )
+    }
+}
