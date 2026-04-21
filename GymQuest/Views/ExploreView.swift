@@ -101,7 +101,7 @@ struct ExploreView: View {
 
     var body: some View {
         ScrollView(showsIndicators: false) {
-            LazyVStack(alignment: .leading, spacing: 12, pinnedViews: [.sectionHeaders]) {
+            LazyVStack(alignment: .leading, spacing: 10, pinnedViews: [.sectionHeaders]) {
                 if showSearchOverlay {
                     SmartSearchBar(query: $query, bodyPart: $bodyPart, durationCap: $durationCap, equipment: $equipment, showsChips: isSearching).padding(.horizontal, 16).transition(.opacity.combined(with: .move(edge: .top)))
                 }
@@ -133,7 +133,7 @@ struct ExploreView: View {
                             onJumpTo: { idx in jumpHero(to: idx) },
                             onLongPressSave: { sheetPostForCollection = hero }
                         )
-                        .padding(.horizontal, 16)
+                        .padding(.horizontal, 8)
                     }
 
                     // ── 5. Unified discover feed ────────────────
@@ -667,7 +667,8 @@ struct ExploreView: View {
                     .buttonStyle(.plain)
                 }
             }
-            .padding(.horizontal, 16)
+            .padding(.leading, 8)
+            .padding(.trailing, 4)
         }
     }
 
@@ -932,17 +933,17 @@ struct ExploreView: View {
                     startWorkout(from: post)
                 }
             )
-            .frame(minHeight: 600)
         } header: {
             // Utility-only sticky header: chips + mode toggle on one
-            // line. Toggle is a compact icon-pair pinned right so the
-            // chips breathe. One tidy row, no duplicate "Discover" title.
+            // line. Tighter vertical padding so the first media row
+            // sits close to the filters — used to feel disconnected.
             HStack(spacing: 10) {
                 discoverFilterChips
                 discoverModeToggle
-                    .padding(.trailing, 16)
+                    .padding(.trailing, 12)
             }
-            .padding(.vertical, 8)
+            .padding(.top, 6)
+            .padding(.bottom, 4)
             .background(GQColors.background)
         }
     }
