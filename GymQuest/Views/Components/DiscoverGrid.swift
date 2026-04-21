@@ -17,32 +17,33 @@ struct DiscoverGrid: View {
     /// autoplay on the featured video cell.
     @State private var activeVideoId: String?
 
-    /// Breathing room between tiles — 3-col density preserved.
-    private let spacing: CGFloat = 6
+    /// Tight spacing — tiles sit close together for a dense but not
+    /// cramped grid.
+    private let spacing: CGFloat = 3
+    /// Horizontal edge padding. Smaller than the usual 16pt so the
+    /// tiles themselves get more of the screen width.
+    private let horizontalPadding: CGFloat = 8
+    /// Tile height / width. >1 means taller-than-wide — a little more
+    /// vertical so the media has room to breathe.
+    private let aspectRatio: CGFloat = 1.2
 
     var body: some View {
-        // No inner ScrollView — the grid flows directly inside the parent
-        // page scroll so it reads as one continuous feed. Cell size is
-        // derived from the screen width instead of a GeometryReader
-        // (which would greedily claim its own layout space and force
-        // nested scrolling).
         #if canImport(UIKit)
         let screenW = UIScreen.main.bounds.width
         #else
         let screenW: CGFloat = 390
         #endif
-        let cellSize = (screenW - spacing * 2 - 32) / 3
-        gridLayout(cellSize: cellSize)
-            .padding(.horizontal, 16)
+        let cellWidth = (screenW - spacing * 2 - horizontalPadding * 2) / 3
+        let cellHeight = cellWidth * aspectRatio
+        gridLayout(cellWidth: cellWidth, cellHeight: cellHeight)
+            .padding(.horizontal, horizontalPadding)
     }
 
-    // MARK: - Grid layout — uniform 3-column grid of equal squares
+    // MARK: - Grid layout — uniform 3-column grid of portrait tiles
 
     @ViewBuilder
-    private func gridLayout(cellSize: CGFloat) -> some View {
-        // Truncate to a clean multiple of 3 so every row is full. No
-        // featured cells, no orphans, no padding. One consistent square
-        // size across the whole feed.
+    private func gridLayout(cellWidth: CGFloat, cellHeight: CGFloat) -> some View {
+        // Truncate to a clean multiple of 3 so every row is full.
         let truncated = Array(items.prefix(items.count - (items.count % 3)))
         let rows = stride(from: 0, to: truncated.count, by: 3).map { start in
             Array(truncated[start..<min(start + 3, truncated.count)])
@@ -52,7 +53,7 @@ struct DiscoverGrid: View {
             ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
                 HStack(spacing: spacing) {
                     ForEach(row) { item in
-                        smallCell(item, size: cellSize)
+                        smallCell(item, width: cellWidth, height: cellHeight)
                     }
                 }
             }
@@ -61,7 +62,7 @@ struct DiscoverGrid: View {
 
     // MARK: - Small cell (1×1 square thumbnail)
 
-    private func smallCell(_ item: DiscoverFeedItem, size: CGFloat) -> some View {
+    private func smallCell(_ item: DiscoverFeedItem, width: CGFloat, height: CGFloat) -> some View {
         Button {
             handleTap(item)
         } label: {
@@ -72,23 +73,12 @@ struct DiscoverGrid: View {
                 // signal than a static icon overlay.
                 if isVideo(item), let data = effectiveVideoData(item.post) {
                     GridVideoTile(videoData: data)
-                        .frame(width: size, height: size)
+                        .frame(width: width, height: height)
                         .clipped()
                 } else {
                     thumbnailView(item.post)
-                        .frame(width: size, height: size)
+                        .frame(width: width, height: height)
                         .clipped()
-                }
-
-                // Top-right: carousel icon only when the post has
-                // multiple media items. No count, just a subtle glyph.
-                if item.post.mediaItems.count > 1 {
-                    Image(systemName: "square.on.square")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(.white)
-                        .shadow(color: .black.opacity(0.35), radius: 2, y: 1)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                        .padding(7)
                 }
 
                 // Top-left: workout type icon. No pill background — just
