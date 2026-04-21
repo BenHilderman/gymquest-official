@@ -81,16 +81,16 @@ struct DiscoverGrid: View {
                         .clipped()
                 }
 
-                // Top-left: workout type icon. No pill background — just
-                // a white glyph with a subtle shadow so it reads on any
-                // media color without chrome.
+                // Bottom-right: workout type icon. No pill background —
+                // just a white glyph with a subtle shadow so it reads on
+                // any media color without chrome.
                 if let rawType = item.post.workoutType,
                    let type = WorkoutType(rawValue: rawType) {
                     Image(systemName: type.icon)
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundColor(.white)
                         .shadow(color: .black.opacity(0.45), radius: 2, y: 1)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                         .padding(7)
                 }
 
