@@ -92,8 +92,14 @@ struct FriendsFeedView: View {
                 }
             }
             .padding(.bottom, 100)
+            .frame(maxWidth: .infinity)
+            // surfaceBase fills the whole feed column so the strip of
+            // page color between cards disappears — posts, dividers,
+            // and banners all sit on one continuous white surface.
+            .background(GQColors.surfaceBase)
         }
         .scrollContentBackground(.hidden)
+        .background(GQColors.surfaceBase)
         .gqPageBackground()
         .navigationTitle("Friends")
         .navigationBarTitleDisplayMode(.inline)
@@ -178,7 +184,7 @@ struct FriendsFeedView: View {
                         .foregroundColor(.white)
                         .padding(.horizontal, 4)
                         .frame(minWidth: 14, minHeight: 14)
-                        .background(Circle().fill(Color.red))
+                        .background(Circle().fill(GQGradients.primary))
                         .offset(x: 2, y: -2)
                 }
             }

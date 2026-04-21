@@ -361,7 +361,7 @@ struct FloatingTabBar: View {
                             .foregroundColor(.white)
                             .padding(.horizontal, 4)
                             .frame(minWidth: 14, minHeight: 14)
-                            .background(Circle().fill(Color.red))
+                            .background(Circle().fill(GQGradients.primary))
                             .offset(x: -14, y: 2)
                     } else if SocialActivityService.shared.hasLiveFriends {
                         SocialActivityBadge()
