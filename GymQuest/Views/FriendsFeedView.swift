@@ -43,63 +43,74 @@ struct FriendsFeedView: View {
     }
 
     var body: some View {
-        ScrollView {
-            LazyVStack(spacing: 0) {
-                // Unread activity banner — surfaces likes/comments from the
-                // bell as a row the user can't miss while scrolling Friends.
-                // Reinforces the tab-bar badge: same count, two surfaces.
-                if unreadActivityCount > 0 {
-                    unreadActivityBanner
-                        .padding(.horizontal, 16)
-                        .padding(.top, 10)
-                }
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    if unreadActivityCount > 0 {
+                        unreadActivityBanner
+                            .padding(.horizontal, 16)
+                            .padding(.top, 10)
+                    }
 
-                // Presence strip — moved here from Discover so the Friends
-                // tab owns "who's live / who posted recently" in one place.
-                if !friendsMembers.isEmpty {
-                    FriendsRow(
-                        members: friendsMembers,
-                        onTapMember: { _ in /* scroll to post — no-op for now */ },
-                        onStartWorkout: { dismiss() }
-                    )
-                    .padding(.top, 8)
-
-                    Rectangle()
-                        .fill(GQColors.borderSubtle)
-                        .frame(height: 1)
-                        .padding(.top, 10)
-                }
-
-                if friendPosts.isEmpty {
-                    emptyState
-                } else {
-                    ForEach(Array(friendPosts.enumerated()), id: \.element.id) { index, post in
-                        PostCardV2(
-                            post: post,
-                            currentUserId: profile.id,
-                            currentUserName: profile.name,
-                            profile: profile
+                    if !friendsMembers.isEmpty {
+                        FriendsRow(
+                            members: friendsMembers,
+                            onTapMember: { member in
+                                // Tap an avatar -> scroll the feed to
+                                // that member's most recent post. If
+                                // they have no posts in the feed it
+                                // means they're live but haven't
+                                // posted — no-op is fine.
+                                if let target = friendPosts.first(where: { $0.authorId == member.id }) {
+                                    #if canImport(UIKit)
+                                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                    #endif
+                                    withAnimation(.easeInOut(duration: 0.35)) {
+                                        proxy.scrollTo(target.id, anchor: .top)
+                                    }
+                                }
+                            },
+                            onStartWorkout: { dismiss() }
                         )
+                        .padding(.top, 8)
 
                         Rectangle()
                             .fill(GQColors.borderSubtle)
                             .frame(height: 1)
-
-                        // Clean scroll — no interrupts
+                            .padding(.top, 10)
                     }
 
-                    backToTrainingFooter
+                    if friendPosts.isEmpty {
+                        emptyState
+                    } else {
+                        ForEach(Array(friendPosts.enumerated()), id: \.element.id) { index, post in
+                            PostCardV2(
+                                post: post,
+                                currentUserId: profile.id,
+                                currentUserName: profile.name,
+                                profile: profile
+                            )
+                            .id(post.id)
+
+                            Rectangle()
+                                .fill(GQColors.borderSubtle)
+                                .frame(height: 1)
+                        }
+
+                        backToTrainingFooter
+                    }
                 }
+                .padding(.bottom, 100)
+                .frame(maxWidth: .infinity)
+                // surfaceBase fills the whole feed column so the strip
+                // of page color between cards disappears — posts,
+                // dividers, and banners all sit on one continuous
+                // white surface.
+                .background(GQColors.surfaceBase)
             }
-            .padding(.bottom, 100)
-            .frame(maxWidth: .infinity)
-            // surfaceBase fills the whole feed column so the strip of
-            // page color between cards disappears — posts, dividers,
-            // and banners all sit on one continuous white surface.
+            .scrollContentBackground(.hidden)
             .background(GQColors.surfaceBase)
         }
-        .scrollContentBackground(.hidden)
-        .background(GQColors.surfaceBase)
         .gqPageBackground()
         .navigationTitle("Friends")
         .navigationBarTitleDisplayMode(.inline)
