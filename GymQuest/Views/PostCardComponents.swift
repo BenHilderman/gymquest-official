@@ -737,16 +737,18 @@ struct PostCardV2: View {
             // adaptive overlay (black in light mode / white in dark
             // mode) into the media. Solves the "white photo top blends
             // into white header" bug without pixel-sampling the image.
+            // Short 4pt fade so the shadow only marks the seam — doesn't
+            // tint a visible strip of the photo.
             VStack(spacing: 0) {
                 LinearGradient(
                     colors: [
-                        GQColors.adaptiveOverlay(0.10),
+                        GQColors.adaptiveOverlay(0.12),
                         Color.clear
                     ],
                     startPoint: .top,
                     endPoint: .bottom
                 )
-                .frame(height: 8)
+                .frame(height: 4)
                 Spacer(minLength: 0)
             }
             .allowsHitTesting(false)
