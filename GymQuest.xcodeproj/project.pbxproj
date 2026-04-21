@@ -80,6 +80,7 @@
 		10F661325BADE036B1EB9646 /* 3361.gif in Resources */ = {isa = PBXBuildFile; fileRef = 9D101B935B0EB0A3F8BB02F0 /* 3361.gif */; };
 		1104BE1DA1A7D2CC8A2EDCFE /* PostDoability.swift in Sources */ = {isa = PBXBuildFile; fileRef = 327F806703AFCC8C68246686 /* PostDoability.swift */; };
 		11646C23EFD4C7B92F7A812F /* EmotionInsightsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D47BC4E3DB6CC90CE6B47F6C /* EmotionInsightsService.swift */; };
+		1169C7C0B7B2CF902E57FA4E /* UnsplashPhotoService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E22BA21070A0E4DE6A399AED /* UnsplashPhotoService.swift */; };
 		116AA07B5D3A6A57C4C8A49A /* TrainCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFEF5A90E0CFDA9A7CD5524B /* TrainCard.swift */; };
 		11DA4CE561208D4263EE8B5A /* EngagementTrackingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81E05A59B546123816B05042 /* EngagementTrackingService.swift */; };
 		11EDAB5160E616FFF6ECD37C /* 0295.gif in Resources */ = {isa = PBXBuildFile; fileRef = 6ABD8235CAC4A4045722E1A4 /* 0295.gif */; };
@@ -789,6 +790,7 @@
 		C3AC79F48B4100650FF32254 /* 0293.gif in Resources */ = {isa = PBXBuildFile; fileRef = 5431984844BA6BBD6C148019 /* 0293.gif */; };
 		C3E3BC292F7188E965A34F6B /* SavedWorkout.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEE7CD103DC6314638CC2F93 /* SavedWorkout.swift */; };
 		C42917C1F7503CBE6F33C54E /* FormPeekSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0319258723B1799D8978435C /* FormPeekSheet.swift */; };
+		C42D510BBE26EB16D2C8807C /* UnsplashPhotoService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E22BA21070A0E4DE6A399AED /* UnsplashPhotoService.swift */; };
 		C44910D40B903015C9AC657B /* testStatPill_snapshot.StatPills-iPhoneSE.png in Resources */ = {isa = PBXBuildFile; fileRef = A1157A7099E73DAC25BB6AAB /* testStatPill_snapshot.StatPills-iPhoneSE.png */; };
 		C4C2E602308905F3F3CE5526 /* EmotionInsightsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D337C85E9CC97ADA3324607A /* EmotionInsightsView.swift */; };
 		C52208030BED852122967E47 /* 0555.gif in Resources */ = {isa = PBXBuildFile; fileRef = 03B5D7B803FE8452D7EA2173 /* 0555.gif */; };
@@ -1450,6 +1452,7 @@
 		E17745F0B3DD59CDB6B9EDB0 /* NavAvatarButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavAvatarButton.swift; sourceTree = "<group>"; };
 		E1B092AA6E17DF0272E66409 /* IntegrationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntegrationsView.swift; sourceTree = "<group>"; };
 		E1D1B61D86C0D86DB8B66341 /* VoiceNoteService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceNoteService.swift; sourceTree = "<group>"; };
+		E22BA21070A0E4DE6A399AED /* UnsplashPhotoService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnsplashPhotoService.swift; sourceTree = "<group>"; };
 		E2A3F142DB9D2AC7F4A7D25A /* HealthKitService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitService.swift; sourceTree = "<group>"; };
 		E2AAA5595E571D07C5A728F3 /* PlanScheduleService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanScheduleService.swift; sourceTree = "<group>"; };
 		E327A56594177FED6856D608 /* 1345.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = 1345.gif; sourceTree = "<group>"; };
@@ -1747,6 +1750,7 @@
 				EBEA5361AE3644258F7D4733 /* SupabaseSyncable.swift */,
 				B40CCCA3CB3E2D2A8CBD3268 /* SupabaseSyncService.swift */,
 				79E82599B3FC2C933F858506 /* TrainingPlanService.swift */,
+				E22BA21070A0E4DE6A399AED /* UnsplashPhotoService.swift */,
 				B086BC2BE82606CBA3047348 /* VideoThumbnailService.swift */,
 				E1D1B61D86C0D86DB8B66341 /* VoiceNoteService.swift */,
 				CE771FAF5340386C6A034D62 /* VoiceSearchService.swift */,
@@ -3252,6 +3256,7 @@
 				959D79C83121F8C70EBA9F50 /* TrainingPlanOfferView.swift in Sources */,
 				205B2DD9FD40C849323E0F75 /* TrainingPlanService.swift in Sources */,
 				03B2E71490E8CE7041613FEE /* TrainingPlanView.swift in Sources */,
+				1169C7C0B7B2CF902E57FA4E /* UnsplashPhotoService.swift in Sources */,
 				903C8AB9411C7A889B24892F /* UserPresenceState.swift in Sources */,
 				54EA8A20B721E4A61DD6FAF4 /* UserProfileSheet.swift in Sources */,
 				7F0455CD5E00B44B59AACCBB /* VideoGeneratorView.swift in Sources */,
@@ -3543,6 +3548,7 @@
 				E2E6E3B57E888BFDC7AB811B /* TrainingPlanOfferView.swift in Sources */,
 				496ECE325E163DC38ABB41FC /* TrainingPlanService.swift in Sources */,
 				C1F0D7C747161888278BF2F9 /* TrainingPlanView.swift in Sources */,
+				C42D510BBE26EB16D2C8807C /* UnsplashPhotoService.swift in Sources */,
 				6CE644EB0CC8CC849015D973 /* UserPresenceState.swift in Sources */,
 				45BCD8C22F103A6945CD7F38 /* UserProfileSheet.swift in Sources */,
 				2873B58C726DFC42A082E6EA /* VideoGeneratorView.swift in Sources */,

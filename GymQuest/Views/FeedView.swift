@@ -305,6 +305,14 @@ struct FeedView: View {
                         if !hasSeeded {
                             hasSeeded = true
                             SocialSeeder.seedIfNeeded(modelContext: modelContext)
+                            // Progressive enhancement: after the seed,
+                            // download real Unsplash fitness photos and
+                            // swap them in. Runs once per version bump;
+                            // fails silently if offline (seed still has
+                            // procedural thumbnails as a fallback).
+                            Task { @MainActor in
+                                await SocialSeeder.enhancePhotosIfNeeded(modelContext: modelContext)
+                            }
                         }
                         loadActiveSquad()
                         fetchRemotePosts()

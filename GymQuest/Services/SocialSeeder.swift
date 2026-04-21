@@ -29,6 +29,11 @@ struct SocialSeeder {
         (UUID(uuidString: "A0000001-0000-0000-0000-00000000000A")!, "Ava Mitchell", "avamitchell"),
     ]
 
+    /// Progressive enhancement key — when bumped, every seeded post gets
+    /// its photoData swapped with a real Unsplash fitness photo the next
+    /// time the feed appears with an internet connection.
+    private static let photoEnhancementVersion = "socialSeeder_photos_v1"
+
     static func seedIfNeeded(modelContext: ModelContext) {
         // Bumping this version clears + re-seeds so existing installs get
         // the new varied media per post instead of the same DemoPhotos
@@ -2417,6 +2422,46 @@ struct SocialSeeder {
             }
         }
         try? modelContext.save()
+    }
+
+    /// Downloads real fitness photos from Unsplash and swaps them into
+    /// every existing post's photoData + first mediaItems entry. Runs
+    /// once per photoEnhancementVersion bump. Procedural thumbnails
+    /// remain the offline fallback — if this fails, the page still
+    /// looks fine with the gradient+icon generator output.
+    @MainActor
+    static func enhancePhotosIfNeeded(modelContext: ModelContext) async {
+        guard !UserDefaults.standard.bool(forKey: photoEnhancementVersion) else { return }
+
+        let descriptor = FetchDescriptor<Post>(sortBy: [SortDescriptor(\Post.timestamp, order: .reverse)])
+        guard let posts = try? modelContext.fetch(descriptor), !posts.isEmpty else { return }
+
+        for (index, post) in posts.enumerated() {
+            // Skip user-authored posts (identified by mismatch with
+            // seeded fake users) so their own photos aren't overwritten.
+            let seededIds = Set(fakeUsers.map(\.id))
+            guard seededIds.contains(post.authorId) else { continue }
+
+            let id = UnsplashPhotoService.photoId(forIndex: index)
+            guard let data = await UnsplashPhotoService.fetch(id: id) else { continue }
+
+            post.photoData = data
+            // Update mediaItems too so the grid + post detail read the
+            // same photo. Only the first item is swapped (the carousel
+            // hero); the rest keep their procedural thumbs for variety.
+            if !post.mediaItems.isEmpty {
+                var items = post.mediaItems
+                items[0] = PostMedia(
+                    exerciseName: items[0].exerciseName,
+                    exerciseIndex: items[0].exerciseIndex,
+                    mediaType: items[0].mediaType,
+                    data: data
+                )
+                post.mediaItems = items
+            }
+        }
+        try? modelContext.save()
+        UserDefaults.standard.set(true, forKey: photoEnhancementVersion)
     }
 
     #if canImport(UIKit)
