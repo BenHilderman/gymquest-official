@@ -120,8 +120,8 @@ struct FriendsRow: View {
                     Circle()
                         .fill(GQColors.success)
                         .frame(width: 6, height: 6)
-                        .scaleEffect(pulse ? 1.35 : 1.0)
-                        .animation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true), value: pulse)
+                        .scaleEffect(pulse ? 1.18 : 1.0)
+                        .animation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true), value: pulse)
                     Text("ACTIVE NOW")
                         .font(.system(size: 10, weight: .semibold))
                         .tracking(1.2)
@@ -177,8 +177,8 @@ struct FriendsRow: View {
                         Circle()
                             .stroke(GQColors.success, lineWidth: 2)
                             .frame(width: 44, height: 44)
-                            .scaleEffect(pulse ? 1.04 : 1.0)
-                            .animation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true), value: pulse)
+                            .scaleEffect(pulse ? 1.05 : 1.0)
+                            .animation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true), value: pulse)
                     }
 
                     avatarImage(member)

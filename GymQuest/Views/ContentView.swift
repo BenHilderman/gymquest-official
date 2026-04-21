@@ -363,25 +363,13 @@ struct FloatingTabBar: View {
                             .frame(minWidth: 14, minHeight: 14)
                             .background(Circle().fill(GQGradients.primary))
                             .offset(x: -14, y: 2)
-                    } else if SocialActivityService.shared.hasLiveFriends {
-                        SocialActivityBadge()
-                            .offset(x: -14, y: 2)
                     }
+                    // Live-friends presence dot removed from the tab
+                    // icon — the pulsing "ACTIVE NOW" header + live
+                    // rings inside the Friends page carry that signal.
                 }
 
-                ZStack(alignment: .topTrailing) {
-                    FloatingTabButton(tab: .clubs, icon: "person.3", selectedIcon: "person.3.fill", label: "Clubs")
-
-                    if anyClubMemberLive {
-                        // Green dot when any member of the user's clubs is
-                        // currently training — mirrors the Friends indicator.
-                        Circle()
-                            .fill(GQColors.success)
-                            .frame(width: 8, height: 8)
-                            .overlay(Circle().stroke(GQColors.background, lineWidth: 1.5))
-                            .offset(x: -14, y: 2)
-                    }
-                }
+                FloatingTabButton(tab: .clubs, icon: "person.3", selectedIcon: "person.3.fill", label: "Clubs")
 
                 // Center button — workout indicator when active, "+" when idle
                 if appState.isWorkoutActive {
