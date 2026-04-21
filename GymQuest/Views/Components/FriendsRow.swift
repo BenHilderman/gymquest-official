@@ -112,19 +112,26 @@ struct FriendsRow: View {
 
     var body: some View {
         if members.isEmpty { EmptyView() } else {
-            // Dropped the "FRIENDS" label — user's already on the
-            // Friends tab, no need to reannounce it. Top padding gives
-            // the live-ring pulse room so it doesn't clip against the
-            // nav bar above.
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 16) {
-                    ForEach(members) { member in
-                        memberCell(member)
+            VStack(alignment: .leading, spacing: 6) {
+                Text("FRIENDS")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(GQColors.textTertiary)
+                    .tracking(1.2)
+                    .padding(.horizontal, 16)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(spacing: 14) {
+                        ForEach(members) { member in
+                            memberCell(member)
+                        }
+                        startCell
                     }
-                    startCell
+                    .padding(.horizontal, 16)
+                    // Vertical padding so the live-ring pulse has room
+                    // at the top and doesn't clip against the element
+                    // above. Only change kept from the cleanup pass.
+                    .padding(.vertical, 4)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 6)
             }
             .onAppear { pulse = true }
         }
@@ -137,64 +144,68 @@ struct FriendsRow: View {
             #endif
             onTapMember(member)
         } label: {
-            VStack(spacing: 5) {
+            VStack(spacing: 4) {
                 ZStack {
-                    // Live ring — tighter pulse (1.02 vs 1.04) so it
-                    // doesn't hit the top edge when the row sits close
-                    // to the nav bar.
+                    // Thin green ring only on live members. Recent/inactive get
+                    // no ring — just the avatar. Keeps the row clean and
+                    // reserves accent color for the single "training now"
+                    // signal, Apple-style.
                     if isLive(member) {
                         Circle()
                             .stroke(GQColors.success, lineWidth: 2)
-                            .frame(width: 54, height: 54)
-                            .scaleEffect(pulse ? 1.02 : 1.0)
-                            .animation(.easeInOut(duration: 1.4).repeatForever(autoreverses: true), value: pulse)
+                            .frame(width: 48, height: 48)
+                            .scaleEffect(pulse ? 1.04 : 1.0)
+                            .animation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true), value: pulse)
                     }
 
                     avatarImage(member)
-                        .frame(width: 48, height: 48)
+                        .frame(width: 44, height: 44)
                         .clipShape(Circle())
-                        .opacity(isInactive(member) ? 0.5 : 1.0)
+                        .opacity(isInactive(member) ? 0.55 : 1.0)
 
                     if isLive(member) {
                         Circle()
                             .fill(GQColors.success)
-                            .frame(width: 11, height: 11)
-                            .overlay(Circle().stroke(GQColors.surfaceBase, lineWidth: 2))
-                            .frame(width: 54, height: 54, alignment: .bottomTrailing)
+                            .frame(width: 12, height: 12)
+                            .overlay(Circle().stroke(GQColors.background, lineWidth: 2))
+                            .frame(width: 48, height: 48, alignment: .bottomTrailing)
                     }
                 }
-                .frame(width: 54, height: 54)
 
                 Text(firstName(member))
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(isInactive(member) ? GQColors.textTertiary : GQColors.textPrimary)
+                    .foregroundColor(GQColors.textPrimary)
                     .lineLimit(1)
-                    .frame(maxWidth: 62)
+                    .frame(maxWidth: 56)
+
+                Text(member.statusText)
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundColor(GQColors.textTertiary)
+                    .lineLimit(1)
+                    .frame(maxWidth: 56)
             }
-            .frame(width: 62)
         }
         .buttonStyle(.plain)
     }
 
     private var startCell: some View {
         Button(action: onStartWorkout) {
-            VStack(spacing: 5) {
+            VStack(spacing: 4) {
                 ZStack {
                     Circle()
-                        .strokeBorder(GQColors.borderDefault, lineWidth: 1.25)
+                        .stroke(GQColors.borderDefault, lineWidth: 1.5)
                         .frame(width: 48, height: 48)
                     Image(systemName: "plus")
                         .font(.system(size: 18, weight: .semibold))
                         .foregroundStyle(GQGradients.primary)
                 }
-                .frame(width: 54, height: 54)
-
                 Text("Start")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(GQColors.textSecondary)
-                    .frame(maxWidth: 62)
+                Text("workout")
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundColor(GQColors.textTertiary)
             }
-            .frame(width: 62)
         }
         .buttonStyle(.plain)
     }
