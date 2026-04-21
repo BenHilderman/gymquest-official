@@ -131,6 +131,7 @@ struct FriendsRow: View {
                         .foregroundColor(GQColors.textTertiary)
                 }
                 .padding(.horizontal, 16)
+                .padding(.top, 6)
 
                 ScrollView(.horizontal, showsIndicators: false) {
                     LazyHStack(spacing: 14) {
