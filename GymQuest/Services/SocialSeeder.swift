@@ -30,7 +30,10 @@ struct SocialSeeder {
     ]
 
     static func seedIfNeeded(modelContext: ModelContext) {
-        let seederVersion = "socialSeeder_v15"
+        // Bumping this version clears + re-seeds so existing installs get
+        // the new varied media per post instead of the same DemoPhotos
+        // image repeated across the feed.
+        let seederVersion = "socialSeeder_v16"
         let needsReseed = !UserDefaults.standard.bool(forKey: seederVersion)
 
         let descriptor = FetchDescriptor<Post>()
@@ -54,11 +57,17 @@ struct SocialSeeder {
 
         UserDefaults.standard.set(true, forKey: seederVersion)
 
-        // Load demo gym photo for select posts
+        // Per-post media: generate a unique gradient + workout-icon
+        // thumbnail for each post so the feed doesn't show the same
+        // image everywhere. Falls back to the bundled DemoPhotos asset
+        // if the renderer returns nil.
         #if canImport(UIKit)
-        let demoPhotoData: Data? = UIImage(named: "DemoPhotos")?.jpegData(compressionQuality: 0.5) ?? Self.generatePlaceholderPhoto()
+        let demoFallback: Data? = UIImage(named: "DemoPhotos")?.jpegData(compressionQuality: 0.5) ?? Self.generatePlaceholderPhoto()
+        func photoFor(_ index: Int, _ workoutType: String) -> Data? {
+            Self.generateWorkoutThumbnail(index: index, workoutType: workoutType) ?? demoFallback
+        }
         #else
-        let demoPhotoData: Data? = nil
+        func photoFor(_ index: Int, _ workoutType: String) -> Data? { nil }
         #endif
 
         let now = Date()
@@ -96,8 +105,9 @@ struct SocialSeeder {
             musicSnippetStart: 5.0
         )
         p1.albumArtData = bundledAlbumArt("lose_yourself")
-        p1.photoData = demoPhotoData
-        if let photoData = demoPhotoData {
+        let photoData1 = photoFor(1, p1.workoutType ?? "")
+        p1.photoData = photoData1
+        if let photoData = photoData1 {
             let items: [PostMedia] = [
                 PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
                 PostMedia(exerciseName: "Incline Bench Press", exerciseIndex: 0, mediaType: .photo, data: photoData),
@@ -181,8 +191,9 @@ struct SocialSeeder {
             workoutEmotion: "Strong",
             overlayTheme: "Ocean"
         )
-        p2.photoData = demoPhotoData
-        if let photoData = demoPhotoData {
+        let photoData2 = photoFor(2, p2.workoutType ?? "")
+        p2.photoData = photoData2
+        if let photoData = photoData2 {
             let items: [PostMedia] = [
                 PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
                 PostMedia(exerciseName: "Barbell Row", exerciseIndex: 0, mediaType: .photo, data: photoData),
@@ -220,8 +231,9 @@ struct SocialSeeder {
             musicSnippetStart: 8.0
         )
         p3.albumArtData = bundledAlbumArt("power")
-        p3.photoData = demoPhotoData
-        if let photoData = demoPhotoData {
+        let photoData3 = photoFor(3, p3.workoutType ?? "")
+        p3.photoData = photoData3
+        if let photoData = photoData3 {
             let items: [PostMedia] = [
                 PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
                 PostMedia(exerciseName: "Squat", exerciseIndex: 0, mediaType: .photo, data: photoData),
@@ -290,8 +302,9 @@ struct SocialSeeder {
             overlayTheme: "Rose",
             musicSnippetStart: 3.0
         )
-        p4.photoData = demoPhotoData
-        if let photoData = demoPhotoData {
+        let photoData4 = photoFor(4, p4.workoutType ?? "")
+        p4.photoData = photoData4
+        if let photoData = photoData4 {
             let items: [PostMedia] = [
                 PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
                 PostMedia(exerciseName: "Outdoor Run", exerciseIndex: 0, mediaType: .photo, data: photoData),
@@ -363,8 +376,9 @@ struct SocialSeeder {
             workoutEmotion: "Strong",
             overlayTheme: "Lavender"
         )
-        p5.photoData = demoPhotoData
-        if let photoData = demoPhotoData {
+        let photoData5 = photoFor(5, p5.workoutType ?? "")
+        p5.photoData = photoData5
+        if let photoData = photoData5 {
             let items: [PostMedia] = [
                 PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
                 PostMedia(exerciseName: "Bench Press", exerciseIndex: 0, mediaType: .photo, data: photoData),
@@ -431,8 +445,9 @@ struct SocialSeeder {
             commentCount: 1,
             workoutEmotion: "Dialed In"
         )
-        p6.photoData = demoPhotoData
-        if let photoData = demoPhotoData {
+        let photoData6 = photoFor(6, p6.workoutType ?? "")
+        p6.photoData = photoData6
+        if let photoData = photoData6 {
             let items: [PostMedia] = [
                 PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
                 PostMedia(exerciseName: "Bench Press", exerciseIndex: 0, mediaType: .photo, data: photoData),
@@ -507,8 +522,9 @@ struct SocialSeeder {
             commentCount: 3,
             workoutEmotion: "Grinding"
         )
-        p7.photoData = demoPhotoData
-        if let photoData = demoPhotoData {
+        let photoData7 = photoFor(7, p7.workoutType ?? "")
+        p7.photoData = photoData7
+        if let photoData = photoData7 {
             let items: [PostMedia] = [
                 PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
                 PostMedia(exerciseName: "Bulgarian Split Squat", exerciseIndex: 0, mediaType: .photo, data: photoData),
@@ -544,8 +560,9 @@ struct SocialSeeder {
             workoutEmotion: "Fired Up"
         )
         p8.albumArtData = bundledAlbumArt("till_i_collapse")
-        p8.photoData = demoPhotoData
-        if let photoData = demoPhotoData {
+        let photoData8 = photoFor(8, p8.workoutType ?? "")
+        p8.photoData = photoData8
+        if let photoData = photoData8 {
             let items: [PostMedia] = [
                 PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
                 PostMedia(exerciseName: "Deadlift", exerciseIndex: 0, mediaType: .photo, data: photoData),
@@ -618,8 +635,9 @@ struct SocialSeeder {
             commentCount: 2,
             workoutEmotion: "Strong"
         )
-        p9.photoData = demoPhotoData
-        if let photoData = demoPhotoData {
+        let photoData9 = photoFor(9, p9.workoutType ?? "")
+        p9.photoData = photoData9
+        if let photoData = photoData9 {
             let items: [PostMedia] = [
                 PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
                 PostMedia(exerciseName: "Lat Pulldown", exerciseIndex: 0, mediaType: .photo, data: photoData),
@@ -687,8 +705,9 @@ struct SocialSeeder {
             commentCount: 5,
             workoutEmotion: "Comeback"
         )
-        p10.photoData = demoPhotoData
-        if let photoData = demoPhotoData {
+        let photoData10 = photoFor(10, p10.workoutType ?? "")
+        p10.photoData = photoData10
+        if let photoData = photoData10 {
             let items: [PostMedia] = [
                 PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
                 PostMedia(exerciseName: "Dumbbell Press", exerciseIndex: 0, mediaType: .photo, data: photoData),
@@ -757,8 +776,9 @@ struct SocialSeeder {
             locationName: "The ARC - Queen's",
             workoutEmotion: "Grateful"
         )
-        p11.photoData = demoPhotoData
-        if let photoData = demoPhotoData {
+        let photoData11 = photoFor(11, p11.workoutType ?? "")
+        p11.photoData = photoData11
+        if let photoData = photoData11 {
             let items: [PostMedia] = [
                 PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
                 PostMedia(exerciseName: "Squat", exerciseIndex: 0, mediaType: .photo, data: photoData),
@@ -827,8 +847,9 @@ struct SocialSeeder {
             spotifyPlaylistURL: "https://open.spotify.com/playlist/37i9dQZF1DX0XUsuxWHRQd",
             workoutEmotion: "Strong"
         )
-        p12.photoData = demoPhotoData
-        if let photoData = demoPhotoData {
+        let photoData12 = photoFor(12, p12.workoutType ?? "")
+        p12.photoData = photoData12
+        if let photoData = photoData12 {
             let items: [PostMedia] = [
                 PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
                 PostMedia(exerciseName: "Overhead Press", exerciseIndex: 0, mediaType: .photo, data: photoData),
@@ -896,8 +917,9 @@ struct SocialSeeder {
             commentCount: 4,
             workoutEmotion: "Dragging"
         )
-        p13.photoData = demoPhotoData
-        if let photoData = demoPhotoData {
+        let photoData13 = photoFor(13, p13.workoutType ?? "")
+        p13.photoData = photoData13
+        if let photoData = photoData13 {
             let items: [PostMedia] = [
                 PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
                 PostMedia(exerciseName: "Cable Row", exerciseIndex: 0, mediaType: .photo, data: photoData),
@@ -964,8 +986,9 @@ struct SocialSeeder {
             commentCount: 2,
             workoutEmotion: "Fired Up"
         )
-        p14.photoData = demoPhotoData
-        if let photoData = demoPhotoData {
+        let photoData14 = photoFor(14, p14.workoutType ?? "")
+        p14.photoData = photoData14
+        if let photoData = photoData14 {
             let items: [PostMedia] = [
                 PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
                 PostMedia(exerciseName: "Pull Up", exerciseIndex: 0, mediaType: .photo, data: photoData),
@@ -1030,8 +1053,9 @@ struct SocialSeeder {
             locationName: "The ARC - Queen's",
             workoutEmotion: "Strong"
         )
-        p15.photoData = demoPhotoData
-        if let photoData = demoPhotoData {
+        let photoData15 = photoFor(15, p15.workoutType ?? "")
+        p15.photoData = photoData15
+        if let photoData = photoData15 {
             let items: [PostMedia] = [
                 PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
                 PostMedia(exerciseName: "Squat", exerciseIndex: 0, mediaType: .photo, data: photoData),
@@ -1095,8 +1119,9 @@ struct SocialSeeder {
             commentCount: 3,
             workoutEmotion: "Grateful"
         )
-        p16.photoData = demoPhotoData
-        if let photoData = demoPhotoData {
+        let photoData16 = photoFor(16, p16.workoutType ?? "")
+        p16.photoData = photoData16
+        if let photoData = photoData16 {
             let items: [PostMedia] = [
                 PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
                 PostMedia(exerciseName: "Squat", exerciseIndex: 0, mediaType: .photo, data: photoData),
@@ -1129,8 +1154,9 @@ struct SocialSeeder {
             locationName: "GoodLife Downtown",
             workoutEmotion: "Grinding"
         )
-        p17.photoData = demoPhotoData
-        if let photoData = demoPhotoData {
+        let photoData17 = photoFor(17, p17.workoutType ?? "")
+        p17.photoData = photoData17
+        if let photoData = photoData17 {
             let items: [PostMedia] = [
                 PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
                 PostMedia(exerciseName: "Treadmill", exerciseIndex: 0, mediaType: .photo, data: photoData),
@@ -1168,8 +1194,9 @@ struct SocialSeeder {
             commentCount: 1,
             workoutEmotion: "Calm"
         )
-        p18.photoData = demoPhotoData
-        if let photoData = demoPhotoData {
+        let photoData18 = photoFor(18, p18.workoutType ?? "")
+        p18.photoData = photoData18
+        if let photoData = photoData18 {
             let items: [PostMedia] = [
                 PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
                 PostMedia(exerciseName: "Lateral Raise", exerciseIndex: 0, mediaType: .photo, data: photoData),
@@ -1208,8 +1235,9 @@ struct SocialSeeder {
             locationName: "The ARC - Queen's",
             workoutEmotion: "Fired Up"
         )
-        p19.photoData = demoPhotoData
-        if let photoData = demoPhotoData {
+        let photoData19 = photoFor(19, p19.workoutType ?? "")
+        p19.photoData = photoData19
+        if let photoData = photoData19 {
             let items: [PostMedia] = [
                 PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
                 PostMedia(exerciseName: "Deadlift", exerciseIndex: 0, mediaType: .photo, data: photoData),
@@ -1247,8 +1275,9 @@ struct SocialSeeder {
             commentCount: 2,
             workoutEmotion: "Grateful"
         )
-        p20.photoData = demoPhotoData
-        if let photoData = demoPhotoData {
+        let photoData20 = photoFor(20, p20.workoutType ?? "")
+        p20.photoData = photoData20
+        if let photoData = photoData20 {
             let items: [PostMedia] = [
                 PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
                 PostMedia(exerciseName: "Squat", exerciseIndex: 0, mediaType: .photo, data: photoData),
@@ -1291,8 +1320,9 @@ struct SocialSeeder {
             commentCount: 1,
             spotifyPlaylistURL: "https://open.spotify.com/playlist/37i9dQZF1DX8tZsk68tuoQ"
         )
-        p21.photoData = demoPhotoData
-        if let photoData = demoPhotoData {
+        let photoData21 = photoFor(21, p21.workoutType ?? "")
+        p21.photoData = photoData21
+        if let photoData = photoData21 {
             let items: [PostMedia] = [
                 PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
                 PostMedia(exerciseName: "Outdoor Run", exerciseIndex: 0, mediaType: .photo, data: photoData),
@@ -1331,8 +1361,9 @@ struct SocialSeeder {
             locationName: "GoodLife Downtown",
             workoutEmotion: "Grinding"
         )
-        p22.photoData = demoPhotoData
-        if let photoData = demoPhotoData {
+        let photoData22 = photoFor(22, p22.workoutType ?? "")
+        p22.photoData = photoData22
+        if let photoData = photoData22 {
             let items: [PostMedia] = [
                 PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
                 PostMedia(exerciseName: "Dumbbell Press", exerciseIndex: 0, mediaType: .photo, data: photoData),
@@ -1371,8 +1402,9 @@ struct SocialSeeder {
             locationName: "The ARC - Queen's",
             workoutEmotion: "Fired Up"
         )
-        p23.photoData = demoPhotoData
-        if let photoData = demoPhotoData {
+        let photoData23 = photoFor(23, p23.workoutType ?? "")
+        p23.photoData = photoData23
+        if let photoData = photoData23 {
             let items: [PostMedia] = [
                 PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
                 PostMedia(exerciseName: "Bench Press", exerciseIndex: 0, mediaType: .photo, data: photoData),
@@ -1410,8 +1442,9 @@ struct SocialSeeder {
             commentCount: 6,
             workoutEmotion: "Fired Up"
         )
-        p24.photoData = demoPhotoData
-        if let photoData = demoPhotoData {
+        let photoData24 = photoFor(24, p24.workoutType ?? "")
+        p24.photoData = photoData24
+        if let photoData = photoData24 {
             let items: [PostMedia] = [
                 PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
                 PostMedia(exerciseName: "Bench Press", exerciseIndex: 0, mediaType: .photo, data: photoData),
@@ -1457,8 +1490,9 @@ struct SocialSeeder {
             workoutEmotion: "Calm"
         )
         p25.albumArtData = bundledAlbumArt("starboy")
-        p25.photoData = demoPhotoData
-        if let photoData = demoPhotoData {
+        let photoData25 = photoFor(25, p25.workoutType ?? "")
+        p25.photoData = photoData25
+        if let photoData = photoData25 {
             let items: [PostMedia] = [
                 PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
                 PostMedia(exerciseName: "Cycling", exerciseIndex: 0, mediaType: .photo, data: photoData),
@@ -1500,8 +1534,9 @@ struct SocialSeeder {
             locationName: "The ARC - Queen's",
             workoutEmotion: "Grinding"
         )
-        p26.photoData = demoPhotoData
-        if let photoData = demoPhotoData {
+        let photoData26 = photoFor(26, p26.workoutType ?? "")
+        p26.photoData = photoData26
+        if let photoData = photoData26 {
             let items: [PostMedia] = [
                 PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
                 PostMedia(exerciseName: "Rowing", exerciseIndex: 0, mediaType: .photo, data: photoData),
@@ -1556,8 +1591,9 @@ struct SocialSeeder {
             commentCount: 3,
             workoutEmotion: "Grateful"
         )
-        p27.photoData = demoPhotoData
-        if let photoData = demoPhotoData {
+        let photoData27 = photoFor(27, p27.workoutType ?? "")
+        p27.photoData = photoData27
+        if let photoData = photoData27 {
             let items: [PostMedia] = [
                 PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
                 PostMedia(exerciseName: "Hiking", exerciseIndex: 0, mediaType: .photo, data: photoData),
@@ -1593,7 +1629,7 @@ struct SocialSeeder {
             challengeId: challengeId1,
             challengeData: try? JSONEncoder().encode(challengeData1)
         )
-        p28.photoData = demoPhotoData
+        p28.photoData = photoFor(28, p28.workoutType ?? "")
         modelContext.insert(p28)
         postIds.append(p28.id)
 
@@ -1633,7 +1669,7 @@ struct SocialSeeder {
             challengeId: challengeId2,
             challengeData: try? JSONEncoder().encode(challengeData2)
         )
-        p29.photoData = demoPhotoData
+        p29.photoData = photoFor(29, p29.workoutType ?? "")
         modelContext.insert(p29)
         postIds.append(p29.id)
 
@@ -2052,8 +2088,9 @@ struct SocialSeeder {
                 workoutEmotion: "Strong"
             )
             // Use photo data as thumbnail but mark as video via mediaItems
-            myPost9.photoData = demoPhotoData
-            if let photoData = demoPhotoData {
+            let photoData101 = photoFor(101, myPost9.workoutType ?? "")
+            myPost9.photoData = photoData101
+            if let photoData = photoData101 {
                 myPost9.videoData = photoData // simulate video presence
                 let items: [PostMedia] = [
                     PostMedia(exerciseName: nil, mediaType: .video, data: photoData),
@@ -2079,8 +2116,9 @@ struct SocialSeeder {
                 locationName: "The ARC - Queen's",
                 workoutEmotion: "Fired Up"
             )
-            myPost10.photoData = demoPhotoData
-            if let photoData = demoPhotoData {
+            let photoData102 = photoFor(102, myPost10.workoutType ?? "")
+            myPost10.photoData = photoData102
+            if let photoData = photoData102 {
                 myPost10.videoData = photoData
                 let items: [PostMedia] = [
                     PostMedia(exerciseName: nil, mediaType: .video, data: photoData),
@@ -2109,8 +2147,9 @@ struct SocialSeeder {
                 locationName: "The ARC - Queen's",
                 workoutEmotion: "Strong"
             )
-            taggedPost1.photoData = demoPhotoData
-            if let photoData = demoPhotoData {
+            let photoData103 = photoFor(103, taggedPost1.workoutType ?? "")
+            taggedPost1.photoData = photoData103
+            if let photoData = photoData103 {
                 let items: [PostMedia] = [
                     PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
                 ]
@@ -2133,8 +2172,9 @@ struct SocialSeeder {
                 locationName: "The ARC - Queen's",
                 workoutEmotion: "Grinding"
             )
-            taggedPost2.photoData = demoPhotoData
-            if let photoData = demoPhotoData {
+            let photoData104 = photoFor(104, taggedPost2.workoutType ?? "")
+            taggedPost2.photoData = photoData104
+            if let photoData = photoData104 {
                 let items: [PostMedia] = [
                     PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
                 ]
@@ -2156,8 +2196,9 @@ struct SocialSeeder {
                 commentCount: 2,
                 workoutEmotion: "Calm"
             )
-            taggedPost3.photoData = demoPhotoData
-            if let photoData = demoPhotoData {
+            let photoData105 = photoFor(105, taggedPost3.workoutType ?? "")
+            taggedPost3.photoData = photoData105
+            if let photoData = photoData105 {
                 let items: [PostMedia] = [
                     PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
                 ]
@@ -2411,6 +2452,124 @@ struct SocialSeeder {
             ctx.cgContext.strokePath()
         }
         return image.jpegData(compressionQuality: 0.7)
+    }
+
+    /// Generates a unique 600×600 gym/workout-themed thumbnail per post —
+    /// a gradient background from a rotating palette plus a large
+    /// workout-specific SF symbol. Index rotates the palette and subtle
+    /// pattern so adjacent posts never look the same. Used to replace
+    /// the single repeated DemoPhotos asset that made the feed look
+    /// like eight copies of one photo.
+    private static func generateWorkoutThumbnail(index: Int, workoutType: String) -> Data? {
+        let size = CGSize(width: 600, height: 600)
+        let palettes: [[UIColor]] = [
+            [UIColor(red: 0.95, green: 0.60, blue: 0.55, alpha: 1), UIColor(red: 0.82, green: 0.35, blue: 0.55, alpha: 1)],
+            [UIColor(red: 0.42, green: 0.60, blue: 0.98, alpha: 1), UIColor(red: 0.78, green: 0.36, blue: 1.00, alpha: 1)],
+            [UIColor(red: 0.30, green: 0.78, blue: 0.85, alpha: 1), UIColor(red: 0.24, green: 0.48, blue: 0.90, alpha: 1)],
+            [UIColor(red: 0.98, green: 0.75, blue: 0.45, alpha: 1), UIColor(red: 0.90, green: 0.45, blue: 0.30, alpha: 1)],
+            [UIColor(red: 0.40, green: 0.82, blue: 0.55, alpha: 1), UIColor(red: 0.24, green: 0.58, blue: 0.65, alpha: 1)],
+            [UIColor(red: 0.70, green: 0.55, blue: 0.95, alpha: 1), UIColor(red: 0.40, green: 0.38, blue: 0.82, alpha: 1)],
+            [UIColor(red: 0.98, green: 0.45, blue: 0.70, alpha: 1), UIColor(red: 0.55, green: 0.30, blue: 0.85, alpha: 1)],
+            [UIColor(red: 0.30, green: 0.38, blue: 0.55, alpha: 1), UIColor(red: 0.18, green: 0.22, blue: 0.35, alpha: 1)],
+            [UIColor(red: 0.22, green: 0.72, blue: 0.65, alpha: 1), UIColor(red: 0.12, green: 0.38, blue: 0.50, alpha: 1)],
+            [UIColor(red: 0.88, green: 0.55, blue: 0.30, alpha: 1), UIColor(red: 0.65, green: 0.25, blue: 0.40, alpha: 1)],
+        ]
+        let colors = palettes[index % palettes.count]
+        let icon: String
+        switch workoutType {
+        case "Push": icon = "figure.strengthtraining.traditional"
+        case "Pull": icon = "figure.rower"
+        case "Legs": icon = "figure.squat"
+        case "Upper Body": icon = "figure.arms.open"
+        case "Full Body": icon = "figure.cross.training"
+        case "Cardio", "Run", "Running": icon = "figure.run"
+        case "Yoga": icon = "figure.yoga"
+        case "HIIT": icon = "figure.highintensity.intervaltraining"
+        case "Glutes": icon = "figure.stair.stepper"
+        case "Abs": icon = "figure.core.training"
+        default: icon = "dumbbell.fill"
+        }
+
+        let renderer = UIGraphicsImageRenderer(size: size)
+        let image = renderer.image { ctx in
+            let rect = CGRect(origin: .zero, size: size)
+            // Diagonal gradient base
+            if let g = CGGradient(
+                colorsSpace: CGColorSpaceCreateDeviceRGB(),
+                colors: [colors[0].cgColor, colors[1].cgColor] as CFArray,
+                locations: [0, 1]
+            ) {
+                ctx.cgContext.drawLinearGradient(
+                    g,
+                    start: CGPoint(x: 0, y: 0),
+                    end: CGPoint(x: size.width, y: size.height),
+                    options: []
+                )
+            }
+
+            // Soft radial highlight — breaks up the flat gradient so
+            // every tile doesn't read as a pure color fill.
+            if let highlight = CGGradient(
+                colorsSpace: CGColorSpaceCreateDeviceRGB(),
+                colors: [UIColor.white.withAlphaComponent(0.22).cgColor, UIColor.white.withAlphaComponent(0).cgColor] as CFArray,
+                locations: [0, 1]
+            ) {
+                let offsetX = CGFloat((index * 37) % 100) / 100.0 * size.width * 0.5 + size.width * 0.2
+                let offsetY = CGFloat((index * 53) % 100) / 100.0 * size.height * 0.4
+                ctx.cgContext.drawRadialGradient(
+                    highlight,
+                    startCenter: CGPoint(x: offsetX, y: offsetY),
+                    startRadius: 0,
+                    endCenter: CGPoint(x: offsetX, y: offsetY),
+                    endRadius: size.width * 0.55,
+                    options: []
+                )
+            }
+
+            // Vignette along the bottom for legibility
+            if let vignette = CGGradient(
+                colorsSpace: CGColorSpaceCreateDeviceRGB(),
+                colors: [UIColor.black.withAlphaComponent(0).cgColor, UIColor.black.withAlphaComponent(0.30).cgColor] as CFArray,
+                locations: [0, 1]
+            ) {
+                ctx.cgContext.drawLinearGradient(
+                    vignette,
+                    start: CGPoint(x: 0, y: size.height * 0.5),
+                    end: CGPoint(x: 0, y: size.height),
+                    options: []
+                )
+            }
+
+            // Centered workout glyph
+            let config = UIImage.SymbolConfiguration(pointSize: 220, weight: .bold)
+            if let symbol = UIImage(systemName: icon)?.withConfiguration(config).withTintColor(.white.withAlphaComponent(0.88), renderingMode: .alwaysOriginal) {
+                let iconSize = symbol.size
+                let iconRect = CGRect(
+                    x: (size.width - iconSize.width) / 2,
+                    y: (size.height - iconSize.height) / 2 - 20,
+                    width: iconSize.width,
+                    height: iconSize.height
+                )
+                symbol.draw(in: iconRect)
+            }
+
+            // Bottom label
+            let label = workoutType.uppercased() as NSString
+            let paragraph = NSMutableParagraphStyle()
+            paragraph.alignment = .center
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: 42, weight: .heavy),
+                .foregroundColor: UIColor.white,
+                .paragraphStyle: paragraph,
+                .kern: 3.0
+            ]
+            label.draw(
+                in: CGRect(x: 0, y: size.height - 100, width: size.width, height: 60),
+                withAttributes: attrs
+            )
+            _ = rect
+        }
+        return image.jpegData(compressionQuality: 0.78)
     }
     #endif
 
