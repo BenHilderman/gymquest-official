@@ -74,13 +74,13 @@ struct FriendsFeedView: View {
                     if friendPosts.isEmpty {
                         emptyState
                     } else {
-                        // 8pt gap in the page color between each post —
-                        // reads as a clear row break without the harsh
-                        // hairline the previous design used.
+                        // 10pt gap in the page color between each post.
+                        // Wider than the old 8pt so the row break reads
+                        // cleanly on first scroll.
                         ForEach(Array(friendPosts.enumerated()), id: \.element.id) { index, post in
                             Rectangle()
                                 .fill(GQColors.background)
-                                .frame(height: 8)
+                                .frame(height: 10)
 
                             PostCardV2(
                                 post: post,
@@ -127,32 +127,25 @@ struct FriendsFeedView: View {
             #endif
             presentingActivity = true
         } label: {
-            HStack(spacing: 10) {
-                ZStack {
-                    Circle()
-                        .fill(GQGradients.primary.opacity(0.12))
-                        .frame(width: 32, height: 32)
-                    Image(systemName: "bell.fill")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(GQGradients.primary)
-                }
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(bannerHeadline)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(GQColors.textPrimary)
-                        .lineLimit(1)
-                    Text("Tap to see who")
-                        .font(.system(size: 11))
-                        .foregroundColor(GQColors.textTertiary)
-                }
-                Spacer()
-                Image(systemName: "chevron.right")
+            // Compact single-line pill instead of a full card with
+            // icon + two lines + chevron. Less chrome above the feed.
+            HStack(spacing: 8) {
+                Image(systemName: "bell.fill")
                     .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(GQGradients.primary)
+                Text(bannerHeadline)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(GQColors.textPrimary)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 10, weight: .semibold))
                     .foregroundColor(GQColors.textTertiary)
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .homeSocialCard(cornerRadius: 12)
+            .padding(.vertical, 8)
+            .background(GQColors.background)
+            .clipShape(Capsule())
         }
         .buttonStyle(.plain)
     }
