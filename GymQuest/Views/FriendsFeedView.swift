@@ -74,17 +74,21 @@ struct FriendsFeedView: View {
                     if friendPosts.isEmpty {
                         emptyState
                     } else {
-                        // Subtle hairline between posts, padded with a
-                        // bit of surface above and below. Reads as a
-                        // clean row break without the heavier 10pt bg
-                        // strip from the previous pass.
+                        // Double-hairline separator: two thin lines with
+                        // a 3pt gap between them. Reads as a deliberate
+                        // accent without the weight of a filled bg
+                        // strip or the timidity of a single hairline.
                         ForEach(Array(friendPosts.enumerated()), id: \.element.id) { index, post in
                             VStack(spacing: 0) {
-                                Color.clear.frame(height: 6)
+                                Color.clear.frame(height: 7)
                                 Rectangle()
                                     .fill(GQColors.borderDefault)
                                     .frame(height: 0.5)
-                                Color.clear.frame(height: 6)
+                                Color.clear.frame(height: 3)
+                                Rectangle()
+                                    .fill(GQColors.borderSubtle)
+                                    .frame(height: 0.5)
+                                Color.clear.frame(height: 7)
                             }
 
                             PostCardV2(
