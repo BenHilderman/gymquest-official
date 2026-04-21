@@ -165,32 +165,33 @@ struct FriendsRow: View {
             onTapMember(member)
         } label: {
             VStack(spacing: 4) {
+                // Fixed 44pt frame for every cell so live (with ring)
+                // and non-live (avatar only) share the same baseline.
+                // Previously the ring bumped live cells 2pt taller,
+                // pushing the text down relative to neighbors.
                 ZStack {
-                    // Thin green ring only on live members. Recent/inactive get
-                    // no ring — just the avatar. Keeps the row clean and
-                    // reserves accent color for the single "training now"
-                    // signal, Apple-style.
                     if isLive(member) {
                         Circle()
                             .stroke(GQColors.success, lineWidth: 2)
-                            .frame(width: 48, height: 48)
+                            .frame(width: 44, height: 44)
                             .scaleEffect(pulse ? 1.04 : 1.0)
                             .animation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true), value: pulse)
                     }
 
                     avatarImage(member)
-                        .frame(width: 44, height: 44)
+                        .frame(width: 40, height: 40)
                         .clipShape(Circle())
                         .opacity(isInactive(member) ? 0.55 : 1.0)
 
                     if isLive(member) {
                         Circle()
                             .fill(GQColors.success)
-                            .frame(width: 12, height: 12)
+                            .frame(width: 11, height: 11)
                             .overlay(Circle().stroke(GQColors.background, lineWidth: 2))
-                            .frame(width: 48, height: 48, alignment: .bottomTrailing)
+                            .frame(width: 44, height: 44, alignment: .bottomTrailing)
                     }
                 }
+                .frame(width: 44, height: 44)
 
                 Text(firstName(member))
                     .font(.system(size: 11, weight: .semibold))
@@ -217,11 +218,13 @@ struct FriendsRow: View {
                 ZStack {
                     Circle()
                         .stroke(GQColors.borderDefault, lineWidth: 1.5)
-                        .frame(width: 48, height: 48)
+                        .frame(width: 40, height: 40)
                     Image(systemName: "plus")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(GQGradients.primary)
                 }
+                .frame(width: 44, height: 44)
+
                 Text("Start")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(GQColors.textSecondary)
