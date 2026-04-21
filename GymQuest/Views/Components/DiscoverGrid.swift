@@ -17,7 +17,9 @@ struct DiscoverGrid: View {
     /// autoplay on the featured video cell.
     @State private var activeVideoId: String?
 
-    private let spacing: CGFloat = 2
+    /// More breathing room between tiles — 3-col density preserved,
+    /// just less crammed visually.
+    private let spacing: CGFloat = 8
 
     var body: some View {
         // No inner ScrollView — the grid flows directly inside the parent
@@ -97,23 +99,12 @@ struct DiscoverGrid: View {
                         .padding(4)
                 }
 
-                // Bottom-right: engagement
-                if item.post.likeCount > 5 {
-                    HStack(spacing: 2) {
-                        Image(systemName: "heart.fill").font(.system(size: 7))
-                        Text("\(item.post.likeCount)")
-                            .font(.system(size: 8, weight: .semibold))
-                    }
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 4).padding(.vertical, 2)
-                    .background(Capsule().fill(.black.opacity(0.45)))
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                    .padding(4)
-                }
+                // Like-count badge removed — on-tile noise without real
+                // browse value. Engagement already drives ranking.
             }
         }
         .buttonStyle(.plain)
-        .clipShape(RoundedRectangle(cornerRadius: 4))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 
     // MARK: - Featured cell (2×2 with autoplay video or large photo)
