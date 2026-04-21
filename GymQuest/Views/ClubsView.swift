@@ -506,6 +506,7 @@ struct ClubFeedView: View {
     @State private var searchText: String = ""
     @State private var selectedMapClub: Club? = nil
     @State private var yourClubsSort: YourClubsSort = .recent
+    @State private var presentingSearch: Bool = false
 
     // Demo "user location" — Kingston, ON. Replace with CoreLocation once
     // the real auth flow lands. Keeping the haversine helper lets us
@@ -742,26 +743,40 @@ struct ClubFeedView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 16) {
-                rightNowCard
-                if !yourClubs.isEmpty { yourClubsShelf }
-                activeNowRail
-                searchBar
+            LazyVStack(spacing: 0) {
+                // 1. Active-now presence strip — matches Friends' ACTIVE NOW
+                //    header + avatars pattern. Top of the page, quiet
+                //    until someone is live.
+                activeNowBlock
+                    .padding(.top, 4)
 
-                if !searchText.isEmpty {
-                    searchResultsSection
-                } else {
-                    eventsInYourClubsRail
-                    upcomingEventsRail
-                    categoriesGrid
-                    nearbySection
+                // 2. Your Clubs horizontal shelf. Kept unchanged — it's
+                //    already clean and is the primary "go back to a
+                //    club" affordance.
+                if !yourClubs.isEmpty {
+                    rowDivider
+                    yourClubsShelf
+                        .padding(.vertical, 8)
                 }
 
-                createClubButton
+                // 3. Upcoming events — one list, "your clubs" first then
+                //    nearby. Continuous, no nested cards.
+                if !upcomingEventsInMyClubs.isEmpty || !upcomingEventsNearby.isEmpty {
+                    rowDivider
+                    eventsBlock
+                        .padding(.vertical, 8)
+                }
+
+                // 4. Nearby clubs you haven't joined — discovery without
+                //    the old "Browse categories" / "Nearby section" split.
+                if !searchFilteredRecommended.isEmpty {
+                    rowDivider
+                    nearbyClubsBlock
+                        .padding(.vertical, 8)
+                }
 
                 Spacer(minLength: 60)
             }
-            .padding(.top, 8)
         }
         .scrollContentBackground(.hidden)
         .background(GQColors.background.ignoresSafeArea())
@@ -769,10 +784,17 @@ struct ClubFeedView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button { showingCreateClub = true } label: {
-                    Image(systemName: "plus")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(GQGradients.primary)
+                HStack(spacing: 14) {
+                    Button { presentingSearch = true } label: {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundColor(GQColors.textPrimary)
+                    }
+                    Button { showingCreateClub = true } label: {
+                        Image(systemName: "plus")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(GQGradients.primary)
+                    }
                 }
             }
         }
@@ -788,6 +810,226 @@ struct ClubFeedView: View {
         }
         .sheet(item: $selectedClub) { club in
             ClubDetailView(club: club, profile: profile)
+        }
+        .sheet(isPresented: $presentingSearch) {
+            clubSearchSheet
+        }
+    }
+
+    /// Thin borderDefault hairline between blocks — matches the
+    /// separator language used on the Friends feed.
+    private var rowDivider: some View {
+        Rectangle()
+            .fill(GQColors.borderDefault)
+            .frame(height: 0.5)
+            .padding(.horizontal, 16)
+    }
+
+    /// ACTIVE NOW block — a compact header ("ACTIVE NOW · N training
+    /// now") plus a horizontal rail of live members across the user's
+    /// clubs. Hidden entirely when nobody's live.
+    @ViewBuilder
+    private var activeNowBlock: some View {
+        let liveMembers = activeMembersInMyClubs
+        if !liveMembers.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(GQColors.success)
+                        .frame(width: 6, height: 6)
+                    Text("ACTIVE NOW")
+                        .font(.system(size: 10, weight: .semibold))
+                        .tracking(1.2)
+                        .foregroundColor(GQColors.textTertiary)
+                    Text("·").foregroundColor(GQColors.textTertiary)
+                    Text("\(liveMembers.count) training now")
+                        .font(.system(size: 10))
+                        .foregroundColor(GQColors.textTertiary)
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 6)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(spacing: 14) {
+                        ForEach(liveMembers, id: \.userId) { member in
+                            activeMemberCell(member)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 4)
+                }
+            }
+        }
+    }
+
+    /// Events feed — in-your-clubs events first, then nearby events.
+    /// Single "UPCOMING" header, rows separated by hairlines, no
+    /// nested cards.
+    @ViewBuilder
+    private var eventsBlock: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("UPCOMING EVENTS")
+                .font(.system(size: 10, weight: .semibold))
+                .tracking(1.2)
+                .foregroundColor(GQColors.textTertiary)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 4)
+
+            // "Your clubs" events first — highest priority
+            ForEach(Array(upcomingEventsInMyClubs.prefix(3))) { event in
+                Button { selectedEvent = event } label: {
+                    eventRow(event, isJoinedClub: true)
+                }
+                .buttonStyle(.plain)
+            }
+
+            // Nearby (clubs you're not in yet)
+            ForEach(Array(upcomingEventsNearby.prefix(3))) { event in
+                Button { selectedEvent = event } label: {
+                    eventRow(event, isJoinedClub: false)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    /// One event row — matches the Friends post-card language
+    /// (icon + title + subtitle + trailing meta). Small, scannable.
+    private func eventRow(_ event: ClubEvent, isJoinedClub: Bool) -> some View {
+        HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(GQGradients.primary.opacity(0.12))
+                    .frame(width: 40, height: 40)
+                Image(systemName: "calendar")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(GQGradients.primary)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(event.title)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(GQColors.textPrimary)
+                    .lineLimit(1)
+                Text(eventSubtitle(event, isJoinedClub: isJoinedClub))
+                    .font(.system(size: 11))
+                    .foregroundColor(GQColors.textTertiary)
+                    .lineLimit(1)
+            }
+            Spacer()
+            Text(eventDayLabel(event.date))
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(GQColors.textSecondary)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .contentShape(Rectangle())
+    }
+
+    private func eventSubtitle(_ event: ClubEvent, isJoinedClub: Bool) -> String {
+        let clubName = allClubs.first { $0.id == event.clubId }?.name ?? "Club"
+        if isJoinedClub {
+            return clubName
+        }
+        let club = allClubs.first { $0.id == event.clubId }
+        if let loc = club?.location, !loc.isEmpty { return "\(clubName) · \(loc)" }
+        return clubName
+    }
+
+    /// Nearby clubs block — single header + tappable rows, no card
+    /// overhead. Replaces the old categoriesGrid + nearbySection split.
+    @ViewBuilder
+    private var nearbyClubsBlock: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("NEARBY CLUBS")
+                .font(.system(size: 10, weight: .semibold))
+                .tracking(1.2)
+                .foregroundColor(GQColors.textTertiary)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 4)
+
+            ForEach(Array(searchFilteredRecommended.prefix(5))) { club in
+                Button { selectedClub = club } label: {
+                    nearbyClubRow(club)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private func nearbyClubRow(_ club: Club) -> some View {
+        HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(GQGradients.primary.opacity(0.12))
+                    .frame(width: 40, height: 40)
+                Image(systemName: "person.3.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(GQGradients.primary)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(club.name)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(GQColors.textPrimary)
+                    .lineLimit(1)
+                Text(nearbyClubSubtitle(club))
+                    .font(.system(size: 11))
+                    .foregroundColor(GQColors.textTertiary)
+                    .lineLimit(1)
+            }
+            Spacer()
+            if let dist = distanceString(for: club) {
+                Text(dist)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(GQColors.textSecondary)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .contentShape(Rectangle())
+    }
+
+    private func nearbyClubSubtitle(_ club: Club) -> String {
+        var parts: [String] = [club.resolvedCategory.rawValue.capitalized]
+        parts.append("\(club.memberIds.count) members")
+        return parts.joined(separator: " · ")
+    }
+
+    /// Search sheet — reuses the existing search-result UI so the old
+    /// in-page search bar is gone. Keeps categories as chips inside
+    /// the sheet rather than cluttering the landing.
+    @ViewBuilder
+    private var clubSearchSheet: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                searchBar
+                    .padding(.horizontal, 16)
+                    .padding(.top, 12)
+                    .padding(.bottom, 8)
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        if !searchText.isEmpty {
+                            searchResultsSection
+                        } else {
+                            categoriesGrid
+                        }
+                        Spacer(minLength: 60)
+                    }
+                    .padding(.top, 8)
+                }
+            }
+            .gqPageBackground()
+            .navigationTitle("Search Clubs")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") {
+                        searchText = ""
+                        presentingSearch = false
+                    }
+                    .foregroundColor(GQColors.textPrimary)
+                }
+            }
         }
     }
 
