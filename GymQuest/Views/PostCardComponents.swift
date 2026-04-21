@@ -98,12 +98,10 @@ struct PostCardV2: View {
                 headerRow
                 inspiredByBadge
                 workoutIdentityBadge
-                // Subtle hairline between the header block and the
-                // hero media so the two zones read as distinct — used
-                // to blur together because they share the same bg.
-                Rectangle()
-                    .fill(GQColors.borderSubtle)
-                    .frame(height: 0.5)
+                // Header/hero seam handled by an always-on top-edge
+                // gradient inside photoHero — no explicit hairline
+                // needed here, and the gradient adapts to light/dark
+                // mode instead of fighting the media's own colors.
                 heroSection
                 inlineMusicRow
                 useThisWorkoutBar
@@ -734,6 +732,24 @@ struct PostCardV2: View {
             } else {
                 PostMediaView(post: post, showVideoPlayer: $showVideoPlayer)
             }
+
+            // Top-edge seam: an always-on gradient that fades from an
+            // adaptive overlay (black in light mode / white in dark
+            // mode) into the media. Solves the "white photo top blends
+            // into white header" bug without pixel-sampling the image.
+            VStack(spacing: 0) {
+                LinearGradient(
+                    colors: [
+                        GQColors.adaptiveOverlay(0.10),
+                        Color.clear
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .frame(height: 8)
+                Spacer(minLength: 0)
+            }
+            .allowsHitTesting(false)
 
             // Top-center: widget overlay. .id(post.id) forces a fresh
             // widget identity per post so LazyVStack reuse doesn't let a
