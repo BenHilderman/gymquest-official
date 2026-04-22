@@ -539,6 +539,8 @@ struct ClubFeedView: View {
     @State private var presentingSearch: Bool = false
     @State private var presentingMap: Bool = false
     @State private var discoverTab: DiscoverTab = .forYou
+    @State private var showAllYourClubs: Bool = false
+    @State private var showAllEvents: Bool = false
 
     // Demo "user location" — Kingston, ON. Replace with CoreLocation once
     // the real auth flow lands. Keeping the haversine helper lets us
@@ -1211,22 +1213,62 @@ struct ClubFeedView: View {
     /// what's actually happening right now in that specific club (live
     /// members, event today, next event, or fallback) so the user can
     /// scan the list and pick the one worth opening.
-    /// Rows-only variant for use inside a groupedSection card — omits
-    /// the header since that lives above the card now.
+    /// Rows-only variant for use inside a groupedSection card.
+    /// Trims to the first 5 clubs until the user taps "Show all" so
+    /// the card stays scannable at 100+ clubs.
     @ViewBuilder
     private var yourClubsRowsOnly: some View {
+        let collapsedLimit = 5
+        let total = sortedYourClubs.count
+        let visible = showAllYourClubs ? sortedYourClubs : Array(sortedYourClubs.prefix(collapsedLimit))
+
         VStack(alignment: .leading, spacing: 0) {
-            ForEach(Array(sortedYourClubs.enumerated()), id: \.element.id) { idx, club in
+            ForEach(Array(visible.enumerated()), id: \.element.id) { idx, club in
                 Button { selectedClub = club } label: {
                     yourClubRow(club)
                 }
                 .buttonStyle(.plain)
 
-                if idx < sortedYourClubs.count - 1 {
+                if idx < visible.count - 1 {
                     inRowDivider
                 }
             }
+
+            if total > collapsedLimit {
+                inRowDivider
+                showAllRow(
+                    label: showAllYourClubs ? "Show fewer" : "Show all \(total) clubs",
+                    icon: showAllYourClubs ? "chevron.up" : "chevron.down"
+                ) {
+                    #if canImport(UIKit)
+                    UISelectionFeedbackGenerator().selectionChanged()
+                    #endif
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        showAllYourClubs.toggle()
+                    }
+                }
+            }
         }
+    }
+
+    /// Collapse/expand row used at the bottom of capped lists.
+    @ViewBuilder
+    private func showAllRow(label: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Text(label)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(GQGradients.primary)
+                Spacer(minLength: 0)
+                Image(systemName: icon)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(GQGradients.primary)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     @ViewBuilder
@@ -1397,7 +1439,11 @@ struct ClubFeedView: View {
     /// list.
     @ViewBuilder
     private var eventsRowsOnly: some View {
-        let rows = computedEventRows
+        let allRows = computedEventRows
+        let collapsedLimit = 4
+        let total = allRows.count
+        let rows = showAllEvents ? allRows : Array(allRows.prefix(collapsedLimit))
+
         VStack(alignment: .leading, spacing: 0) {
             ForEach(Array(rows.enumerated()), id: \.element.event.id) { idx, item in
                 Button { selectedEvent = item.event } label: {
@@ -1406,6 +1452,21 @@ struct ClubFeedView: View {
                 .buttonStyle(.plain)
                 if idx < rows.count - 1 {
                     inRowDivider
+                }
+            }
+
+            if total > collapsedLimit {
+                inRowDivider
+                showAllRow(
+                    label: showAllEvents ? "Show fewer" : "Show all \(total) events",
+                    icon: showAllEvents ? "chevron.up" : "chevron.down"
+                ) {
+                    #if canImport(UIKit)
+                    UISelectionFeedbackGenerator().selectionChanged()
+                    #endif
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        showAllEvents.toggle()
+                    }
                 }
             }
         }
@@ -1857,47 +1918,39 @@ struct ClubFeedView: View {
     private var forYouTabContent: some View {
         if forYouPicks.isEmpty {
             emptyDiscoverState(icon: "sparkles", title: "Nothing new yet", subtitle: "Join a club to unlock personalized picks.")
-        } else if forYouPicks.count == 1, let only = forYouPicks.first {
-            // Single pick — fill the card width with a full-bleed
-            // hero so the card doesn't read as a lonely floating tile.
-            Button { selectedClub = only.club } label: {
-                forYouHeroCard(only.club, reason: only.reason)
+        } else {
+            VStack(spacing: 10) {
+                ForEach(Array(forYouPicks.prefix(4).enumerated()), id: \.element.club.id) { _, pick in
+                    Button { selectedClub = pick.club } label: {
+                        forYouHeroCard(pick.club, reason: pick.reason)
+                    }
+                    .buttonStyle(.plain)
+                }
             }
-            .buttonStyle(.plain)
             .padding(.horizontal, 12)
             .padding(.vertical, 4)
-        } else {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    ForEach(Array(forYouPicks.enumerated()), id: \.element.club.id) { _, pick in
-                        Button { selectedClub = pick.club } label: {
-                            forYouCard(pick.club, reason: pick.reason)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 4)
-            }
         }
     }
 
-    /// Full-width variant of the For You card — same overlay layout
-    /// but sized to the card's content width and 170pt tall.
+    /// Full-width For You card — image fills, gradient + overlays
+    /// layered on top with explicit `.frame(maxWidth:maxHeight:)` so
+    /// SwiftUI doesn't collapse them to zero. 170pt tall.
     @ViewBuilder
     private func forYouHeroCard(_ club: Club, reason: String) -> some View {
         let cat = club.resolvedCategory
         let isMember = club.memberIds.contains(profile.id)
-        ZStack(alignment: .bottomLeading) {
+        ZStack {
             ClubCoverImage(club: club, fallbackGradient: GQGradients.primary)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .clipped()
 
             LinearGradient(
-                colors: [.black.opacity(0.25), .black.opacity(0.08), .black.opacity(0.72)],
+                colors: [.black.opacity(0.35), .black.opacity(0.1), .black.opacity(0.78)],
                 startPoint: .top, endPoint: .bottom
             )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
+            // Reason chip — top leading
             VStack {
                 HStack {
                     HStack(spacing: 4) {
@@ -1908,48 +1961,54 @@ struct ClubFeedView: View {
                             .lineLimit(1)
                     }
                     .foregroundColor(.white)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 5)
                     .background(Capsule().fill(.ultraThinMaterial))
                     Spacer(minLength: 0)
                 }
                 Spacer(minLength: 0)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .padding(12)
 
-            HStack(alignment: .bottom, spacing: 10) {
-                VStack(alignment: .leading, spacing: 5) {
-                    HStack(spacing: 5) {
-                        Text(club.name)
-                            .font(.system(size: 19, weight: .bold))
-                            .foregroundColor(.white)
-                            .lineLimit(1)
-                        if club.isVerified {
-                            Image(systemName: "checkmark.seal.fill")
-                                .font(.system(size: 13))
-                                .foregroundColor(.white.opacity(0.95))
-                        }
-                    }
-                    HStack(spacing: 8) {
-                        Label(cat.rawValue, systemImage: cat.icon)
-                        if let loc = club.location, !loc.isEmpty {
-                            Label(loc, systemImage: "mappin").lineLimit(1)
-                        } else {
-                            Label("\(club.memberCount)", systemImage: "person.2.fill")
-                        }
-                    }
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(.white.opacity(0.92))
-                    .labelStyle(CompactMetaLabelStyle())
-                }
+            // Bottom — name, meta, View CTA
+            VStack {
                 Spacer(minLength: 0)
-                Text(isMember ? "Open" : "View")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(GQColors.textPrimary)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 7)
-                    .background(Capsule().fill(.white))
+                HStack(alignment: .bottom, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        HStack(spacing: 5) {
+                            Text(club.name)
+                                .font(.system(size: 19, weight: .bold))
+                                .foregroundColor(.white)
+                                .lineLimit(1)
+                            if club.isVerified {
+                                Image(systemName: "checkmark.seal.fill")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(.white.opacity(0.95))
+                            }
+                        }
+                        HStack(spacing: 8) {
+                            Label(cat.rawValue, systemImage: cat.icon)
+                            if let loc = club.location, !loc.isEmpty {
+                                Label(loc, systemImage: "mappin").lineLimit(1)
+                            } else {
+                                Label("\(club.memberCount)", systemImage: "person.2.fill")
+                            }
+                        }
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.92))
+                        .labelStyle(CompactMetaLabelStyle())
+                    }
+                    Spacer(minLength: 0)
+                    Text(isMember ? "Open" : "View")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(GQColors.textPrimary)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 7)
+                        .background(Capsule().fill(.white))
+                }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
             .padding(12)
         }
         .frame(height: 170)
@@ -2172,13 +2231,102 @@ struct ClubFeedView: View {
                 subtitle: "Challenges will appear when clubs start one."
             )
         } else {
-            VStack(spacing: 10) {
-                ForEach(rows) { challenge in
-                    challengeCard(challenge)
+            VStack(spacing: 0) {
+                ForEach(Array(rows.enumerated()), id: \.element.id) { idx, challenge in
+                    challengeRow(challenge)
+                    if idx < rows.count - 1 {
+                        inRowDivider
+                    }
+                }
+            }
+        }
+    }
+
+    /// Challenge rendered as an inline row (no nested card) so it
+    /// sits cleanly inside the grouped Discover card.
+    @ViewBuilder
+    private func challengeRow(_ challenge: ClubChallenge) -> some View {
+        let club = allClubs.first(where: { $0.id == challenge.clubId })
+        let isJoined = challenge.participantIds.contains(profile.id)
+        let daysLeft = challenge.daysRemaining
+
+        Button {
+            if let c = club { selectedClub = c }
+        } label: {
+            VStack(alignment: .leading, spacing: 9) {
+                HStack(alignment: .top, spacing: 10) {
+                    ZStack {
+                        Circle()
+                            .fill(GQGradients.primary.opacity(0.14))
+                            .frame(width: 36, height: 36)
+                        Image(systemName: challenge.goalType.icon)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(GQGradients.primary)
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(challenge.title)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(GQColors.textPrimary)
+                            .lineLimit(1)
+                        Text(club?.name ?? "Club")
+                            .font(.system(size: 11))
+                            .foregroundColor(GQColors.textTertiary)
+                            .lineLimit(1)
+                    }
+                    Spacer(minLength: 6)
+                    Text(daysLeft == 0 ? "ENDS TODAY" : "\(daysLeft)D LEFT")
+                        .font(.system(size: 10, weight: .bold))
+                        .tracking(0.4)
+                        .foregroundColor(daysLeft <= 2 ? .white : GQColors.textSecondary)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background(Capsule().fill(
+                            daysLeft <= 2 ? AnyShapeStyle(Color.orange) : AnyShapeStyle(GQColors.adaptiveOverlay(0.08))
+                        ))
+                }
+
+                VStack(spacing: 4) {
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(GQColors.adaptiveOverlay(0.08))
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(GQGradients.primary)
+                                .frame(width: max(4, geo.size.width * challenge.progress))
+                        }
+                    }
+                    .frame(height: 6)
+
+                    HStack {
+                        Text("\(challenge.currentProgress) / \(challenge.goalTarget) \(challenge.goalType.rawValue.lowercased())")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(GQColors.textSecondary)
+                        Spacer()
+                        HStack(spacing: 3) {
+                            Image(systemName: "person.2.fill")
+                                .font(.system(size: 9, weight: .semibold))
+                            Text("\(challenge.participantIds.count)")
+                                .font(.system(size: 11, weight: .semibold))
+                        }
+                        .foregroundColor(GQColors.textTertiary)
+                    }
+                }
+
+                HStack(spacing: 0) {
+                    Text(isJoined ? "Joined" : "Join Challenge")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 7)
+                        .background(Capsule().fill(GQGradients.primary))
+                    Spacer(minLength: 0)
                 }
             }
             .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
     }
 
     /// Challenge card — progress bar + participants + join CTA. Tapping
@@ -5961,7 +6109,7 @@ struct ClubMapView: View {
 // MARK: - Grouped card container (inset white section)
 
 private struct GroupedCardModifier: ViewModifier {
-    var cornerRadius: CGFloat = 16
+    var cornerRadius: CGFloat = 18
 
     func body(content: Content) -> some View {
         content
@@ -5971,10 +6119,10 @@ private struct GroupedCardModifier: ViewModifier {
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius)
-                    .strokeBorder(GQColors.borderDefault.opacity(0.35), lineWidth: 0.5)
+                    .strokeBorder(GQColors.borderDefault.opacity(0.32), lineWidth: 0.5)
             )
-            .shadow(color: .black.opacity(0.03), radius: 8, y: 2)
-            .padding(.horizontal, 16)
+            .shadow(color: .black.opacity(0.035), radius: 10, y: 3)
+            .padding(.horizontal, 12)
     }
 }
 
