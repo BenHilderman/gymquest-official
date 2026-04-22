@@ -930,16 +930,16 @@ struct ClubFeedView: View {
         .sheet(isPresented: $showingCreateClub) {
             CreateClubSheet(profile: profile)
         }
-        .sheet(item: $selectedClub) { club in
-            ClubDetailView(club: club, profile: profile)
-        }
         .sheet(isPresented: $presentingSearch) {
             clubSearchSheet
         }
         .sheet(isPresented: $presentingMap) {
             clubMapSheet
         }
-        .sheet(item: $selectedEvent) { event in
+        .navigationDestination(item: $selectedClub) { club in
+            ClubDetailView(club: club, profile: profile)
+        }
+        .navigationDestination(item: $selectedEvent) { event in
             if let club = allClubs.first(where: { $0.id == event.clubId }) {
                 ClubDetailView(club: club, profile: profile)
             }
@@ -4568,47 +4568,42 @@ struct ClubDetailView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 14) {
-                    detailHeader
-                    activeInThisClubStrip
-                    joinButton
-                    clubSectionPicker
-                    sectionContent
-                    Spacer(minLength: 40)
-                }
-                .padding(.top, 8)
+        ScrollView {
+            VStack(spacing: 14) {
+                detailHeader
+                activeInThisClubStrip
+                joinButton
+                clubSectionPicker
+                sectionContent
+                Spacer(minLength: 40)
             }
-            .gqPageBackground()
-            .navigationTitle(club.name)
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                }
+            .padding(.top, 8)
+        }
+        .gqPageBackground()
+        .navigationTitle(club.name)
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+        #endif
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbarBackground(GQColors.background, for: .navigationBar)
+        .sheet(isPresented: $showingNewPost) {
+            NewClubPostSheet(club: club, profile: profile)
+        }
+        .alert("Leave Club", isPresented: $showingLeaveAlert) {
+            Button("Cancel", role: .cancel) { }
+            Button("Leave", role: .destructive) {
+                leaveClub()
             }
-            .sheet(isPresented: $showingNewPost) {
-                NewClubPostSheet(club: club, profile: profile)
-            }
-            .alert("Leave Club", isPresented: $showingLeaveAlert) {
-                Button("Cancel", role: .cancel) { }
-                Button("Leave", role: .destructive) {
-                    leaveClub()
-                }
-            } message: {
-                Text("Are you sure you want to leave \(club.name)?")
-            }
-            .sheet(isPresented: $showingCreateEvent) {
-                CreateEventSheet(club: club, profile: profile)
-            }
-            .alert("Error", isPresented: $showClubServiceError) {
-                Button("OK", role: .cancel) { }
-            } message: {
-                Text(clubServiceError ?? "An unexpected error occurred.")
-            }
+        } message: {
+            Text("Are you sure you want to leave \(club.name)?")
+        }
+        .sheet(isPresented: $showingCreateEvent) {
+            CreateEventSheet(club: club, profile: profile)
+        }
+        .alert("Error", isPresented: $showClubServiceError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(clubServiceError ?? "An unexpected error occurred.")
         }
     }
 
