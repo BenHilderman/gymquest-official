@@ -141,9 +141,9 @@ struct ExploreView: View {
                         }
 
                         // Grid sits on a white band that starts with a
-                        // clear hairline, giving obvious separation
-                        // from the For You hero card above (which lives
-                        // on the gray page background).
+                        // single hairline. One clean transition: hero →
+                        // small gray gap → hairline → grid. No stacked
+                        // white padding inside the band.
                         DiscoverGrid(
                             items: cachedDiscoverItems,
                             onTapVideo: { post in
@@ -157,7 +157,6 @@ struct ExploreView: View {
                                 startWorkout(from: post)
                             }
                         )
-                        .padding(.top, 8)
                         .background(
                             GQColors.surfaceBase
                                 .overlay(alignment: .top) {
@@ -166,7 +165,7 @@ struct ExploreView: View {
                                         .frame(height: 0.5)
                                 }
                         )
-                        .padding(.top, 14)
+                        .padding(.top, 12)
                     } header: {
                         // Pinned chip strip — uses the page gray as its
                         // background (blends with surroundings, doesn't
