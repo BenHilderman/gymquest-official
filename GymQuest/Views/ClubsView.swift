@@ -6109,7 +6109,7 @@ struct ClubMapView: View {
 // MARK: - Grouped card container (inset white section)
 
 private struct GroupedCardModifier: ViewModifier {
-    var cornerRadius: CGFloat = 18
+    var cornerRadius: CGFloat = 12
 
     func body(content: Content) -> some View {
         content
