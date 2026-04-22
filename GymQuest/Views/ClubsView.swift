@@ -4628,71 +4628,124 @@ struct ClubDetailView: View {
 
     // MARK: - Header
 
+    /// Profile-style club header — big avatar on the left, three stat
+    /// columns on the right (Members / Events / Live Now), then name,
+    /// category pill, description, and location chip. Mirrors the
+    /// ProfileView header language so Club detail reads as a peer
+    /// "identity" page rather than a utility screen.
     @ViewBuilder
     private var detailHeader: some View {
-        HStack(alignment: .top, spacing: 14) {
-            // Avatar — per-club monogram matches the landing list
-            #if canImport(UIKit)
-            if let imageData = club.imageData, let uiImage = UIImage(data: imageData) {
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: 54, height: 54)
-                    .clipShape(Circle())
-            } else {
-                ClubMonogramAvatar(club: club, size: 54)
+        let live = liveMembersInThisClub.count
+        let upcoming = allEvents.filter { $0.clubId == club.id && $0.date > Date() }.count
+        let cat = club.resolvedCategory
+
+        VStack(alignment: .leading, spacing: 12) {
+            // Row 1 — avatar + stat columns
+            HStack(spacing: 16) {
+                Group {
+                    #if canImport(UIKit)
+                    if let imageData = club.imageData, let uiImage = UIImage(data: imageData) {
+                        Image(uiImage: uiImage)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: 72, height: 72)
+                            .clipShape(Circle())
+                            .overlay(Circle().stroke(GQColors.borderSubtle, lineWidth: 0.5))
+                    } else {
+                        ClubMonogramAvatar(club: club, size: 72)
+                    }
+                    #else
+                    ClubMonogramAvatar(club: club, size: 72)
+                    #endif
+                }
+
+                HStack(spacing: 0) {
+                    clubStatColumn(value: "\(club.memberCount)", label: club.memberCount == 1 ? "Member" : "Members")
+                    clubStatColumn(value: "\(upcoming)", label: upcoming == 1 ? "Event" : "Events")
+                    clubStatColumn(
+                        value: "\(live)",
+                        label: "Live now",
+                        valueColor: live > 0 ? GQColors.success : GQColors.textPrimary
+                    )
+                }
             }
-            #else
-            ClubMonogramAvatar(club: club, size: 54)
-            #endif
 
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 5) {
-                    Text(club.name)
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(GQColors.textPrimary)
-                        .lineLimit(2)
-                    if club.isVerified {
-                        Image(systemName: "checkmark.seal.fill")
-                            .font(.system(size: 13))
-                            .foregroundStyle(GQGradients.primary)
-                    }
+            // Row 2 — name + verification/lock
+            HStack(spacing: 6) {
+                Text(club.name)
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(GQColors.textPrimary)
+                    .lineLimit(2)
+                if club.isVerified {
+                    Image(systemName: "checkmark.seal.fill")
+                        .font(.system(size: 14))
+                        .foregroundStyle(GQGradients.primary)
                 }
-
-                if !club.clubDescription.isEmpty {
-                    Text(club.clubDescription)
-                        .font(.system(size: 13))
-                        .foregroundColor(GQColors.textSecondary)
-                        .lineLimit(3)
-                }
-
-                HStack(spacing: 10) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "person.2.fill")
-                            .font(.system(size: 10, weight: .semibold))
-                        Text(club.memberCount == 1 ? "1 member" : "\(club.memberCount) members")
-                            .font(.system(size: 12, weight: .medium))
-                    }
-                    .foregroundColor(GQColors.textTertiary)
-
-                    if let location = club.location {
-                        HStack(spacing: 4) {
-                            Image(systemName: "mappin")
-                                .font(.system(size: 10, weight: .semibold))
-                            Text(location)
-                                .font(.system(size: 12, weight: .medium))
-                                .lineLimit(1)
-                        }
+                if !club.isOpen {
+                    Image(systemName: "lock.fill")
+                        .font(.system(size: 12))
                         .foregroundColor(GQColors.textTertiary)
-                    }
                 }
-                .padding(.top, 2)
+                Spacer(minLength: 0)
             }
-            Spacer(minLength: 0)
+
+            // Row 3 — category pill + location chip
+            HStack(spacing: 6) {
+                HStack(spacing: 4) {
+                    Image(systemName: cat.icon)
+                        .font(.system(size: 10, weight: .semibold))
+                    Text(cat.rawValue)
+                        .font(.system(size: 11, weight: .semibold))
+                }
+                .foregroundStyle(GQGradients.primary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(GQColors.deepBlue.opacity(0.10))
+                .clipShape(Capsule())
+
+                if let location = club.location, !location.isEmpty {
+                    HStack(spacing: 4) {
+                        Image(systemName: "mappin")
+                            .font(.system(size: 10, weight: .semibold))
+                        Text(location)
+                            .font(.system(size: 11, weight: .medium))
+                            .lineLimit(1)
+                    }
+                    .foregroundColor(GQColors.textSecondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(GQColors.adaptiveOverlay(0.05))
+                    .clipShape(Capsule())
+                }
+            }
+
+            // Row 4 — description
+            if !club.clubDescription.isEmpty {
+                Text(club.clubDescription)
+                    .font(.system(size: 13))
+                    .foregroundColor(GQColors.textSecondary)
+                    .lineLimit(3)
+            }
         }
-        .padding(14)
+        .padding(16)
         .homeSocialCard(cornerRadius: 16)
         .padding(.horizontal, 16)
+    }
+
+    /// Stat column used in the detail header — value on top, small
+    /// tracked-caps label below. Mirrors `igStatColumn` on ProfileView.
+    @ViewBuilder
+    private func clubStatColumn(value: String, label: String, valueColor: Color = GQColors.textPrimary) -> some View {
+        VStack(spacing: 2) {
+            Text(value)
+                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .foregroundColor(valueColor)
+            Text(label.uppercased())
+                .font(.system(size: 9, weight: .semibold))
+                .tracking(0.6)
+                .foregroundColor(GQColors.textTertiary)
+        }
+        .frame(maxWidth: .infinity)
     }
 
     // MARK: - Active Now (this club)
