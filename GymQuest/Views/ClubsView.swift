@@ -952,15 +952,12 @@ struct ClubFeedView: View {
             .padding(.horizontal, 16)
     }
 
-    /// Hairline between rows inside a grouped card — matches the
-    /// Progress "Recent PRs" card: full-width subtle divider, no
-    /// avatar inset since the card already pads its content. Uses
-    /// adaptiveOverlay 0.06 so it reads as a subtle line, not a
-    /// section break.
+    /// Hairline between rows inside a grouped card — native SwiftUI
+    /// Divider tinted to match the Progress "Recent PRs" pattern, but
+    /// a touch stronger so the separation actually reads.
     private var inRowDivider: some View {
-        Rectangle()
-            .fill(GQColors.adaptiveOverlay(0.06))
-            .frame(height: 0.5)
+        Divider()
+            .overlay(GQColors.adaptiveOverlay(0.14))
     }
 
     /// Mirrors the Recent PRs card on Progress: icon + readable title
@@ -999,48 +996,57 @@ struct ClubFeedView: View {
 
     // MARK: - Search + categories strip (top of page)
 
-    /// Top filter strip — horizontal row of category chips under the
-    /// nav. A trailing Map chip replaces the old toolbar map icon so
-    /// the nav stays at two icons (search + create).
+    /// Top filter strip — horizontal row of category chips + trailing
+    /// Map chip. Sits directly under the nav bar with a hairline below
+    /// to give the nav proper visual closure against the grouped card
+    /// content that follows.
     @ViewBuilder
     private var searchAndCategoryStrip: some View {
-        HStack(spacing: 0) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
-                    categoryChip(nil, label: "All")
-                    ForEach(browseCategories, id: \.self) { cat in
-                        categoryChip(cat, label: cat.rawValue)
+        VStack(spacing: 0) {
+            HStack(spacing: 0) {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        categoryChip(nil, label: "All")
+                        ForEach(browseCategories, id: \.self) { cat in
+                            categoryChip(cat, label: cat.rawValue)
+                        }
                     }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 2)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 2)
-            }
-            .scrollClipDisabled()
+                .scrollClipDisabled()
 
-            Button {
-                #if canImport(UIKit)
-                UISelectionFeedbackGenerator().selectionChanged()
-                #endif
-                presentingMap = true
-            } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "map")
-                        .font(.system(size: 10, weight: .semibold))
-                    Text("Map")
-                        .font(.system(size: 12, weight: .semibold))
+                Button {
+                    #if canImport(UIKit)
+                    UISelectionFeedbackGenerator().selectionChanged()
+                    #endif
+                    presentingMap = true
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "map")
+                            .font(.system(size: 10, weight: .semibold))
+                        Text("Map")
+                            .font(.system(size: 12, weight: .semibold))
+                    }
+                    .foregroundColor(GQColors.textSecondary)
+                    .padding(.horizontal, 11)
+                    .padding(.vertical, 6)
+                    .background(Capsule().fill(GQColors.surfaceBase))
+                    .overlay(
+                        Capsule().stroke(GQColors.borderDefault.opacity(0.5), lineWidth: 1)
+                    )
                 }
-                .foregroundColor(GQColors.textSecondary)
-                .padding(.horizontal, 11)
-                .padding(.vertical, 6)
-                .background(Capsule().fill(GQColors.surfaceBase))
-                .overlay(
-                    Capsule().stroke(GQColors.borderDefault.opacity(0.5), lineWidth: 1)
-                )
+                .buttonStyle(.plain)
+                .padding(.trailing, 12)
             }
-            .buttonStyle(.plain)
-            .padding(.trailing, 12)
+            .padding(.bottom, 8)
+
+            // Hairline separator — gives the nav + filter strip a
+            // clear bottom edge before the first grouped card.
+            Rectangle()
+                .fill(GQColors.borderDefault.opacity(0.55))
+                .frame(height: 0.5)
         }
-        .padding(.bottom, 4)
     }
 
     @ViewBuilder
@@ -1843,9 +1849,8 @@ struct ClubFeedView: View {
             discoverSegmentedControl
                 .padding(.bottom, 10)
 
-            Rectangle()
-                .fill(GQColors.adaptiveOverlay(0.06))
-                .frame(height: 0.5)
+            Divider()
+                .overlay(GQColors.adaptiveOverlay(0.14))
 
             Group {
                 switch discoverTab {
