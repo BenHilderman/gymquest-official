@@ -87,7 +87,7 @@ struct ExploreView: View {
     @State private var presentingShorts: Bool = false
     @State private var presentingSaves: Bool = false
     @State private var showSearchOverlay: Bool = false
-    @State private var discoverFilter: String = "For You"
+    @State private var discoverFilter: String = "Trendy Workouts"
     @State private var discoverMode: DiscoverMode = .browse
     @State private var visibleVideoId: String?
     @State private var livePulse: Bool = false
@@ -857,15 +857,15 @@ struct ExploreView: View {
         }
     }
 
-    /// Workout-type filter only — social chips (For You / Following) return nil.
+    /// Workout-type filter only — social chips (Trendy / Following) return nil.
     private func workoutChipFilter(_ chip: String) -> String? {
         switch chip {
-        case "For You", "Following": return nil
+        case "Trendy Workouts", "Following": return nil
         default: return chip
         }
     }
 
-    private let discoverChips = ["For You", "Following", "Push", "Pull", "Legs", "Cardio"]
+    private let discoverChips = ["Trendy Workouts", "Following", "Push", "Pull", "Legs", "Cardio"]
 
     /// Two-way segmented toggle in the Discover header: Browse vs Watch.
     /// Keeps the page focused by separating visual browsing from video
