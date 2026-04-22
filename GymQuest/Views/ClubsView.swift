@@ -617,14 +617,13 @@ struct ClubFeedView: View {
 
     // MARK: - Local + events helpers
 
-    /// Upcoming events across ALL visible clubs (yours + recommended),
-    /// used by the catch-all HAPPENING NEAR YOU rail when nothing is in
-    /// the user's clubs specifically.
+    /// Every upcoming event, sorted soonest first. Drives the main
+    /// events block — broad pool so the section has content even when
+    /// the user's clubs are quiet and the recommended pool is small.
     private var upcomingEvents: [ClubEvent] {
         let now = Date()
-        let clubIds = Set(searchFilteredRecommended.map(\.id) + yourClubs.map(\.id))
         return allEvents
-            .filter { $0.date > now && clubIds.contains($0.clubId) }
+            .filter { $0.date > now }
             .sorted { $0.date < $1.date }
     }
 
@@ -780,18 +779,17 @@ struct ClubFeedView: View {
                     yourClubsListBlock
                 }
 
-                // Upcoming events — "your clubs" first, then nearby.
-                if !upcomingEventsInMyClubs.isEmpty || !upcomingEventsNearby.isEmpty {
+                // Upcoming events — any future event, my-clubs first.
+                if !upcomingEvents.isEmpty {
                     rowDivider
                     eventsBlock
                         .padding(.vertical, 10)
                 }
 
                 // Popular this week — horizontal featured-card rail so
-                // discovery has a visual, browseable hook. Only shows
-                // when there are ≥2 cards so a single-card rail doesn't
-                // read as half-finished.
-                if featuredClubs.count >= 2 {
+                // discovery has a visual, browseable hook. Full-width
+                // hero when only one club qualifies, rail when ≥2.
+                if !featuredClubs.isEmpty {
                     rowDivider
                     popularThisWeekRail
                         .padding(.vertical, 12)
@@ -946,35 +944,107 @@ struct ClubFeedView: View {
 
     // MARK: - Popular this week (horizontal featured rail)
 
-    /// Horizontal rail of the top clubs by member count — gives the page
-    /// a browseable, visual hook above the flat Discover list.
+    /// Horizontal rail of the top clubs by member count — gives the
+    /// page a browseable, visual hook. Renders as a single full-width
+    /// hero card when only one club qualifies so the section never
+    /// feels half-empty.
     @ViewBuilder
     private var popularThisWeekRail: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("POPULAR THIS WEEK")
-                    .font(.system(size: 10, weight: .semibold))
-                    .tracking(1.2)
-                    .foregroundColor(GQColors.textTertiary)
-                Spacer()
-                Text("\(featuredClubs.count)")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(GQColors.textTertiary)
-            }
-            .padding(.horizontal, 16)
+            sectionHeaderLabel(
+                "POPULAR THIS WEEK",
+                trailing: featuredClubs.count > 1 ? "\(featuredClubs.count)" : nil
+            )
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    ForEach(featuredClubs) { club in
-                        Button { selectedClub = club } label: {
-                            featuredCard(club)
-                        }
-                        .buttonStyle(.plain)
-                    }
+            if featuredClubs.count == 1, let solo = featuredClubs.first {
+                Button { selectedClub = solo } label: {
+                    featuredHeroCard(solo)
                 }
+                .buttonStyle(.plain)
                 .padding(.horizontal, 16)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(featuredClubs) { club in
+                            Button { selectedClub = club } label: {
+                                featuredCard(club)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
             }
         }
+    }
+
+    /// Full-width hero variant of the featured card — used when there's
+    /// only one featured club so the page still feels finished.
+    @ViewBuilder
+    private func featuredHeroCard(_ club: Club) -> some View {
+        let cat = club.resolvedCategory
+        ZStack(alignment: .bottomLeading) {
+            ClubCoverImage(club: club, fallbackGradient: GQGradients.primary)
+                .aspectRatio(16.0 / 9.0, contentMode: .fill)
+
+            LinearGradient(
+                colors: [.black.opacity(0.0), .black.opacity(0.2), .black.opacity(0.70)],
+                startPoint: .top, endPoint: .bottom
+            )
+
+            VStack {
+                HStack {
+                    HStack(spacing: 5) {
+                        Image(systemName: cat.icon)
+                            .font(.system(size: 10, weight: .bold))
+                        Text(cat.rawValue.uppercased())
+                            .font(.system(size: 10, weight: .bold))
+                            .tracking(0.6)
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Capsule().fill(.ultraThinMaterial))
+                    Spacer()
+                    Text("FEATURED")
+                        .font(.system(size: 10, weight: .bold))
+                        .tracking(0.6)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Capsule().fill(GQGradients.primary))
+                }
+                Spacer()
+            }
+            .padding(14)
+
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 5) {
+                    Text(club.name)
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundColor(.white)
+                        .lineLimit(2)
+                    if club.isVerified {
+                        Image(systemName: "checkmark.seal.fill")
+                            .font(.system(size: 14))
+                            .foregroundColor(.white.opacity(0.95))
+                    }
+                }
+                HStack(spacing: 10) {
+                    Label("\(club.memberCount) members", systemImage: "person.2.fill")
+                    if let loc = club.location, !loc.isEmpty {
+                        Label(loc, systemImage: "mappin")
+                            .lineLimit(1)
+                    }
+                }
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(.white.opacity(0.92))
+            }
+            .padding(16)
+        }
+        .frame(maxWidth: .infinity)
+        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .shadow(color: .black.opacity(0.1), radius: 8, y: 3)
     }
 
     // MARK: - Map sheet
@@ -1165,14 +1235,19 @@ struct ClubFeedView: View {
         .padding(.bottom, 8)
     }
 
-    /// Events feed — in-your-clubs events first, then nearby events.
-    /// Rows separated by hairlines so it reads as one continuous list.
+    /// Events feed — in-your-clubs events first, then anything else
+    /// upcoming. Rows separated by hairlines for a continuous list.
     @ViewBuilder
     private var eventsBlock: some View {
         let myEvents = Array(upcomingEventsInMyClubs.prefix(4))
-        let nearbyEvents = Array(upcomingEventsNearby.prefix(max(0, 6 - myEvents.count)))
+        let seenIds = Set(myEvents.map(\.id))
+        let myClubIdSet = Set(yourClubs.map(\.id))
+        let otherEvents = upcomingEvents
+            .filter { !seenIds.contains($0.id) }
+            .prefix(max(0, 6 - myEvents.count))
         let rows: [(event: ClubEvent, joined: Bool)] =
-            myEvents.map { ($0, true) } + nearbyEvents.map { ($0, false) }
+            myEvents.map { ($0, true) }
+            + otherEvents.map { ($0, myClubIdSet.contains($0.clubId)) }
 
         VStack(alignment: .leading, spacing: 0) {
             sectionHeaderLabel("UPCOMING EVENTS", trailing: "\(rows.count)")
@@ -1773,15 +1848,26 @@ struct ClubFeedView: View {
 
     // MARK: - Featured carousel (legacy, no longer rendered — kept for reference)
 
-    /// Big horizontal cards — recommended/nearby clubs with cover art and
-    /// gradient wash. First thing users see → discovery-forward.
+    /// Big horizontal cards — top clubs by member count. Prefers non-
+    /// joined clubs with a location so the rail biases toward
+    /// discovery, but falls back to *any* top-level club (joined
+    /// included) so the page doesn't look bare when the recommendation
+    /// pool is thin.
     private var featuredClubs: [Club] {
-        // Prefer non-member, non-channel clubs with location; fall back to any.
-        let withLocation = recommendedClubs
+        let nonJoinedWithLoc = recommendedClubs
             .filter { $0.location != nil && $0.parentClubId == nil }
-        let pool = withLocation.isEmpty
-            ? recommendedClubs.filter { $0.parentClubId == nil }
-            : withLocation
+        let nonJoined = recommendedClubs.filter { $0.parentClubId == nil }
+        let pool: [Club]
+        if !nonJoinedWithLoc.isEmpty {
+            pool = nonJoinedWithLoc
+        } else if !nonJoined.isEmpty {
+            pool = nonJoined
+        } else {
+            // Absolute fallback — highlight the user's own largest clubs
+            // so the rail always shows something. Keeps the page alive
+            // even for users who've joined everything near them.
+            pool = topLevelClubs
+        }
         return Array(pool
             .sorted { ($0.memberCount, ($0.lastActivityDate ?? .distantPast)) > ($1.memberCount, ($1.lastActivityDate ?? .distantPast)) }
             .prefix(5))
@@ -1814,19 +1900,7 @@ struct ClubFeedView: View {
     private func featuredCard(_ club: Club) -> some View {
         let cat = club.resolvedCategory
         ZStack(alignment: .bottomLeading) {
-            // Cover: photo if present, otherwise the brand gradient so
-            // every card has identity and legible contrast.
-            Group {
-                #if canImport(UIKit)
-                if let data = club.imageData, let img = UIImage(data: data) {
-                    Image(uiImage: img).resizable().aspectRatio(contentMode: .fill)
-                } else {
-                    GQGradients.primary
-                }
-                #else
-                GQGradients.primary
-                #endif
-            }
+            ClubCoverImage(club: club, fallbackGradient: GQGradients.primary)
 
             LinearGradient(
                 colors: [.black.opacity(0.0), .black.opacity(0.15), .black.opacity(0.65)],
@@ -4966,6 +5040,43 @@ struct ClubMapView: View {
         .padding(12)
         .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+}
+
+// MARK: - Club cover image
+
+/// Cover photo for featured/hero cards. Uses club.imageData when present,
+/// otherwise pulls a deterministic Unsplash fitness photo keyed by the
+/// club's ID. Shows the fallback gradient while loading so the card never
+/// flashes empty.
+struct ClubCoverImage: View {
+    let club: Club
+    let fallbackGradient: LinearGradient
+
+    @State private var remoteData: Data? = nil
+
+    var body: some View {
+        ZStack {
+            #if canImport(UIKit)
+            if let data = club.imageData ?? remoteData, let img = UIImage(data: data) {
+                Image(uiImage: img)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            } else {
+                fallbackGradient
+            }
+            #else
+            fallbackGradient
+            #endif
+        }
+        .task(id: club.id) {
+            guard club.imageData == nil, remoteData == nil else { return }
+            let idx = abs(club.id.uuidString.unicodeScalars.reduce(0) { $0 &+ Int($1.value) })
+            let photoId = UnsplashPhotoService.photoId(forIndex: idx)
+            if let data = await UnsplashPhotoService.fetch(id: photoId) {
+                await MainActor.run { remoteData = data }
+            }
+        }
     }
 }
 
