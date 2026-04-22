@@ -1251,21 +1251,20 @@ struct ClubFeedView: View {
         }
     }
 
-    /// Collapse/expand row used at the bottom of capped lists.
+    /// Collapse/expand row used at the bottom of capped lists —
+    /// small, centered, subtle (Apple-style footer link).
     @ViewBuilder
     private func showAllRow(label: String, icon: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            HStack(spacing: 8) {
+            HStack(spacing: 5) {
                 Text(label)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(GQGradients.primary)
-                Spacer(minLength: 0)
+                    .font(.system(size: 13, weight: .semibold))
                 Image(systemName: icon)
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(GQGradients.primary)
+                    .font(.system(size: 10, weight: .semibold))
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .foregroundStyle(GQGradients.primary)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 11)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -1932,48 +1931,38 @@ struct ClubFeedView: View {
         }
     }
 
-    /// Full-width For You card — image fills, gradient + overlays
-    /// layered on top with explicit `.frame(maxWidth:maxHeight:)` so
-    /// SwiftUI doesn't collapse them to zero. 170pt tall.
+    /// Full-width For You card. `.overlay(alignment:)` keeps the text
+    /// layers reliably pinned to the image regardless of ZStack
+    /// ambiguity.
     @ViewBuilder
     private func forYouHeroCard(_ club: Club, reason: String) -> some View {
         let cat = club.resolvedCategory
         let isMember = club.memberIds.contains(profile.id)
-        ZStack {
-            ClubCoverImage(club: club, fallbackGradient: GQGradients.primary)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .clipped()
-
-            LinearGradient(
-                colors: [.black.opacity(0.35), .black.opacity(0.1), .black.opacity(0.78)],
-                startPoint: .top, endPoint: .bottom
+        ClubCoverImage(club: club, fallbackGradient: GQGradients.primary)
+            .frame(maxWidth: .infinity)
+            .frame(height: 170)
+            .clipped()
+            .overlay(
+                LinearGradient(
+                    colors: [.black.opacity(0.35), .black.opacity(0.08), .black.opacity(0.80)],
+                    startPoint: .top, endPoint: .bottom
+                )
             )
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            // Reason chip — top leading
-            VStack {
-                HStack {
-                    HStack(spacing: 4) {
-                        Image(systemName: "sparkles")
-                            .font(.system(size: 9, weight: .bold))
-                        Text(reason)
-                            .font(.system(size: 10, weight: .bold))
-                            .lineLimit(1)
-                    }
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 5)
-                    .background(Capsule().fill(.ultraThinMaterial))
-                    Spacer(minLength: 0)
+            .overlay(alignment: .topLeading) {
+                HStack(spacing: 4) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 9, weight: .bold))
+                    Text(reason)
+                        .font(.system(size: 10, weight: .bold))
+                        .lineLimit(1)
                 }
-                Spacer(minLength: 0)
+                .foregroundColor(.white)
+                .padding(.horizontal, 9)
+                .padding(.vertical, 5)
+                .background(Capsule().fill(.ultraThinMaterial))
+                .padding(12)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .padding(12)
-
-            // Bottom — name, meta, View CTA
-            VStack {
-                Spacer(minLength: 0)
+            .overlay(alignment: .bottomLeading) {
                 HStack(alignment: .bottom, spacing: 10) {
                     VStack(alignment: .leading, spacing: 5) {
                         HStack(spacing: 5) {
@@ -2007,12 +1996,9 @@ struct ClubFeedView: View {
                         .padding(.vertical, 7)
                         .background(Capsule().fill(.white))
                 }
+                .padding(12)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-            .padding(12)
-        }
-        .frame(height: 170)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
     /// For You card — 240x180 cover with a reason chip up top so users
