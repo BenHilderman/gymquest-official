@@ -178,7 +178,7 @@ struct ExploreView: View {
             .padding(.bottom, 100)
         }
         .scrollContentBackground(.hidden)
-        .gqPageBackground()
+        .background(GQColors.surfaceBase)
         .refreshable {
             PresenceSeeder.refreshDemoPresence(in: modelContext)
             rebuildFeedCache()
