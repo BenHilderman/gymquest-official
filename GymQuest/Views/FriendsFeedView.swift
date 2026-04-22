@@ -28,6 +28,9 @@ struct FriendsFeedView: View {
     /// in friendsMembers so SwiftUI invalidates the computed list each
     /// tick and the builder re-runs with a fresh Date().
     @State private var minuteTick: Date = Date()
+    /// Incremented on pull-to-refresh so the mixedFeed recomputes
+    /// (different suggested-post selection, re-shuffled people card).
+    @State private var refreshTick: Int = 0
     private let minuteTimer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
 
     /// UserDefaults key holding the timestamp of the last Activity view
@@ -84,27 +87,45 @@ struct FriendsFeedView: View {
                         .background(GQColors.background)
                     }
 
-                    if friendPosts.isEmpty {
+                    let feed = mixedFeed
+                    if feed.isEmpty {
                         emptyState
                     } else {
-                        // Continuous surface, single 1pt borderProminent
-                        // hairline between posts. Thicker + more
-                        // contrast than before so you can actually see
-                        // where one post ends and the next begins.
-                        ForEach(Array(friendPosts.enumerated()), id: \.element.id) { index, post in
+                        // Continuous surface with borderProminent
+                        // hairlines between items. Items include friend
+                        // posts, 'SUGGESTED FOR YOU' posts from clubs,
+                        // and 'People You Might Know' horizontal cards
+                        // — interleaved so the feed stays fresh.
+                        ForEach(Array(feed.enumerated()), id: \.element.id) { index, item in
                             if index > 0 {
                                 Rectangle()
                                     .fill(GQColors.borderProminent)
                                     .frame(height: 1)
                             }
 
-                            PostCardV2(
-                                post: post,
-                                currentUserId: profile.id,
-                                currentUserName: profile.name,
-                                profile: profile
-                            )
-                            .id(post.id)
+                            switch item {
+                            case .post(let post):
+                                PostCardV2(
+                                    post: post,
+                                    currentUserId: profile.id,
+                                    currentUserName: profile.name,
+                                    profile: profile
+                                )
+                                .id(post.id)
+                            case .suggestedPost(let post):
+                                VStack(spacing: 0) {
+                                    suggestedPostBanner
+                                    PostCardV2(
+                                        post: post,
+                                        currentUserId: profile.id,
+                                        currentUserName: profile.name,
+                                        profile: profile
+                                    )
+                                    .id(post.id)
+                                }
+                            case .suggestedPeople(let people):
+                                suggestedPeopleCard(people)
+                            }
                         }
 
                         backToTrainingFooter
@@ -115,6 +136,16 @@ struct FriendsFeedView: View {
             }
             .scrollContentBackground(.hidden)
             .background(GQColors.surfaceBase)
+            .refreshable {
+                #if canImport(UIKit)
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                #endif
+                refreshTick &+= 1
+                // Small delay gives the native refresh spinner time to
+                // register so the gesture feels real — @Query data is
+                // already live, nothing else to fetch.
+                try? await Task.sleep(for: .milliseconds(650))
+            }
         }
         .navigationTitle("Friends")
         .navigationBarTitleDisplayMode(.inline)
@@ -333,9 +364,9 @@ struct FriendsFeedView: View {
 
     // MARK: - Empty + footer
 
-    /// People from the user's clubs they don't yet follow. Max 8. Used to
-    /// fill a quiet Friends feed with actionable "add someone" rows instead
-    /// of a dead-end placeholder.
+    /// People from the user's clubs they don't yet follow. Used to seed
+    /// both the "People You Might Know" interstitial cards in the main
+    /// feed and the empty-state suggestions.
     private var suggestedFromClubs: [UserProfile] {
         let myClubs = clubs.filter { $0.memberIds.contains(profile.id) }
         guard !myClubs.isEmpty else { return [] }
@@ -344,8 +375,209 @@ struct FriendsFeedView: View {
         let candidateIds = clubMemberIds.subtracting(followedIds)
         return allUserProfiles
             .filter { candidateIds.contains($0.id) }
-            .prefix(8)
+            .prefix(20)
             .map { $0 }
+    }
+
+    // MARK: - Mixed feed (friends + suggestions interleaved)
+
+    /// Recent posts with media from people the user does NOT follow —
+    /// candidate pool for "Suggested for You" interstitials. Prioritized
+    /// by club co-membership so the content feels contextually close.
+    private var suggestedPosts: [Post] {
+        let followedIds = Set(follows.filter { $0.userId == profile.id }.map(\.odId))
+        let myClubIds = Set(clubs.filter { $0.memberIds.contains(profile.id) }.map(\.id))
+        let clubMemberIds = Set(clubs
+            .filter { myClubIds.contains($0.id) }
+            .flatMap { $0.memberIds })
+            .subtracting(followedIds)
+            .subtracting([profile.id])
+
+        return allPosts
+            .filter { post in
+                !followedIds.contains(post.authorId)
+                && post.authorId != profile.id
+                && (post.photoData != nil || post.videoData != nil || !post.mediaItems.isEmpty)
+            }
+            .sorted { a, b in
+                // In-club authors first, then by timestamp
+                let aIn = clubMemberIds.contains(a.authorId)
+                let bIn = clubMemberIds.contains(b.authorId)
+                if aIn != bIn { return aIn && !bIn }
+                return a.timestamp > b.timestamp
+            }
+    }
+
+    enum FeedItem: Identifiable {
+        case post(Post)
+        case suggestedPost(Post)
+        case suggestedPeople([UserProfile])
+
+        var id: String {
+            switch self {
+            case .post(let p): return "post-\(p.id.uuidString)"
+            case .suggestedPost(let p): return "sugp-\(p.id.uuidString)"
+            case .suggestedPeople(let people):
+                return "people-\(people.first?.id.uuidString ?? "empty")-\(people.count)"
+            }
+        }
+    }
+
+    /// The rendered feed — interleaves friend posts, suggested non-
+    /// friend posts, and "People You Might Know" cards. Cold-start
+    /// (user follows nobody) falls back to a suggestion-led feed so
+    /// the page is never empty.
+    private var mixedFeed: [FeedItem] {
+        _ = refreshTick
+
+        let friend = friendPosts
+        let suggested = Array(suggestedPosts.prefix(12))
+        let peoplePool = suggestedFromClubs
+
+        // Partition people into slices of 4 so each interstitial card
+        // shows fresh faces.
+        func peopleSlice(_ startIndex: Int) -> [UserProfile] {
+            guard startIndex < peoplePool.count else { return [] }
+            let end = min(peoplePool.count, startIndex + 4)
+            return Array(peoplePool[startIndex..<end])
+        }
+
+        var items: [FeedItem] = []
+
+        if friend.isEmpty {
+            // Cold-start: lead with a people card + suggested posts
+            if let slice = Optional(peopleSlice(0)), !slice.isEmpty {
+                items.append(.suggestedPeople(slice))
+            }
+            var peopleCursor = 4
+            for (i, post) in suggested.enumerated() {
+                items.append(.suggestedPost(post))
+                if (i + 1) % 3 == 0 {
+                    let next = peopleSlice(peopleCursor)
+                    if !next.isEmpty {
+                        items.append(.suggestedPeople(next))
+                        peopleCursor += 4
+                    }
+                }
+            }
+            return items
+        }
+
+        // Normal: friend posts with periodic suggestion interstitials
+        var suggestedIter = suggested.makeIterator()
+        var peopleCursor = 0
+        for (i, post) in friend.enumerated() {
+            items.append(.post(post))
+            // Every 4 posts, a suggested post (if pool has any left)
+            if (i + 1) % 4 == 0, let next = suggestedIter.next() {
+                items.append(.suggestedPost(next))
+            }
+            // Every 6 posts, a people card (if pool has any left)
+            if (i + 1) % 6 == 0 {
+                let next = peopleSlice(peopleCursor)
+                if !next.isEmpty {
+                    items.append(.suggestedPeople(next))
+                    peopleCursor += 4
+                }
+            }
+        }
+
+        return items
+    }
+
+    private var suggestedPostBanner: some View {
+        HStack(spacing: 5) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 10, weight: .bold))
+            Text("SUGGESTED FOR YOU")
+                .font(.system(size: 10, weight: .bold))
+                .tracking(0.6)
+            Spacer(minLength: 0)
+        }
+        .foregroundStyle(GQGradients.primary)
+        .padding(.horizontal, 16)
+        .padding(.top, 10)
+        .padding(.bottom, 4)
+        .background(GQColors.surfaceBase)
+    }
+
+    /// Horizontal card of suggested people to follow — fills in when
+    /// the feed might otherwise feel thin. Appears in both cold-start
+    /// and mid-feed positions.
+    @ViewBuilder
+    private func suggestedPeopleCard(_ people: [UserProfile]) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 5) {
+                Image(systemName: "person.badge.plus")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(GQGradients.primary)
+                Text("PEOPLE YOU MIGHT KNOW")
+                    .font(.system(size: 10, weight: .bold))
+                    .tracking(0.6)
+                    .foregroundColor(GQColors.textSecondary)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 14)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(people) { person in
+                        suggestedPersonMiniCard(person)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 14)
+            }
+        }
+        .background(GQColors.surfaceBase)
+    }
+
+    /// 140pt-wide vertical card used in the horizontal people rail —
+    /// avatar, name, username, inline Follow button.
+    @ViewBuilder
+    private func suggestedPersonMiniCard(_ person: UserProfile) -> some View {
+        VStack(spacing: 8) {
+            ZStack {
+                Circle()
+                    .fill(GQGradients.primary)
+                    .frame(width: 52, height: 52)
+                Text(String(person.name.prefix(1)).uppercased())
+                    .font(.system(size: 19, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
+            }
+            VStack(spacing: 1) {
+                Text(person.name)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(GQColors.textPrimary)
+                    .lineLimit(1)
+                if !person.username.isEmpty {
+                    Text("@\(person.username)")
+                        .font(.system(size: 10))
+                        .foregroundColor(GQColors.textTertiary)
+                        .lineLimit(1)
+                }
+            }
+            Button {
+                followUser(person)
+            } label: {
+                Text("Follow")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 6)
+                    .background(Capsule().fill(GQGradients.primary))
+            }
+            .buttonStyle(.plain)
+        }
+        .frame(width: 126)
+        .padding(10)
+        .background(GQColors.background)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(GQColors.borderDefault.opacity(0.7), lineWidth: 0.5)
+        )
     }
 
     private var emptyState: some View {
