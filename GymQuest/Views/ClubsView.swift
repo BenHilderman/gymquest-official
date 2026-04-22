@@ -497,6 +497,27 @@ enum YourClubsSort: String, CaseIterable, Identifiable {
     }
 }
 
+enum DiscoverTab: String, CaseIterable, Identifiable {
+    case forYou, nearby, friends, challenges
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .forYou: return "For You"
+        case .nearby: return "Nearby"
+        case .friends: return "Friends"
+        case .challenges: return "Challenges"
+        }
+    }
+    var icon: String {
+        switch self {
+        case .forYou: return "sparkles"
+        case .nearby: return "location.fill"
+        case .friends: return "person.2.fill"
+        case .challenges: return "flag.checkered"
+        }
+    }
+}
+
 struct ClubFeedView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var allClubs: [Club]
@@ -517,6 +538,7 @@ struct ClubFeedView: View {
     @State private var yourClubsSort: YourClubsSort = .recent
     @State private var presentingSearch: Bool = false
     @State private var presentingMap: Bool = false
+    @State private var discoverTab: DiscoverTab = .forYou
 
     // Demo "user location" — Kingston, ON. Replace with CoreLocation once
     // the real auth flow lands. Keeping the haversine helper lets us
@@ -795,22 +817,14 @@ struct ClubFeedView: View {
                         .padding(.vertical, 10)
                 }
 
-                // Popular this week — horizontal featured-card rail so
-                // discovery has a visual, browseable hook. Full-width
-                // hero when only one club qualifies, rail when ≥2.
-                if !featuredClubs.isEmpty {
+                // Discover — tabbed section combining "For You",
+                // "Nearby", "Friends", and "Challenges" so one block
+                // handles both browsing and recommendation. Replaces
+                // the separate Popular rail + Nearby list.
+                if hasAnyDiscoverContent {
                     rowDivider
-                    popularThisWeekRail
+                    discoverSection
                         .padding(.vertical, 12)
-                }
-
-                // Discover — rich rows filtered by the active category
-                // chip. Excludes the Popular rail's featured clubs so we
-                // don't show the same club twice in a row.
-                if !discoverClubs.isEmpty {
-                    rowDivider
-                    discoverBlock
-                        .padding(.vertical, 10)
                 }
 
                 if yourClubs.isEmpty && searchFilteredRecommended.isEmpty {
@@ -1392,11 +1406,81 @@ struct ClubFeedView: View {
         return clubName
     }
 
-    /// Discover pool — nearest clubs minus the ones already surfaced in
-    /// Popular This Week, so the same club doesn't appear back-to-back.
+    /// Discover pool — nearest non-joined clubs. Category chip filter
+    /// from `searchFilteredRecommended` is already applied.
     private var discoverClubs: [Club] {
-        let featuredIds = featuredClubs.count >= 2 ? Set(featuredClubs.map(\.id)) : []
-        return searchFilteredRecommended.filter { !featuredIds.contains($0.id) }
+        searchFilteredRecommended
+    }
+
+    // MARK: - Discover tab data
+
+    /// Clubs where the user has 1+ friends but isn't a member — highest
+    /// social-proof signal for joining.
+    private var friendsDiscoverClubs: [Club] {
+        searchFilteredRecommended.filter { friendsInClub($0) > 0 }
+    }
+
+    /// "For You" picks — a mix of friends'-clubs, nearby-with-location,
+    /// and highest-member clubs, each paired with a human-readable
+    /// reason. De-duplicates while preserving the order we'd like to
+    /// feature them.
+    private var forYouPicks: [(club: Club, reason: String)] {
+        var out: [(Club, String)] = []
+        var seen = Set<UUID>()
+
+        // 1. Friends' clubs first — strongest social pull
+        for club in friendsDiscoverClubs where !seen.contains(club.id) {
+            let friends = friendsInClub(club)
+            let name = firstFriendNameInClub(club) ?? "A friend"
+            let reason = friends == 1 ? "\(name) is in" : "\(name) + \(friends - 1) friends"
+            out.append((club, reason))
+            seen.insert(club.id)
+            if out.count >= 2 { break }
+        }
+
+        // 2. Category match — "because you lift", "because you run"
+        let myCats = Set(yourClubs.map(\.resolvedCategory))
+        for club in searchFilteredRecommended where !seen.contains(club.id) {
+            if myCats.contains(club.resolvedCategory) {
+                out.append((club, "Because you \(club.resolvedCategory.rawValue.lowercased())"))
+                seen.insert(club.id)
+                if out.count >= 4 { break }
+            }
+        }
+
+        // 3. Top-by-members fallback
+        let bySize = searchFilteredRecommended.sorted { $0.memberCount > $1.memberCount }
+        for club in bySize where !seen.contains(club.id) {
+            out.append((club, "\(club.memberCount) members"))
+            seen.insert(club.id)
+            if out.count >= 5 { break }
+        }
+
+        return out
+    }
+
+    /// Active challenges in clubs the user is NOT already in — the
+    /// "Challenges" tab pitches these as joinable.
+    private var joinableChallenges: [ClubChallenge] {
+        let myClubIds = Set(yourClubs.map(\.id))
+        return allChallenges
+            .filter { $0.isActive && !myClubIds.contains($0.clubId) }
+            .sorted { $0.endDate < $1.endDate }
+    }
+
+    /// Active challenges in clubs the user IS in — surfaced alongside
+    /// joinable ones so there's always content in the challenges tab.
+    private var myActiveChallenges: [ClubChallenge] {
+        let myClubIds = Set(yourClubs.map(\.id))
+        return allChallenges
+            .filter { $0.isActive && myClubIds.contains($0.clubId) }
+            .sorted { $0.endDate < $1.endDate }
+    }
+
+    private var hasAnyDiscoverContent: Bool {
+        !searchFilteredRecommended.isEmpty
+            || !myActiveChallenges.isEmpty
+            || !joinableChallenges.isEmpty
     }
 
     /// Discover block — clubs you haven't joined yet, sorted nearest
@@ -1472,6 +1556,458 @@ struct ClubFeedView: View {
             return "\(club.resolvedCategory.rawValue) · \(loc)"
         }
         return "\(club.resolvedCategory.rawValue) · \(club.memberCount) members"
+    }
+
+    // MARK: - Discover section (tabbed)
+
+    /// Unified Discover section — one header + a segmented pill control
+    /// that flips between "For You", "Nearby", "Friends", and
+    /// "Challenges" tabs. Keeps the page scannable while still balancing
+    /// personal vs. exploratory discovery.
+    @ViewBuilder
+    private var discoverSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("DISCOVER")
+                    .font(.system(size: 11, weight: .semibold))
+                    .tracking(1.0)
+                    .foregroundColor(GQColors.textTertiary)
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+
+            discoverSegmentedControl
+
+            Group {
+                switch discoverTab {
+                case .forYou: forYouTabContent
+                case .nearby: nearbyTabContent
+                case .friends: friendsTabContent
+                case .challenges: challengesTabContent
+                }
+            }
+            .animation(.easeInOut(duration: 0.18), value: discoverTab)
+        }
+    }
+
+    @ViewBuilder
+    private var discoverSegmentedControl: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(DiscoverTab.allCases) { tab in
+                    discoverTabChip(tab)
+                }
+            }
+            .padding(.horizontal, 16)
+        }
+    }
+
+    @ViewBuilder
+    private func discoverTabChip(_ tab: DiscoverTab) -> some View {
+        let selected = discoverTab == tab
+        Button {
+            withAnimation(.easeInOut(duration: 0.18)) { discoverTab = tab }
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: tab.icon)
+                    .font(.system(size: 10, weight: .semibold))
+                Text(tab.label)
+                    .font(.system(size: 13, weight: .semibold))
+            }
+            .foregroundColor(selected ? .white : GQColors.textSecondary)
+            .padding(.horizontal, 13)
+            .padding(.vertical, 7)
+            .background(
+                Capsule().fill(selected
+                    ? AnyShapeStyle(GQGradients.primary)
+                    : AnyShapeStyle(GQColors.surfaceBase))
+            )
+            .overlay(
+                Capsule().stroke(
+                    selected ? Color.clear : GQColors.borderDefault.opacity(0.5),
+                    lineWidth: 1
+                )
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - For You tab
+
+    @ViewBuilder
+    private var forYouTabContent: some View {
+        if forYouPicks.isEmpty {
+            emptyDiscoverState(icon: "sparkles", title: "Nothing new yet", subtitle: "Join a club to unlock personalized picks.")
+        } else {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(Array(forYouPicks.enumerated()), id: \.element.club.id) { _, pick in
+                        Button { selectedClub = pick.club } label: {
+                            forYouCard(pick.club, reason: pick.reason)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+        }
+    }
+
+    /// For You card — 240x180 cover with a reason chip up top so users
+    /// always understand *why* we're showing them this club.
+    @ViewBuilder
+    private func forYouCard(_ club: Club, reason: String) -> some View {
+        let cat = club.resolvedCategory
+        ZStack(alignment: .bottomLeading) {
+            ClubCoverImage(club: club, fallbackGradient: GQGradients.primary)
+                .frame(width: 240, height: 180)
+                .clipped()
+
+            LinearGradient(
+                colors: [.black.opacity(0.0), .black.opacity(0.15), .black.opacity(0.72)],
+                startPoint: .top, endPoint: .bottom
+            )
+
+            VStack {
+                HStack {
+                    HStack(spacing: 4) {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 9, weight: .bold))
+                        Text(reason)
+                            .font(.system(size: 10, weight: .bold))
+                            .lineLimit(1)
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Capsule().fill(.ultraThinMaterial))
+                    Spacer(minLength: 0)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(10)
+
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 4) {
+                    Text(club.name)
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundColor(.white)
+                        .lineLimit(2)
+                    if club.isVerified {
+                        Image(systemName: "checkmark.seal.fill")
+                            .font(.system(size: 11))
+                            .foregroundColor(.white.opacity(0.95))
+                    }
+                }
+                HStack(spacing: 8) {
+                    Label(cat.rawValue, systemImage: cat.icon)
+                        .lineLimit(1)
+                    if let dist = distanceString(for: club) {
+                        Label(dist, systemImage: "mappin")
+                    } else {
+                        Label("\(club.memberCount)", systemImage: "person.2.fill")
+                    }
+                }
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(.white.opacity(0.92))
+                .labelStyle(CompactMetaLabelStyle())
+            }
+            .padding(12)
+        }
+        .frame(width: 240, height: 180)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .shadow(color: .black.opacity(0.08), radius: 6, y: 2)
+    }
+
+    // MARK: - Nearby tab
+
+    @ViewBuilder
+    private var nearbyTabContent: some View {
+        let rows = Array(discoverClubs.prefix(8))
+        if rows.isEmpty {
+            emptyDiscoverState(icon: "location", title: "No clubs nearby", subtitle: "Try a different category or create one.")
+        } else {
+            VStack(spacing: 0) {
+                ForEach(Array(rows.enumerated()), id: \.element.id) { idx, club in
+                    Button { selectedClub = club } label: {
+                        discoverClubRow(club)
+                    }
+                    .buttonStyle(.plain)
+                    if idx < rows.count - 1 { rowDivider }
+                }
+            }
+        }
+    }
+
+    // MARK: - Friends tab
+
+    @ViewBuilder
+    private var friendsTabContent: some View {
+        if friendsDiscoverClubs.isEmpty {
+            emptyDiscoverState(
+                icon: "person.2.slash",
+                title: "No friends' clubs yet",
+                subtitle: "When your friends join clubs, they show up here."
+            )
+        } else {
+            VStack(spacing: 0) {
+                ForEach(Array(friendsDiscoverClubs.prefix(8).enumerated()), id: \.element.id) { idx, club in
+                    Button { selectedClub = club } label: {
+                        friendsClubRow(club)
+                    }
+                    .buttonStyle(.plain)
+                    if idx < min(friendsDiscoverClubs.count, 8) - 1 { rowDivider }
+                }
+            }
+        }
+    }
+
+    /// Row variant that leads with a friend avatar stack — social-proof
+    /// first, name + quick-join CTA second.
+    @ViewBuilder
+    private func friendsClubRow(_ club: Club) -> some View {
+        let friends = friendsInClub(club)
+        let friendUsers = friendUsersInClub(club)
+        HStack(spacing: 12) {
+            ZStack(alignment: .bottomTrailing) {
+                clubAvatar(club, size: 46)
+                if !friendUsers.isEmpty {
+                    friendAvatarStack(friendUsers, size: 18)
+                        .offset(x: 4, y: 4)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 5) {
+                    Text(club.name)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(GQColors.textPrimary)
+                        .lineLimit(1)
+                    if club.isVerified {
+                        Image(systemName: "checkmark.seal.fill")
+                            .font(.system(size: 11))
+                            .foregroundStyle(GQGradients.primary)
+                    }
+                }
+                if let firstName = firstFriendNameInClub(club) {
+                    Text(friends == 1
+                         ? "\(firstName) is in · \(club.memberCount) members"
+                         : "\(firstName) + \(friends - 1) friends · \(club.memberCount) members")
+                        .font(.system(size: 12))
+                        .foregroundColor(GQColors.textTertiary)
+                        .lineLimit(1)
+                }
+            }
+
+            Spacer(minLength: 8)
+
+            Button {
+                do {
+                    try ClubService.shared.joinClub(clubId: club.id, userId: profile.id)
+                } catch {
+                    print("Join failed: \(error.localizedDescription)")
+                }
+            } label: {
+                Text("Join")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 7)
+                    .background(Capsule().fill(GQGradients.primary))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .contentShape(Rectangle())
+    }
+
+    /// Resolve friend UUIDs in a club to name strings so we can render
+    /// stacked monogram avatars.
+    private func friendUsersInClub(_ club: Club) -> [(id: UUID, name: String)] {
+        let followedIds = Set(SocialSeeder.fakeUsers.prefix(5).map(\.id))
+        let matchIds = club.memberIds.filter { followedIds.contains($0) }
+        return matchIds.compactMap { id in
+            guard let u = SocialSeeder.fakeUsers.first(where: { $0.id == id }) else { return nil }
+            return (id, u.name)
+        }
+    }
+
+    /// Up-to-3 mini avatar circles, stacked slightly — used as a social-
+    /// proof overlay on friends-tab club rows.
+    @ViewBuilder
+    private func friendAvatarStack(_ friends: [(id: UUID, name: String)], size: CGFloat) -> some View {
+        HStack(spacing: -size * 0.4) {
+            ForEach(Array(friends.prefix(3).enumerated()), id: \.element.id) { _, friend in
+                Circle()
+                    .fill(GQGradients.primary)
+                    .frame(width: size, height: size)
+                    .overlay(
+                        Text(String(friend.name.prefix(1)).uppercased())
+                            .font(.system(size: size * 0.5, weight: .bold, design: .rounded))
+                            .foregroundColor(.white)
+                    )
+                    .overlay(Circle().stroke(GQColors.background, lineWidth: 1.5))
+            }
+        }
+    }
+
+    // MARK: - Challenges tab
+
+    @ViewBuilder
+    private var challengesTabContent: some View {
+        let rows = Array((myActiveChallenges + joinableChallenges).prefix(6))
+        if rows.isEmpty {
+            emptyDiscoverState(
+                icon: "flag.checkered",
+                title: "No active challenges",
+                subtitle: "Challenges will appear when clubs start one."
+            )
+        } else {
+            VStack(spacing: 10) {
+                ForEach(rows) { challenge in
+                    challengeCard(challenge)
+                }
+            }
+            .padding(.horizontal, 16)
+        }
+    }
+
+    /// Challenge card — progress bar + participants + join CTA. Tapping
+    /// the card opens the parent club so the user can see context.
+    @ViewBuilder
+    private func challengeCard(_ challenge: ClubChallenge) -> some View {
+        let club = allClubs.first(where: { $0.id == challenge.clubId })
+        let isJoined = challenge.participantIds.contains(profile.id)
+        let daysLeft = challenge.daysRemaining
+        let participants = challenge.participantIds.count
+
+        Button {
+            if let c = club { selectedClub = c }
+        } label: {
+            VStack(alignment: .leading, spacing: 10) {
+                // Top row — icon + title + urgency pill
+                HStack(alignment: .top, spacing: 10) {
+                    ZStack {
+                        Circle()
+                            .fill(GQGradients.primary.opacity(0.14))
+                            .frame(width: 38, height: 38)
+                        Image(systemName: challenge.goalType.icon)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(GQGradients.primary)
+                    }
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(challenge.title)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(GQColors.textPrimary)
+                            .lineLimit(1)
+                        Text(club?.name ?? "Club")
+                            .font(.system(size: 11))
+                            .foregroundColor(GQColors.textTertiary)
+                            .lineLimit(1)
+                    }
+
+                    Spacer(minLength: 6)
+
+                    Text(daysLeft == 0 ? "ENDS TODAY" : "\(daysLeft)D LEFT")
+                        .font(.system(size: 10, weight: .bold))
+                        .tracking(0.4)
+                        .foregroundColor(daysLeft <= 2 ? .white : GQColors.textSecondary)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background(Capsule().fill(
+                            daysLeft <= 2 ? AnyShapeStyle(Color.orange) : AnyShapeStyle(GQColors.adaptiveOverlay(0.08))
+                        ))
+                }
+
+                // Progress bar
+                VStack(spacing: 4) {
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(GQColors.adaptiveOverlay(0.08))
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(GQGradients.primary)
+                                .frame(width: max(4, geo.size.width * challenge.progress))
+                        }
+                    }
+                    .frame(height: 6)
+
+                    HStack {
+                        Text("\(challenge.currentProgress) / \(challenge.goalTarget) \(challenge.goalType.rawValue.lowercased())")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(GQColors.textSecondary)
+                        Spacer()
+                        HStack(spacing: 3) {
+                            Image(systemName: "person.2.fill")
+                                .font(.system(size: 9, weight: .semibold))
+                            Text("\(participants)")
+                                .font(.system(size: 11, weight: .semibold))
+                        }
+                        .foregroundColor(GQColors.textTertiary)
+                    }
+                }
+
+                // Action row
+                HStack(spacing: 8) {
+                    if isJoined {
+                        Text("Joined")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 7)
+                            .background(Capsule().fill(GQGradients.primary))
+                    } else {
+                        Text("Join Challenge")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 7)
+                            .background(Capsule().fill(GQGradients.primary))
+                    }
+                    if let c = club {
+                        Text("View \(c.name)")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(GQColors.textSecondary)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 7)
+                            .background(Capsule().fill(GQColors.adaptiveOverlay(0.06)))
+                            .lineLimit(1)
+                    }
+                    Spacer(minLength: 0)
+                }
+            }
+            .padding(14)
+            .background(GQColors.surfaceBase)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(GQColors.borderDefault.opacity(0.5), lineWidth: 0.5)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Empty state
+
+    @ViewBuilder
+    private func emptyDiscoverState(icon: String, title: String, subtitle: String) -> some View {
+        VStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 22, weight: .medium))
+                .foregroundColor(GQColors.textTertiary)
+            Text(title)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(GQColors.textSecondary)
+            Text(subtitle)
+                .font(.system(size: 12))
+                .foregroundColor(GQColors.textTertiary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 28)
+        .padding(.horizontal, 24)
     }
 
     /// Empty state — only shown when the user has zero clubs AND there
