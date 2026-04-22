@@ -1232,7 +1232,11 @@ struct ActiveWorkoutView: View {
         )
 
         savedWorkout = workout
-        showingProofCard = true
+        // Old flow (circa Lyft AI): finishing a workout drops straight
+        // into the live camera so the user can capture a clip and
+        // adjust the post in one move. The ProofCard celebration still
+        // exists for callers that want it, but isn't the default path.
+        showingPostEditor = true
     }
 
     private func makeCompletedExercises() -> [CompletedExercise] {
