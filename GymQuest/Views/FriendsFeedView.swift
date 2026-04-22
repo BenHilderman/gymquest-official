@@ -181,10 +181,9 @@ struct FriendsFeedView: View {
                 activityBellButton
             }
         }
-        .sheet(isPresented: $presentingActivity, onDismiss: markActivitySeen) {
-            NavigationStack {
-                SocialActivityView(profile: profile)
-            }
+        .navigationDestination(isPresented: $presentingActivity) {
+            SocialActivityView(profile: profile)
+                .onDisappear { markActivitySeen() }
         }
         .onReceive(minuteTimer) { now in
             minuteTick = now

@@ -36,9 +36,14 @@ struct CalendarHistoryView: View {
             .navigationTitle("Workout History")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }
-                        .foregroundStyle(GQColors.deepBlue)
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(GQColors.textPrimary)
+                    }
                 }
             }
             .sheet(isPresented: $showingWorkoutReview) {

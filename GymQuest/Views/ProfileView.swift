@@ -315,10 +315,8 @@ struct ProfileView: View {
             .homeSocialCard(cornerRadius: 14)
         }
         .buttonStyle(GQInteractiveStyle())
-        .sheet(isPresented: $showingCalendarHistory) {
+        .navigationDestination(isPresented: $showingCalendarHistory) {
             CalendarHistoryView(workouts: workouts)
-                .presentationDetents([.large])
-                .presentationDragIndicator(.visible)
         }
     }
 
@@ -594,10 +592,8 @@ struct ProfileView: View {
             }
             .padding(12)
             .homeSocialCard(cornerRadius: 14)
-            .sheet(isPresented: $showingHealthDashboard) {
-                NavigationStack {
-                    HealthDashboardView(profile: profile, workouts: Array(workouts))
-                }
+            .navigationDestination(isPresented: $showingHealthDashboard) {
+                HealthDashboardView(profile: profile, workouts: Array(workouts))
             }
         } else {
             Button {
@@ -624,10 +620,8 @@ struct ProfileView: View {
                 .homeSocialCard(cornerRadius: 14)
             }
             .buttonStyle(.plain)
-            .sheet(isPresented: $showingIntegrations) {
-                NavigationStack {
-                    IntegrationsView(profile: profile)
-                }
+            .navigationDestination(isPresented: $showingIntegrations) {
+                IntegrationsView(profile: profile)
             }
         }
     }
@@ -3374,13 +3368,9 @@ struct SettingsView: View {
                 Button {
                     dismiss()
                 } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 14, weight: .semibold))
-                        Text("Back")
-                            .font(.system(size: 17))
-                    }
-                    .foregroundColor(GQColors.textPrimary)
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(GQColors.textPrimary)
                 }
             }
         }
