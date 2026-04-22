@@ -66,7 +66,7 @@ struct ActivityItem: Identifiable {
 
 // MARK: - Identifiable UUID Wrapper
 
-struct IdentifiableUUID: Identifiable {
+struct IdentifiableUUID: Identifiable, Hashable {
     let id: UUID
 }
 

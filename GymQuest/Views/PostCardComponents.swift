@@ -29,6 +29,11 @@ struct PostCardV2: View {
 
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject var appState: AppState
+    /// Used to resolve a tapped author id into a full UserProfile so
+    /// the author-tap push-navigates to the shared ProfileView (same
+    /// design the viewer sees for their own profile) instead of the
+    /// lightweight UserProfileSheet.
+    @Query private var allProfiles: [UserProfile]
     @State private var isLiked = false
     @State private var showVideoPlayer = false
     @State private var showComments = false
@@ -234,9 +239,9 @@ struct PostCardV2: View {
                 .presentationDetents([.medium, .large])
             }
         }
-        .sheet(item: $profileUserId) { wrapped in
-            if let p = profile {
-                UserProfileSheet(userId: wrapped.id, currentProfile: p)
+        .navigationDestination(item: $profileUserId) { wrapped in
+            if let target = allProfiles.first(where: { $0.id == wrapped.id }) {
+                ProfileView(profile: target)
             }
         }
         .sheet(isPresented: $showStealSetSheet) {

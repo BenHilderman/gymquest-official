@@ -116,11 +116,13 @@ struct DiscoverSearchView: View {
             .fullScreenCover(item: $tappedPost) { post in
                 searchPostView(post)
             }
-            .sheet(item: Binding(
+            .navigationDestination(item: Binding(
                 get: { tappedProfileId.map { IdentifiableUUID(id: $0) } },
                 set: { tappedProfileId = $0?.id }
             )) { wrapped in
-                UserProfileSheet(userId: wrapped.id, currentProfile: profile)
+                if let target = allUserProfiles.first(where: { $0.id == wrapped.id }) {
+                    ProfileView(profile: target)
+                }
             }
             .sheet(item: $tappedExercise) { meta in
                 NavigationStack { ExerciseDetailSheet(metadata: meta) }
