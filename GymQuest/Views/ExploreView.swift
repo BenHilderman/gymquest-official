@@ -168,10 +168,11 @@ struct ExploreView: View {
                         )
                         .padding(.top, 14)
                     } header: {
-                        // Pinned chip strip — sticks to the top when
-                        // the user scrolls past the hero. Hairline +
-                        // subtle drop shadow give it nav-like depth so
-                        // it reads as a distinct bar over the grid.
+                        // Pinned chip strip — uses the page gray as its
+                        // background (blends with surroundings, doesn't
+                        // read as a white bar). A bottom hairline plus a
+                        // subtle drop shadow give it enough distinction
+                        // when pinned over scrolling content.
                         HStack(spacing: 8) {
                             discoverFilterChips
                             discoverModeToggle
@@ -179,13 +180,13 @@ struct ExploreView: View {
                         }
                         .padding(.vertical, 8)
                         .frame(maxWidth: .infinity)
-                        .background(GQColors.surfaceBase)
+                        .background(GQColors.background)
                         .overlay(alignment: .bottom) {
                             Rectangle()
                                 .fill(GQColors.borderDefault.opacity(0.55))
                                 .frame(height: 0.5)
                         }
-                        .shadow(color: .black.opacity(0.05), radius: 4, y: 2)
+                        .shadow(color: .black.opacity(0.04), radius: 4, y: 2)
                     }
                 }
             }
