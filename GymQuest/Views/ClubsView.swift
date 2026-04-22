@@ -850,21 +850,21 @@ struct ClubFeedView: View {
                     groupedSection(header: "YOUR CLUBS") {
                         yourClubsRowsOnly
                     }
-                    .padding(.top, 12)
+                    .padding(.top, 14)
                 }
 
                 if !computedEventRows.isEmpty {
                     groupedSection(header: "UPCOMING EVENTS") {
                         eventsRowsOnly
                     }
-                    .padding(.top, 20)
+                    .padding(.top, 22)
                 }
 
                 if hasAnyDiscoverContent {
                     groupedSection(header: "DISCOVER") {
                         discoverCardContent
                     }
-                    .padding(.top, 20)
+                    .padding(.top, 22)
                     .padding(.bottom, 16)
                 }
 
@@ -952,8 +952,10 @@ struct ClubFeedView: View {
             .padding(.trailing, 16)
     }
 
-    /// Apple Settings-style section — tracked-caps header at 32pt
-    /// from the screen edge, content inside a white rounded card below.
+    /// Apple Music / News-style section — tracked-caps header at
+    /// 16pt from the screen edge, content sits in a full-width white
+    /// band below with a hairline at top and bottom. Page-level gray
+    /// gaps between sections carry the structure.
     @ViewBuilder
     private func groupedSection<Content: View>(
         header: String,
@@ -968,7 +970,7 @@ struct ClubFeedView: View {
                     .foregroundColor(GQColors.textTertiary)
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, 24)
+            .padding(.horizontal, 16)
 
             if let headerAccessory {
                 headerAccessory
@@ -6145,27 +6147,28 @@ struct ClubMapView: View {
 // MARK: - Grouped card container (inset white section)
 
 private struct GroupedCardModifier: ViewModifier {
-    var cornerRadius: CGFloat = 6
-
     func body(content: Content) -> some View {
         content
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, 2)
             .background(GQColors.surfaceBase)
-            .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius)
-                    .strokeBorder(GQColors.borderDefault.opacity(0.45), lineWidth: 0.5)
-            )
-            .padding(.horizontal, 12)
+            .overlay(alignment: .top) {
+                Rectangle()
+                    .fill(GQColors.borderDefault.opacity(0.5))
+                    .frame(height: 0.5)
+            }
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(GQColors.borderDefault.opacity(0.5))
+                    .frame(height: 0.5)
+            }
     }
 }
 
 extension View {
-    /// Wraps a section in an inset white rounded card with a subtle
-    /// border — matches Apple's grouped list style.
-    func groupedCard(cornerRadius: CGFloat = 16) -> some View {
-        modifier(GroupedCardModifier(cornerRadius: cornerRadius))
+    /// Wraps a section in a full-width white band with hairline
+    /// top/bottom separators — Apple Music / News section style.
+    func groupedCard() -> some View {
+        modifier(GroupedCardModifier())
     }
 }
 
