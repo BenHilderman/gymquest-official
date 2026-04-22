@@ -4,21 +4,6 @@ import SwiftData
 import UIKit
 #endif
 
-/// LCG-backed RandomNumberGenerator seeded by the Friends-feed refresh
-/// tick. Used to shuffle the suggested-post pool so pull-to-refresh
-/// surfaces different picks each time instead of replaying the same
-/// order. Deterministic within a session — the same seed yields the
-/// same shuffle, so SwiftUI's view identity stays stable between
-/// re-renders.
-private struct SeededGenerator: RandomNumberGenerator {
-    private var state: UInt64
-    init(seed: UInt64) { self.state = seed == 0 ? 0x9E37_79B9_7F4A_7C15 : seed }
-    mutating func next() -> UInt64 {
-        state = state &* 2862933555777941757 &+ 3037000493
-        return state
-    }
-}
-
 /// The cozy friends-only scroll — exact same rendering as the original
 /// Friends tab (PostCardV2 + FeedCurator). Presented as a sheet from
 /// Explore. Every ~6 posts a workout suggestion card appears.
@@ -129,7 +114,7 @@ struct FriendsFeedView: View {
                                 .id(post.id)
                             case .suggestedPost(let post):
                                 VStack(spacing: 0) {
-                                    suggestedPostBanner(post)
+                                    suggestedPostBanner
                                     PostCardV2(
                                         post: post,
                                         currentUserId: profile.id,
@@ -398,8 +383,7 @@ struct FriendsFeedView: View {
 
     /// Recent posts with media from people the user does NOT follow —
     /// candidate pool for "Suggested for You" interstitials. Prioritized
-    /// by club co-membership. Shuffled on each refresh so pull-to-
-    /// refresh actually surfaces different picks.
+    /// by club co-membership so the content feels contextually close.
     private var suggestedPosts: [Post] {
         let followedIds = Set(follows.filter { $0.userId == profile.id }.map(\.odId))
         let myClubIds = Set(clubs.filter { $0.memberIds.contains(profile.id) }.map(\.id))
@@ -409,30 +393,19 @@ struct FriendsFeedView: View {
             .subtracting(followedIds)
             .subtracting([profile.id])
 
-        var pool = allPosts
+        return allPosts
             .filter { post in
                 !followedIds.contains(post.authorId)
                 && post.authorId != profile.id
                 && (post.photoData != nil || post.videoData != nil || !post.mediaItems.isEmpty)
             }
             .sorted { a, b in
+                // In-club authors first, then by timestamp
                 let aIn = clubMemberIds.contains(a.authorId)
                 let bIn = clubMemberIds.contains(b.authorId)
                 if aIn != bIn { return aIn && !bIn }
                 return a.timestamp > b.timestamp
             }
-
-        if refreshTick > 0, !pool.isEmpty {
-            var rng = SeededGenerator(seed: UInt64(refreshTick))
-            pool.shuffle(using: &rng)
-        }
-        return pool
-    }
-
-    /// Which club (if any) connects the viewer to a given author —
-    /// used for the "from The ARC" context line on suggested rows.
-    private func sharedClubName(authorId: UUID) -> String? {
-        clubs.first(where: { $0.memberIds.contains(profile.id) && $0.memberIds.contains(authorId) })?.name
     }
 
     enum FeedItem: Identifiable {
@@ -512,56 +485,19 @@ struct FriendsFeedView: View {
         return items
     }
 
-    /// Rich banner for a suggested post — explicit "not following"
-    /// signal with author name, optional shared-club context, and an
-    /// inline Follow pill that commits the follow in one tap.
-    @ViewBuilder
-    private func suggestedPostBanner(_ post: Post) -> some View {
-        let author = allUserProfiles.first(where: { $0.id == post.authorId })
-        let firstName = author?.name.components(separatedBy: " ").first ?? post.authorName
-        let sharedClub = sharedClubName(authorId: post.authorId)
-
-        HStack(spacing: 6) {
+    private var suggestedPostBanner: some View {
+        HStack(spacing: 5) {
             Image(systemName: "sparkles")
                 .font(.system(size: 10, weight: .bold))
-                .foregroundStyle(GQGradients.primary)
-
-            Text("Suggested")
-                .font(.system(size: 11, weight: .bold))
-                .foregroundStyle(GQGradients.primary)
-
-            Text("·")
-                .font(.system(size: 11))
-                .foregroundColor(GQColors.textTertiary)
-
-            Text(sharedClub != nil ? "\(firstName) · \(sharedClub!)" : "You don't follow \(firstName) yet")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundColor(GQColors.textSecondary)
-                .lineLimit(1)
-
+            Text("SUGGESTED FOR YOU")
+                .font(.system(size: 10, weight: .bold))
+                .tracking(0.6)
             Spacer(minLength: 0)
-
-            if let author {
-                Button {
-                    followUser(author)
-                } label: {
-                    HStack(spacing: 3) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 9, weight: .bold))
-                        Text("Follow")
-                            .font(.system(size: 11, weight: .bold))
-                    }
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(Capsule().fill(GQGradients.primary))
-                }
-                .buttonStyle(.plain)
-            }
         }
+        .foregroundStyle(GQGradients.primary)
         .padding(.horizontal, 16)
         .padding(.top, 10)
-        .padding(.bottom, 6)
+        .padding(.bottom, 4)
         .background(GQColors.surfaceBase)
     }
 
