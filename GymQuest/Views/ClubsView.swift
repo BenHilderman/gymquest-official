@@ -892,14 +892,9 @@ struct ClubFeedView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                HStack(spacing: 14) {
+                HStack(spacing: 16) {
                     Button { presentingSearch = true } label: {
                         Image(systemName: "magnifyingglass")
-                            .font(.system(size: 15, weight: .medium))
-                            .foregroundColor(GQColors.textPrimary)
-                    }
-                    Button { presentingMap = true } label: {
-                        Image(systemName: "map")
                             .font(.system(size: 15, weight: .medium))
                             .foregroundColor(GQColors.textPrimary)
                     }
@@ -957,23 +952,23 @@ struct ClubFeedView: View {
             .padding(.trailing, 16)
     }
 
-    /// Apple Settings-style section — tracked-caps header at 32pt from
-    /// screen edge, rows inside a white rounded card just below.
+    /// Apple Settings-style section — tracked-caps header at 32pt
+    /// from the screen edge, content inside a white rounded card below.
     @ViewBuilder
     private func groupedSection<Content: View>(
         header: String,
         headerAccessory: AnyView? = nil,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text(header)
-                    .font(.system(size: 11, weight: .semibold))
-                    .tracking(1.0)
+                    .font(.system(size: 12, weight: .semibold))
+                    .tracking(0.6)
                     .foregroundColor(GQColors.textTertiary)
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, 32)
+            .padding(.horizontal, 24)
 
             if let headerAccessory {
                 headerAccessory
@@ -986,22 +981,44 @@ struct ClubFeedView: View {
 
     // MARK: - Search + categories strip (top of page)
 
-    /// Top filter strip — matches the Discover tab's pattern: a single
-    /// horizontal row of category chips directly under the nav. Search
-    /// lives as a toolbar icon instead of an inline bar.
+    /// Top filter strip — horizontal row of category chips under the
+    /// nav. A trailing Map chip replaces the old toolbar map icon so
+    /// the nav stays at two icons (search + create).
     @ViewBuilder
     private var searchAndCategoryStrip: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
-                categoryChip(nil, label: "All")
-                ForEach(browseCategories, id: \.self) { cat in
-                    categoryChip(cat, label: cat.rawValue)
+        HStack(spacing: 0) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    categoryChip(nil, label: "All")
+                    ForEach(browseCategories, id: \.self) { cat in
+                        categoryChip(cat, label: cat.rawValue)
+                    }
                 }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 2)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 2)
+            .scrollClipDisabled()
+
+            Button {
+                #if canImport(UIKit)
+                UISelectionFeedbackGenerator().selectionChanged()
+                #endif
+                presentingMap = true
+            } label: {
+                Image(systemName: "map")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(GQColors.textSecondary)
+                    .frame(width: 34, height: 30)
+                    .background(
+                        Capsule().fill(GQColors.surfaceBase)
+                    )
+                    .overlay(
+                        Capsule().stroke(GQColors.borderDefault.opacity(0.5), lineWidth: 1)
+                    )
+            }
+            .buttonStyle(.plain)
+            .padding(.trailing, 12)
         }
-        .scrollClipDisabled()
         .padding(.bottom, 4)
     }
 
@@ -6128,19 +6145,18 @@ struct ClubMapView: View {
 // MARK: - Grouped card container (inset white section)
 
 private struct GroupedCardModifier: ViewModifier {
-    var cornerRadius: CGFloat = 12
+    var cornerRadius: CGFloat = 6
 
     func body(content: Content) -> some View {
         content
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, 4)
+            .padding(.vertical, 2)
             .background(GQColors.surfaceBase)
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius)
-                    .strokeBorder(GQColors.borderDefault.opacity(0.32), lineWidth: 0.5)
+                    .strokeBorder(GQColors.borderDefault.opacity(0.45), lineWidth: 0.5)
             )
-            .shadow(color: .black.opacity(0.035), radius: 10, y: 3)
             .padding(.horizontal, 12)
     }
 }
