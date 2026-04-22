@@ -162,38 +162,280 @@ struct DiscoverSearchView: View {
 
     // MARK: - Recents (idle state)
 
+    /// Idle state — what the user sees before typing. Shows (in order):
+    /// recent searches (if any), quick browse-by-category chips,
+    /// trending workouts horizontal rail, and a suggested clubs rail.
+    /// Gives the user something to explore even when they don't know
+    /// what to type.
     private var recentsBody: some View {
         ScrollView {
-            if recents.isEmpty {
-                emptyState
-                    .padding(.top, 60)
-            } else {
-                LazyVStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Text("Recent")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundColor(GQColors.textPrimary)
-                        Spacer()
-                        Button("Clear all") {
-                            withAnimation(.easeOut(duration: 0.2)) {
-                                RecentSearchStore.clearAll()
-                                recents = []
-                            }
-                        }
-                        .font(.system(size: 13))
-                        .foregroundColor(GQColors.textSecondary)
-                        .buttonStyle(.plain)
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 6)
+            LazyVStack(alignment: .leading, spacing: 18) {
+                if !recents.isEmpty {
+                    recentsSection
+                }
 
-                    ForEach(recents) { entry in
-                        recentRow(entry)
+                browseByCategorySection
+
+                if !trendingPosts.isEmpty {
+                    trendingWorkoutsSection
+                }
+
+                if !suggestedClubs.isEmpty {
+                    suggestedClubsSection
+                }
+
+                if recents.isEmpty {
+                    idleHintFooter
+                        .padding(.top, 4)
+                }
+            }
+            .padding(.top, 4)
+            .padding(.bottom, 60)
+        }
+    }
+
+    @ViewBuilder
+    private var recentsSection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text("Recent")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(GQColors.textPrimary)
+                Spacer()
+                Button("Clear all") {
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        RecentSearchStore.clearAll()
+                        recents = []
                     }
                 }
-                .padding(.bottom, 40)
+                .font(.system(size: 13))
+                .foregroundColor(GQColors.textSecondary)
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 4)
+
+            ForEach(recents) { entry in
+                recentRow(entry)
             }
         }
+    }
+
+    private let idleBrowseCategories: [(label: String, icon: String, query: String)] = [
+        ("Push", "figure.strengthtraining.traditional", "push"),
+        ("Pull", "figure.cross.training", "pull"),
+        ("Legs", "figure.walk", "legs"),
+        ("Cardio", "flame.fill", "cardio"),
+        ("Yoga", "figure.mind.and.body", "yoga"),
+        ("HIIT", "bolt.heart.fill", "hiit"),
+    ]
+
+    @ViewBuilder
+    private var browseByCategorySection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Browse")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(GQColors.textPrimary)
+                .padding(.horizontal, 16)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(idleBrowseCategories, id: \.label) { item in
+                        Button {
+                            rawQuery = item.query
+                        } label: {
+                            HStack(spacing: 5) {
+                                Image(systemName: item.icon)
+                                    .font(.system(size: 11, weight: .semibold))
+                                Text(item.label)
+                                    .font(.system(size: 13, weight: .semibold))
+                            }
+                            .foregroundColor(GQColors.textPrimary)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(Capsule().fill(GQColors.adaptiveOverlay(0.06)))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+        }
+    }
+
+    /// Top 5 posts with shareable workout data, ordered by recency.
+    /// Light approximation of "trending" — no like/comment @Query here
+    /// so we keep it cheap and bias on recency of runnable posts.
+    private var trendingPosts: [Post] {
+        allPosts
+            .filter { $0.sharedWorkoutData != nil }
+            .prefix(6)
+            .map { $0 }
+    }
+
+    @ViewBuilder
+    private var trendingWorkoutsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 5) {
+                Image(systemName: "flame.fill")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(GQGradients.primary)
+                Text("Trending workouts")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(GQColors.textPrimary)
+            }
+            .padding(.horizontal, 16)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(trendingPosts) { post in
+                        Button { tappedPost = post } label: {
+                            trendingWorkoutCard(post)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func trendingWorkoutCard(_ post: Post) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ZStack(alignment: .bottomLeading) {
+                #if canImport(UIKit)
+                if let data = primaryPostThumbData(post), let img = UIImage(data: data) {
+                    Image(uiImage: img)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: 148, height: 110)
+                        .clipped()
+                } else {
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(GQGradients.primary.opacity(0.14))
+                        .frame(width: 148, height: 110)
+                        .overlay(
+                            Image(systemName: "figure.strengthtraining.traditional")
+                                .font(.system(size: 20))
+                                .foregroundStyle(GQGradients.primary)
+                        )
+                }
+                #else
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(GQGradients.primary.opacity(0.14))
+                    .frame(width: 148, height: 110)
+                #endif
+
+                if let dur = post.duration, dur > 0 {
+                    Text("\(dur)m")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Capsule().fill(.black.opacity(0.55)))
+                        .padding(6)
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+
+            Text(postTitle(post))
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(GQColors.textPrimary)
+                .lineLimit(1)
+                .frame(width: 148, alignment: .leading)
+        }
+    }
+
+    /// Top 5 public clubs the user has not joined, ranked by member
+    /// count — a quick "join one of these" surface in the idle state.
+    private var suggestedClubs: [Club] {
+        let followedIds = Set(profile.id == profile.id ? [] as [UUID] : [])
+        _ = followedIds
+        let myClubIds = Set(clubs.filter { $0.memberIds.contains(profile.id) }.map(\.id))
+        return clubs
+            .filter { $0.parentClubId == nil && !myClubIds.contains($0.id) && $0.isOpen }
+            .sorted { $0.memberCount > $1.memberCount }
+            .prefix(5)
+            .map { $0 }
+    }
+
+    @ViewBuilder
+    private var suggestedClubsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 5) {
+                Image(systemName: "person.3.fill")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(GQGradients.primary)
+                Text("Clubs you might like")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(GQColors.textPrimary)
+            }
+            .padding(.horizontal, 16)
+
+            VStack(spacing: 0) {
+                ForEach(Array(suggestedClubs.enumerated()), id: \.element.id) { idx, club in
+                    Button {
+                        appState.selectedTab = .clubs
+                        dismiss()
+                    } label: {
+                        suggestedClubRow(club)
+                    }
+                    .buttonStyle(.plain)
+                    if idx < suggestedClubs.count - 1 {
+                        Divider()
+                            .overlay(GQColors.adaptiveOverlay(0.08))
+                            .padding(.leading, 68)
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func suggestedClubRow(_ club: Club) -> some View {
+        HStack(spacing: 12) {
+            Circle()
+                .fill(GQGradients.primary)
+                .frame(width: 40, height: 40)
+                .overlay(
+                    Text(String(club.name.prefix(1)).uppercased())
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                )
+            VStack(alignment: .leading, spacing: 2) {
+                Text(club.name)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(GQColors.textPrimary)
+                    .lineLimit(1)
+                Text(clubSubtitle(club))
+                    .font(.system(size: 11))
+                    .foregroundColor(GQColors.textTertiary)
+                    .lineLimit(1)
+            }
+            Spacer()
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(GQColors.textTertiary)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .contentShape(Rectangle())
+    }
+
+    @ViewBuilder
+    private var idleHintFooter: some View {
+        VStack(spacing: 6) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 22))
+                .foregroundColor(GQColors.textTertiary)
+            Text("Search workouts, exercises, people, clubs")
+                .font(.system(size: 12))
+                .foregroundColor(GQColors.textTertiary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 16)
     }
 
     private func recentRow(_ entry: RecentSearchEntry) -> some View {
