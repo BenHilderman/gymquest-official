@@ -942,13 +942,14 @@ struct ClubFeedView: View {
     }
 
     /// Hairline between rows *within* a section — inset past the
-    /// avatar so it looks like a grouped-list separator instead of a
-    /// full-width section break.
+    /// avatar so it reads as a grouped-list separator. Uses the
+    /// prominent border color so each row looks distinctly separate,
+    /// not visually continuous.
     private var inRowDivider: some View {
         Rectangle()
-            .fill(GQColors.borderDefault.opacity(0.7))
+            .fill(GQColors.borderProminent)
             .frame(height: 0.5)
-            .padding(.leading, 74)
+            .padding(.leading, 72)
             .padding(.trailing, 16)
     }
 
@@ -1828,16 +1829,15 @@ struct ClubFeedView: View {
     /// that flips between "For You", "Nearby", "Friends", and
     /// "Challenges" tabs. Keeps the page scannable while still balancing
     /// personal vs. exploratory discovery.
-    /// Content of the Discover card: segmented tab control sits on a
-    /// tinted "toolbar" band with a prominent hairline below, then the
-    /// active tab's body on plain white. The tint+hairline combo keeps
-    /// the tabs from blending into the content.
+    /// Content of the Discover card: segmented tab control sits on
+    /// plain white with a prominent hairline below separating it from
+    /// the tab body. No tinted strip — the hairline alone carries the
+    /// separation, which reads cleaner against the white card.
     @ViewBuilder
     private var discoverCardContent: some View {
         VStack(alignment: .leading, spacing: 0) {
             discoverSegmentedControl
-                .padding(.vertical, 9)
-                .background(GQColors.adaptiveOverlay(0.035))
+                .padding(.vertical, 10)
 
             Rectangle()
                 .fill(GQColors.borderProminent)
