@@ -554,11 +554,20 @@ struct DiscoverSearchView: View {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 6) {
                         switch selectedTab {
-                        case .top: topResults
-                        case .workouts: listResults(matchedWorkouts.map(workoutEntry))
-                        case .exercises: listResults(matchedExercises.map(exerciseEntry))
-                        case .people: listResults(matchedPeople.map(personEntry))
-                        case .clubs: listResults(matchedClubs.map(clubEntry))
+                        case .top:
+                            topResults
+                        case .workouts:
+                            if matchedWorkouts.isEmpty { perTabEmptyState(label: "workouts") }
+                            else { listResults(matchedWorkouts.map(workoutEntry)) }
+                        case .exercises:
+                            if matchedExercises.isEmpty { perTabEmptyState(label: "exercises") }
+                            else { listResults(matchedExercises.map(exerciseEntry)) }
+                        case .people:
+                            if matchedPeople.isEmpty { perTabEmptyState(label: "people") }
+                            else { listResults(matchedPeople.map(personEntry)) }
+                        case .clubs:
+                            if matchedClubs.isEmpty { perTabEmptyState(label: "clubs") }
+                            else { listResults(matchedClubs.map(clubEntry)) }
                         }
                     }
                     .padding(.vertical, 8)
@@ -566,6 +575,41 @@ struct DiscoverSearchView: View {
                 }
             }
         }
+    }
+
+    /// Shown when the active tab has zero matches but other tabs do —
+    /// instead of the old silent blank. Points the user at the Top tab
+    /// which aggregates cross-tab matches.
+    @ViewBuilder
+    private func perTabEmptyState(label: String) -> some View {
+        VStack(spacing: 10) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 24))
+                .foregroundColor(GQColors.textTertiary)
+            Text("No \(label) match “\(query)”")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(GQColors.textSecondary)
+                .multilineTextAlignment(.center)
+            Text("Matches live in other tabs — try Top.")
+                .font(.system(size: 11))
+                .foregroundColor(GQColors.textTertiary)
+                .multilineTextAlignment(.center)
+            Button {
+                withAnimation(.easeInOut(duration: 0.15)) { selectedTab = .top }
+            } label: {
+                Text("See Top matches")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 7)
+                    .background(Capsule().fill(GQGradients.primary))
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 2)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 48)
+        .padding(.horizontal, 24)
     }
 
     private var tabBar: some View {
@@ -983,13 +1027,41 @@ struct DiscoverSearchView: View {
     }
 
     private var noResultsState: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 28))
                 .foregroundColor(GQColors.textTertiary)
             Text("No results for “\(query)”")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(GQColors.textSecondary)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(GQColors.textPrimary)
+            Text("Try a different word or browse by category.")
+                .font(.system(size: 12))
+                .foregroundColor(GQColors.textTertiary)
+                .multilineTextAlignment(.center)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(idleBrowseCategories, id: \.label) { item in
+                        Button {
+                            rawQuery = item.query
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: item.icon)
+                                    .font(.system(size: 10, weight: .semibold))
+                                Text(item.label)
+                                    .font(.system(size: 12, weight: .semibold))
+                            }
+                            .foregroundColor(GQColors.textPrimary)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(Capsule().fill(GQColors.adaptiveOverlay(0.06)))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+            .padding(.top, 6)
         }
     }
 
