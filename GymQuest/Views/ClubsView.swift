@@ -1694,29 +1694,47 @@ struct ClubFeedView: View {
         searchFilteredRecommended.filter { friendsInClub($0) > 0 }
     }
 
-    /// "For You" picks — a mix of friends'-clubs, nearby-with-location,
-    /// and highest-member clubs, each paired with a human-readable
-    /// reason. De-duplicates while preserving the order we'd like to
-    /// feature them.
+    /// "For You" picks — friends' clubs, then category match, then
+    /// top-by-members. Everything draws from `searchFilteredRecommended`
+    /// so the active category chip narrows the pool. When a filter is
+    /// on, reasons become category-specific ("Top running", "Marcus
+    /// runs too") so the For You tab clearly reflects the active chip.
     private var forYouPicks: [(club: Club, reason: String)] {
         var out: [(Club, String)] = []
         var seen = Set<UUID>()
+        let catName = selectedCategory?.rawValue.lowercased()
 
         // 1. Friends' clubs first — strongest social pull
         for club in friendsDiscoverClubs where !seen.contains(club.id) {
             let friends = friendsInClub(club)
             let name = firstFriendNameInClub(club) ?? "A friend"
-            let reason = friends == 1 ? "\(name) is in" : "\(name) + \(friends - 1) friends"
+            let base = friends == 1 ? "\(name) is in" : "\(name) + \(friends - 1) friends"
+            let reason: String
+            if let catName {
+                reason = friends == 1 ? "\(name) \(catName)s too" : "\(base) · \(catName)"
+            } else {
+                reason = base
+            }
             out.append((club, reason))
             seen.insert(club.id)
             if out.count >= 2 { break }
         }
 
-        // 2. Category match — "because you lift", "because you run"
+        // 2. Category stage
         let myCats = Set(yourClubs.map(\.resolvedCategory))
         for club in searchFilteredRecommended where !seen.contains(club.id) {
-            if myCats.contains(club.resolvedCategory) {
-                out.append((club, "Because you \(club.resolvedCategory.rawValue.lowercased())"))
+            let reason: String?
+            if let cat = selectedCategory {
+                // Explicit chip — label clearly so user sees the filter
+                // is being honored on For You picks.
+                reason = "Top \(cat.rawValue.lowercased())"
+            } else if myCats.contains(club.resolvedCategory) {
+                reason = "Because you \(club.resolvedCategory.rawValue.lowercased())"
+            } else {
+                reason = nil
+            }
+            if let reason {
+                out.append((club, reason))
                 seen.insert(club.id)
                 if out.count >= 4 { break }
             }
@@ -1725,7 +1743,8 @@ struct ClubFeedView: View {
         // 3. Top-by-members fallback
         let bySize = searchFilteredRecommended.sorted { $0.memberCount > $1.memberCount }
         for club in bySize where !seen.contains(club.id) {
-            let reason = club.memberCount == 1 ? "1 member" : "\(club.memberCount) members"
+            let memberText = club.memberCount == 1 ? "1 member" : "\(club.memberCount) members"
+            let reason = catName.map { "\($0.capitalized) · \(memberText)" } ?? memberText
             out.append((club, reason))
             seen.insert(club.id)
             if out.count >= 5 { break }
