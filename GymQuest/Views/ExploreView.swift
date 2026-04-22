@@ -165,7 +165,7 @@ struct ExploreView: View {
                                         .frame(height: 0.5)
                                 }
                         )
-                        .padding(.top, 12)
+                        .padding(.top, 6)
                     } header: {
                         // Pinned chip strip — uses the page gray as its
                         // background (blends with surroundings, doesn't
