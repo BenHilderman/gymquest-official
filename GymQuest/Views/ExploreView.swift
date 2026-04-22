@@ -155,24 +155,23 @@ struct ExploreView: View {
                         )
                     } header: {
                         // Pinned chip strip — sticks to the top when
-                        // the user scrolls past the hero. A 0.5pt
-                        // borderDefault hairline along the bottom
-                        // edge gives it an Apple nav-like closure so
-                        // it doesn't blend into the grid below it.
-                        VStack(spacing: 0) {
-                            HStack(spacing: 8) {
-                                discoverFilterChips
-                                discoverModeToggle
-                                    .padding(.trailing, 12)
-                            }
-                            .padding(.vertical, 8)
-                            .frame(maxWidth: .infinity)
-                            .background(GQColors.surfaceBase)
-
+                        // the user scrolls past the hero. Hairline +
+                        // subtle drop shadow give it nav-like depth so
+                        // it reads as a distinct bar over the grid.
+                        HStack(spacing: 8) {
+                            discoverFilterChips
+                            discoverModeToggle
+                                .padding(.trailing, 12)
+                        }
+                        .padding(.vertical, 8)
+                        .frame(maxWidth: .infinity)
+                        .background(GQColors.surfaceBase)
+                        .overlay(alignment: .bottom) {
                             Rectangle()
                                 .fill(GQColors.borderDefault.opacity(0.55))
                                 .frame(height: 0.5)
                         }
+                        .shadow(color: .black.opacity(0.05), radius: 4, y: 2)
                     }
                 }
             }
