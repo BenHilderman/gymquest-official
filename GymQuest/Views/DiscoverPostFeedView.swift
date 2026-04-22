@@ -96,6 +96,7 @@ struct DiscoverPostFeedView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbarBackground(GQColors.background, for: .navigationBar)
+        .instagramBack()
     }
 
     /// Same chip layout Discover uses — the user stays in the same

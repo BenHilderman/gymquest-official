@@ -52,5 +52,6 @@ struct RecommendedPostsFeedView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbarBackground(GQColors.background, for: .navigationBar)
+        .instagramBack()
     }
 }
