@@ -140,6 +140,10 @@ struct ExploreView: View {
                             heroEmptyForFilter
                         }
 
+                        // Grid sits on a white band that starts with a
+                        // clear hairline, giving obvious separation
+                        // from the For You hero card above (which lives
+                        // on the gray page background).
                         DiscoverGrid(
                             items: cachedDiscoverItems,
                             onTapVideo: { post in
@@ -153,6 +157,16 @@ struct ExploreView: View {
                                 startWorkout(from: post)
                             }
                         )
+                        .padding(.top, 8)
+                        .background(
+                            GQColors.surfaceBase
+                                .overlay(alignment: .top) {
+                                    Rectangle()
+                                        .fill(GQColors.borderDefault.opacity(0.55))
+                                        .frame(height: 0.5)
+                                }
+                        )
+                        .padding(.top, 14)
                     } header: {
                         // Pinned chip strip — sticks to the top when
                         // the user scrolls past the hero. Hairline +
@@ -178,7 +192,7 @@ struct ExploreView: View {
             .padding(.bottom, 100)
         }
         .scrollContentBackground(.hidden)
-        .background(GQColors.surfaceBase)
+        .gqPageBackground()
         .refreshable {
             PresenceSeeder.refreshDemoPresence(in: modelContext)
             rebuildFeedCache()
