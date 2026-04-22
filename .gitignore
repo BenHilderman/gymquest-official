@@ -37,3 +37,8 @@ AppIconConcepts/
 # Utility scripts
 scripts/
 PLAN.md
+
+# Claude Code parallel worktrees — each is its own checkout, never track them here
+.claude/worktrees/
+# Per-machine local overrides
+.claude/settings.local.json
