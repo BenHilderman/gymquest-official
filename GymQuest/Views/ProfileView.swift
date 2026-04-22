@@ -155,9 +155,9 @@ struct ProfileView: View {
                             Button {
                                 dismissProfile()
                             } label: {
-                                Image(systemName: "chevron.left")
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundColor(GQColors.textPrimary)
+                                Image(systemName: "chevron.backward")
+                                    .font(.system(size: 17, weight: .semibold))
+                                    .foregroundColor(.black)
                                     .frame(width: 30, height: 30)
                                     .contentShape(Rectangle())
                             }
@@ -3363,14 +3363,15 @@ struct SettingsView: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
+        .navigationBarBackButtonHidden(true)
         .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
+            ToolbarItem(placement: .topBarLeading) {
                 Button {
                     dismiss()
                 } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(GQColors.textPrimary)
+                    Image(systemName: "chevron.backward")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(.black)
                 }
             }
         }

@@ -35,14 +35,15 @@ struct CalendarHistoryView: View {
             .background(GQColors.background.ignoresSafeArea())
             .navigationTitle("Workout History")
             .navigationBarTitleDisplayMode(.inline)
+            .navigationBarBackButtonHidden(true)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
                         dismiss()
                     } label: {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(GQColors.textPrimary)
+                        Image(systemName: "chevron.backward")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundColor(.black)
                     }
                 }
             }
