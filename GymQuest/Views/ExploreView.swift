@@ -154,18 +154,25 @@ struct ExploreView: View {
                             }
                         )
                     } header: {
-                        // Pinned chip strip — stays glued to the top
-                        // of the feed as the user scrolls past the
-                        // hero. Tapping a chip rebuilds the 5-pick
-                        // hero carousel around that category.
-                        HStack(spacing: 8) {
-                            discoverFilterChips
-                            discoverModeToggle
-                                .padding(.trailing, 12)
+                        // Pinned chip strip — sticks to the top when
+                        // the user scrolls past the hero. A 0.5pt
+                        // borderDefault hairline along the bottom
+                        // edge gives it an Apple nav-like closure so
+                        // it doesn't blend into the grid below it.
+                        VStack(spacing: 0) {
+                            HStack(spacing: 8) {
+                                discoverFilterChips
+                                discoverModeToggle
+                                    .padding(.trailing, 12)
+                            }
+                            .padding(.vertical, 8)
+                            .frame(maxWidth: .infinity)
+                            .background(GQColors.surfaceBase)
+
+                            Rectangle()
+                                .fill(GQColors.borderDefault.opacity(0.55))
+                                .frame(height: 0.5)
                         }
-                        .padding(.vertical, 8)
-                        .frame(maxWidth: .infinity)
-                        .background(GQColors.surfaceBase)
                     }
                 }
             }
