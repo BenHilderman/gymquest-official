@@ -964,17 +964,17 @@ struct ClubFeedView: View {
         headerAccessory: AnyView? = nil,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 7) {
                 if let icon {
                     Image(systemName: icon)
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(GQColors.textTertiary)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(GQColors.textSecondary)
                 }
                 Text(header)
-                    .font(.system(size: 12, weight: .semibold))
-                    .tracking(0.6)
-                    .foregroundColor(GQColors.textTertiary)
+                    .font(.system(size: 13, weight: .semibold))
+                    .tracking(0.4)
+                    .foregroundColor(GQColors.textSecondary)
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 16)
@@ -1014,16 +1014,19 @@ struct ClubFeedView: View {
                 #endif
                 presentingMap = true
             } label: {
-                Image(systemName: "map")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(GQColors.textSecondary)
-                    .frame(width: 34, height: 30)
-                    .background(
-                        Capsule().fill(GQColors.surfaceBase)
-                    )
-                    .overlay(
-                        Capsule().stroke(GQColors.borderDefault.opacity(0.5), lineWidth: 1)
-                    )
+                HStack(spacing: 4) {
+                    Image(systemName: "map")
+                        .font(.system(size: 10, weight: .semibold))
+                    Text("Map")
+                        .font(.system(size: 12, weight: .semibold))
+                }
+                .foregroundColor(GQColors.textSecondary)
+                .padding(.horizontal, 11)
+                .padding(.vertical, 6)
+                .background(Capsule().fill(GQColors.surfaceBase))
+                .overlay(
+                    Capsule().stroke(GQColors.borderDefault.opacity(0.5), lineWidth: 1)
+                )
             }
             .buttonStyle(.plain)
             .padding(.trailing, 12)
@@ -1310,12 +1313,12 @@ struct ClubFeedView: View {
         let eventToday = hasEventToday(club)
 
         HStack(spacing: 12) {
-            clubAvatar(club, size: 46)
+            clubAvatar(club, size: 44)
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 5) {
                     Text(club.name)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundColor(GQColors.textPrimary)
                         .lineLimit(1)
                     if club.isVerified {
@@ -1337,7 +1340,7 @@ struct ClubFeedView: View {
             yourClubTrailing(club, live: live, eventToday: eventToday)
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.vertical, 14)
         .contentShape(Rectangle())
     }
 
@@ -1349,29 +1352,29 @@ struct ClubFeedView: View {
             HStack(spacing: 5) {
                 Circle().fill(GQColors.success).frame(width: 6, height: 6)
                 Text("\(live) training now")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(GQColors.success)
             }
         } else if eventToday, let ev = nextEvent(for: club), Calendar.current.isDateInToday(ev.date) {
             Text("Today · \(ev.date.formatted(date: .omitted, time: .shortened)) — \(ev.title)")
-                .font(.system(size: 12))
+                .font(.system(size: 13, weight: .medium))
                 .foregroundColor(GQColors.textSecondary)
                 .lineLimit(1)
         } else if let ev = nextEvent(for: club) {
             Text("\(eventDayLabelShort(ev.date)) · \(ev.title)")
-                .font(.system(size: 12))
-                .foregroundColor(GQColors.textTertiary)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(GQColors.textSecondary)
                 .lineLimit(1)
         } else {
             let friends = friendsInClub(club)
             if friends > 0, let firstName = firstFriendNameInClub(club) {
                 Text(friends == 1 ? "\(firstName) is in" : "\(firstName) + \(friends - 1) friends")
-                    .font(.system(size: 12))
-                    .foregroundColor(GQColors.textTertiary)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(GQColors.textSecondary)
                     .lineLimit(1)
             } else {
                 Text("\(club.memberCount == 1 ? "1 member" : "\(club.memberCount) members") · \(club.resolvedCategory.rawValue)")
-                    .font(.system(size: 12))
+                    .font(.system(size: 13))
                     .foregroundColor(GQColors.textTertiary)
                     .lineLimit(1)
             }
