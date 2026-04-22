@@ -4,6 +4,19 @@ import SwiftData
 import UIKit
 #endif
 
+/// LCG-backed RandomNumberGenerator seeded by the refresh tick. Used to
+/// shuffle suggestion pools so pull-to-refresh surfaces different picks.
+/// Deterministic within a session — identical seeds reproduce the same
+/// order, so SwiftUI view identity stays stable between re-renders.
+private struct SeededGenerator: RandomNumberGenerator {
+    private var state: UInt64
+    init(seed: UInt64) { self.state = seed == 0 ? 0x9E37_79B9_7F4A_7C15 : seed }
+    mutating func next() -> UInt64 {
+        state = state &* 2862933555777941757 &+ 3037000493
+        return state
+    }
+}
+
 /// The cozy friends-only scroll — exact same rendering as the original
 /// Friends tab (PostCardV2 + FeedCurator). Presented as a sheet from
 /// Explore. Every ~6 posts a workout suggestion card appears.
@@ -31,6 +44,15 @@ struct FriendsFeedView: View {
     /// Incremented on pull-to-refresh so the mixedFeed recomputes
     /// (different suggested-post selection, re-shuffled people card).
     @State private var refreshTick: Int = 0
+    /// Friend-post count observed at the last refresh — when a refresh
+    /// doesn't yield new friend content we lean harder on suggestions
+    /// and show a "No new posts" toast instead of looking broken.
+    @State private var lastRefreshFriendCount: Int = 0
+    /// Consecutive refreshes that returned no new friend posts. Drives
+    /// how aggressively we pad the feed with trending/recommended.
+    @State private var staleRefreshCount: Int = 0
+    /// Ephemeral toast shown at the top of the feed after a refresh.
+    @State private var refreshToast: String? = nil
     private let minuteTimer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
 
     /// UserDefaults key holding the timestamp of the last Activity view
@@ -55,6 +77,14 @@ struct FriendsFeedView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 0) {
+                    if let toast = refreshToast {
+                        refreshToastBanner(toast)
+                            .padding(.horizontal, 16)
+                            .padding(.top, 8)
+                            .padding(.bottom, 4)
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                    }
+
                     if unreadActivityCount > 0 {
                         unreadActivityBanner
                             .padding(.horizontal, 16)
@@ -136,16 +166,7 @@ struct FriendsFeedView: View {
             }
             .scrollContentBackground(.hidden)
             .background(GQColors.surfaceBase)
-            .refreshable {
-                #if canImport(UIKit)
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                #endif
-                refreshTick &+= 1
-                // Small delay gives the native refresh spinner time to
-                // register so the gesture feels real — @Query data is
-                // already live, nothing else to fetch.
-                try? await Task.sleep(for: .milliseconds(650))
-            }
+            .refreshable { await performRefresh() }
         }
         .navigationTitle("Friends")
         .navigationBarTitleDisplayMode(.inline)
@@ -382,8 +403,15 @@ struct FriendsFeedView: View {
     // MARK: - Mixed feed (friends + suggestions interleaved)
 
     /// Recent posts with media from people the user does NOT follow —
-    /// candidate pool for "Suggested for You" interstitials. Prioritized
-    /// by club co-membership so the content feels contextually close.
+    /// candidate pool for "Suggested for You" interstitials.
+    ///
+    /// Ordering strategy:
+    /// 1. Engagement score (likes + comments × 2) — trending content first
+    /// 2. Club co-membership — friends-of-friends signal
+    /// 3. Recency — break ties
+    ///
+    /// On pull-to-refresh, the pool is re-shuffled within buckets so
+    /// each refresh surfaces different picks.
     private var suggestedPosts: [Post] {
         let followedIds = Set(follows.filter { $0.userId == profile.id }.map(\.odId))
         let myClubIds = Set(clubs.filter { $0.memberIds.contains(profile.id) }.map(\.id))
@@ -393,19 +421,117 @@ struct FriendsFeedView: View {
             .subtracting(followedIds)
             .subtracting([profile.id])
 
-        return allPosts
+        // Pre-compute engagement counts so the sort is O(n log n) not
+        // O(n² × likes).
+        let likeCountByPost = Dictionary(grouping: likes, by: \.postId).mapValues(\.count)
+        let commentCountByPost = Dictionary(grouping: comments, by: \.postId).mapValues(\.count)
+
+        var pool = allPosts
             .filter { post in
                 !followedIds.contains(post.authorId)
                 && post.authorId != profile.id
                 && (post.photoData != nil || post.videoData != nil || !post.mediaItems.isEmpty)
             }
             .sorted { a, b in
-                // In-club authors first, then by timestamp
+                let aEngagement = (likeCountByPost[a.id] ?? 0) + (commentCountByPost[a.id] ?? 0) * 2
+                let bEngagement = (likeCountByPost[b.id] ?? 0) + (commentCountByPost[b.id] ?? 0) * 2
+                if aEngagement != bEngagement { return aEngagement > bEngagement }
                 let aIn = clubMemberIds.contains(a.authorId)
                 let bIn = clubMemberIds.contains(b.authorId)
                 if aIn != bIn { return aIn && !bIn }
                 return a.timestamp > b.timestamp
             }
+
+        if refreshTick > 0, pool.count > 1 {
+            var rng = SeededGenerator(seed: UInt64(refreshTick))
+            // Shuffle in chunks of 4 so the top-trending bucket stays
+            // top-ish but with different picks each refresh, rather
+            // than rearranging the whole list and burying everything.
+            let chunkSize = 4
+            var shuffled: [Post] = []
+            var index = pool.startIndex
+            while index < pool.endIndex {
+                let end = pool.index(index, offsetBy: chunkSize, limitedBy: pool.endIndex) ?? pool.endIndex
+                var chunk = Array(pool[index..<end])
+                chunk.shuffle(using: &rng)
+                shuffled.append(contentsOf: chunk)
+                index = end
+            }
+            pool = shuffled
+        }
+        return pool
+    }
+
+    /// How aggressively to lean on suggestions. 1 = default cadence
+    /// (suggested every 4 friend posts, people every 6). Rises after
+    /// consecutive stale refreshes OR when the user follows very few
+    /// people, so the feed never looks empty.
+    private var suggestionBoost: Int {
+        var b = 1
+        if friendPosts.count < 3 { b += 1 }
+        if staleRefreshCount >= 2 { b += 1 }
+        return min(b, 3)
+    }
+
+    // MARK: - Refresh handler
+
+    /// Runs when the user swipes down from the top. Bumps refreshTick,
+    /// detects whether any new friend posts arrived since the last
+    /// pull, and either shows a "new posts" toast or falls through to
+    /// a "showing trending" toast with heavier suggestion density.
+    @MainActor
+    private func performRefresh() async {
+        #if canImport(UIKit)
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        #endif
+
+        // Let the spinner animate for a beat so the gesture feels real.
+        try? await Task.sleep(for: .milliseconds(700))
+
+        let currentCount = friendPosts.count
+        let hadNewFriendPosts = currentCount > lastRefreshFriendCount
+
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+            refreshTick &+= 1
+            if hadNewFriendPosts {
+                staleRefreshCount = 0
+                let delta = currentCount - lastRefreshFriendCount
+                refreshToast = delta == 1 ? "1 new post" : "\(delta) new posts"
+            } else {
+                staleRefreshCount += 1
+                refreshToast = "No new posts — showing trending"
+            }
+            lastRefreshFriendCount = currentCount
+        }
+
+        // Auto-dismiss the toast after a few seconds.
+        try? await Task.sleep(for: .seconds(3))
+        withAnimation(.easeOut(duration: 0.25)) {
+            refreshToast = nil
+        }
+    }
+
+    /// Compact toast shown after a pull-to-refresh — either "N new
+    /// posts" or "No new posts — showing trending". Auto-dismisses.
+    @ViewBuilder
+    private func refreshToastBanner(_ text: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: "arrow.clockwise")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(GQGradients.primary)
+            Text(text)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(GQColors.textPrimary)
+                .lineLimit(1)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(GQColors.background)
+        .clipShape(Capsule())
+        .overlay(
+            Capsule().stroke(GQColors.borderDefault.opacity(0.5), lineWidth: 0.5)
+        )
     }
 
     enum FeedItem: Identifiable {
@@ -463,22 +589,35 @@ struct FriendsFeedView: View {
             return items
         }
 
-        // Normal: friend posts with periodic suggestion interstitials
+        // Normal: friend posts with periodic suggestion interstitials.
+        // Cadence tightens when suggestionBoost > 1 (few friends and/or
+        // stale refreshes).
+        let boost = suggestionBoost
+        let suggestedEvery = max(2, 5 - boost)   // 4, 3, 2 as boost rises
+        let peopleEvery = max(4, 7 - boost)      // 6, 5, 4 as boost rises
         var suggestedIter = suggested.makeIterator()
         var peopleCursor = 0
         for (i, post) in friend.enumerated() {
             items.append(.post(post))
-            // Every 4 posts, a suggested post (if pool has any left)
-            if (i + 1) % 4 == 0, let next = suggestedIter.next() {
+            if (i + 1) % suggestedEvery == 0, let next = suggestedIter.next() {
                 items.append(.suggestedPost(next))
             }
-            // Every 6 posts, a people card (if pool has any left)
-            if (i + 1) % 6 == 0 {
+            if (i + 1) % peopleEvery == 0 {
                 let next = peopleSlice(peopleCursor)
                 if !next.isEmpty {
                     items.append(.suggestedPeople(next))
                     peopleCursor += 4
                 }
+            }
+        }
+
+        // If staleRefreshCount is high (user refreshed multiple times
+        // with no new friend content), pad the tail with more trending
+        // suggestions so the feed always shows fresh content after a
+        // refresh.
+        if staleRefreshCount >= 1 {
+            while let next = suggestedIter.next() {
+                items.append(.suggestedPost(next))
             }
         }
 
