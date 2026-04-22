@@ -658,6 +658,40 @@ struct ClubFeedView: View {
             .sorted { $0.date < $1.date }
     }
 
+    /// "Recommended" events — upcoming events from clubs the user is
+    /// NOT in, that are (a) hosted by a public/open club and (b) match
+    /// one of the user's category interests. Drives the FOR YOU badge
+    /// mixed into the Upcoming Events list so discovery happens where
+    /// users are already browsing.
+    private var recommendedEvents: [ClubEvent] {
+        let now = Date()
+        let myClubIds = Set(yourClubs.map(\.id))
+        let myCats = Set(yourClubs.map(\.resolvedCategory))
+        return allEvents
+            .filter { e in
+                guard e.date > now, !myClubIds.contains(e.clubId) else { return false }
+                guard let club = allClubs.first(where: { $0.id == e.clubId }) else { return false }
+                // Only public clubs (private clubs should remain invite/
+                // request-scoped — don't leak their events to strangers).
+                guard club.isOpen else { return false }
+                // Interest match: same category as a club the user is in,
+                // OR user is in no clubs yet (cold-start discoverability).
+                return myCats.isEmpty || myCats.contains(club.resolvedCategory)
+            }
+            .sorted { $0.date < $1.date }
+    }
+
+    /// Names of the user's friends who are attending a given event.
+    /// Used for the "Priya + 2 friends going" social-proof line.
+    private func friendsGoingNames(_ event: ClubEvent) -> [String] {
+        let followedIds = Set(SocialSeeder.fakeUsers.prefix(5).map(\.id))
+        let matches = event.attendeeIds.filter { followedIds.contains($0) }
+        return matches.compactMap { id in
+            SocialSeeder.fakeUsers.first(where: { $0.id == id })?.name
+                .components(separatedBy: " ").first
+        }
+    }
+
     /// Upcoming events only in clubs the user is a member of.
     /// Drives the "IN YOUR CLUBS" events rail — prioritized at the top.
     private var upcomingEventsInMyClubs: [ClubEvent] {
@@ -935,7 +969,10 @@ struct ClubFeedView: View {
     private func categoryChip(_ cat: ClubCategory?, label: String) -> some View {
         let selected = (cat == nil && selectedCategory == nil) || (cat != nil && selectedCategory == cat)
         Button {
-            withAnimation(.easeInOut(duration: 0.18)) {
+            #if canImport(UIKit)
+            UISelectionFeedbackGenerator().selectionChanged()
+            #endif
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.78)) {
                 selectedCategory = selected ? nil : cat
             }
         } label: {
@@ -1173,6 +1210,11 @@ struct ClubFeedView: View {
                             .font(.system(size: 11))
                             .foregroundStyle(GQGradients.primary)
                     }
+                    if !club.isOpen {
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 10))
+                            .foregroundColor(GQColors.textTertiary)
+                    }
                 }
                 yourClubSubtitleText(club, live: live, eventToday: eventToday)
             }
@@ -1280,26 +1322,41 @@ struct ClubFeedView: View {
         .padding(.bottom, 8)
     }
 
-    /// Events feed — in-your-clubs events first, then anything else
-    /// upcoming. Rows separated by hairlines for a continuous list.
+    /// Pre-computed ordered rows for the events section — separates the
+    /// non-View logic out of the @ViewBuilder body so we can use
+    /// imperative control flow (prefix + de-dup + mapping).
+    private var computedEventRows: [(event: ClubEvent, joined: Bool, recommended: Bool)] {
+        let myEvents = Array(upcomingEventsInMyClubs.prefix(3))
+        var seen = Set(myEvents.map(\.id))
+        let recEvents = Array(recommendedEvents
+            .filter { !seen.contains($0.id) }
+            .prefix(2))
+        for r in recEvents { seen.insert(r.id) }
+        let remainingBudget = max(0, 6 - myEvents.count - recEvents.count)
+        let otherEvents = Array(upcomingEvents
+            .filter { !seen.contains($0.id) }
+            .prefix(remainingBudget))
+
+        let myClubIdSet = Set(yourClubs.map(\.id))
+        return myEvents.map { ($0, true, false) }
+            + recEvents.map { ($0, false, true) }
+            + otherEvents.map { ($0, myClubIdSet.contains($0.clubId), false) }
+    }
+
+    /// Events feed — in-your-clubs events first, then FOR-YOU
+    /// recommendations from matching public clubs, then any other
+    /// upcoming event. Rows are hairline-separated for a continuous
+    /// list.
     @ViewBuilder
     private var eventsBlock: some View {
-        let myEvents = Array(upcomingEventsInMyClubs.prefix(4))
-        let seenIds = Set(myEvents.map(\.id))
-        let myClubIdSet = Set(yourClubs.map(\.id))
-        let otherEvents = upcomingEvents
-            .filter { !seenIds.contains($0.id) }
-            .prefix(max(0, 6 - myEvents.count))
-        let rows: [(event: ClubEvent, joined: Bool)] =
-            myEvents.map { ($0, true) }
-            + otherEvents.map { ($0, myClubIdSet.contains($0.clubId)) }
+        let rows = computedEventRows
 
         VStack(alignment: .leading, spacing: 0) {
             sectionHeaderLabel("UPCOMING EVENTS", trailing: "\(rows.count)")
 
             ForEach(Array(rows.enumerated()), id: \.element.event.id) { idx, item in
                 Button { selectedEvent = item.event } label: {
-                    eventRow(item.event, isJoinedClub: item.joined)
+                    eventRow(item.event, isJoinedClub: item.joined, recommended: item.recommended)
                 }
                 .buttonStyle(.plain)
 
@@ -1310,19 +1367,33 @@ struct ClubFeedView: View {
         }
     }
 
-    /// One event row — date tile on the left, title + club name + meta
-    /// in the middle, "GOING" pill on the right when attending.
-    private func eventRow(_ event: ClubEvent, isJoinedClub: Bool) -> some View {
+    /// One event row — date tile + title + club name + meta + friend
+    /// social-proof line. Shows a "FOR YOU" badge when this is a
+    /// recommendation from a club the user hasn't joined.
+    private func eventRow(_ event: ClubEvent, isJoinedClub: Bool, recommended: Bool = false) -> some View {
         let club = allClubs.first { $0.id == event.clubId }
         let isGoing = event.attendeeIds.contains(profile.id)
+        let friends = friendsGoingNames(event)
+
         return HStack(spacing: 12) {
-            eventDateTile(event.date)
+            eventDateTile(event.date, accent: recommended ? Color.orange : nil)
 
             VStack(alignment: .leading, spacing: 3) {
-                Text(event.title)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(GQColors.textPrimary)
-                    .lineLimit(1)
+                HStack(spacing: 6) {
+                    Text(event.title)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(GQColors.textPrimary)
+                        .lineLimit(1)
+                    if recommended {
+                        Text("FOR YOU")
+                            .font(.system(size: 9, weight: .bold))
+                            .tracking(0.5)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Capsule().fill(GQGradients.primary))
+                    }
+                }
                 Text(eventSubtitle(event, isJoinedClub: isJoinedClub))
                     .font(.system(size: 12))
                     .foregroundColor(GQColors.textTertiary)
@@ -1331,12 +1402,27 @@ struct ClubFeedView: View {
                     Label(event.date.formatted(date: .omitted, time: .shortened), systemImage: "clock")
                         .font(.system(size: 11, weight: .medium))
                         .foregroundColor(GQColors.textSecondary)
+                        .labelStyle(CompactMetaLabelStyle())
                     if let loc = event.location ?? club?.location, !loc.isEmpty {
                         Label(loc, systemImage: "mappin")
                             .font(.system(size: 11, weight: .medium))
                             .foregroundColor(GQColors.textSecondary)
                             .lineLimit(1)
+                            .labelStyle(CompactMetaLabelStyle())
                     }
+                }
+                // Friend social-proof line — strongest signal for
+                // turning an event row into a "let's go" moment.
+                if !friends.isEmpty {
+                    HStack(spacing: 4) {
+                        Image(systemName: "person.2.fill")
+                            .font(.system(size: 9, weight: .semibold))
+                        Text(friendsGoingLabel(friends: friends, total: event.attendeeIds.count))
+                            .font(.system(size: 11, weight: .semibold))
+                            .lineLimit(1)
+                    }
+                    .foregroundStyle(GQGradients.primary)
+                    .padding(.top, 1)
                 }
             }
 
@@ -1365,9 +1451,18 @@ struct ClubFeedView: View {
         .contentShape(Rectangle())
     }
 
+    private func friendsGoingLabel(friends: [String], total: Int) -> String {
+        switch friends.count {
+        case 1: return "\(friends[0]) going"
+        case 2: return "\(friends[0]) + \(friends[1]) going"
+        default: return "\(friends[0]) + \(friends.count - 1) friends going"
+        }
+    }
+
     /// Calendar-style date tile — month label on top, day number below.
-    /// Gives each event row a scannable, app-gradient anchor.
-    private func eventDateTile(_ date: Date) -> some View {
+    /// `accent` overrides the header color (used for the FOR YOU orange
+    /// stripe on recommended-event rows).
+    private func eventDateTile(_ date: Date, accent: Color? = nil) -> some View {
         let cal = Calendar.current
         let monthFmt = DateFormatter()
         monthFmt.dateFormat = "MMM"
@@ -1381,7 +1476,12 @@ struct ClubFeedView: View {
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 2)
-                .background(GQGradients.primary)
+                .background(
+                    Group {
+                        if let accent { accent }
+                        else { GQGradients.primary }
+                    }
+                )
             Text(day)
                 .font(.system(size: 18, weight: .bold, design: .rounded))
                 .foregroundColor(GQColors.textPrimary)
@@ -1451,7 +1551,8 @@ struct ClubFeedView: View {
         // 3. Top-by-members fallback
         let bySize = searchFilteredRecommended.sorted { $0.memberCount > $1.memberCount }
         for club in bySize where !seen.contains(club.id) {
-            out.append((club, "\(club.memberCount) members"))
+            let reason = club.memberCount == 1 ? "1 member" : "\(club.memberCount) members"
+            out.append((club, reason))
             seen.insert(club.id)
             if out.count >= 5 { break }
         }
@@ -1519,6 +1620,11 @@ struct ClubFeedView: View {
                         Image(systemName: "checkmark.seal.fill")
                             .font(.system(size: 11))
                             .foregroundStyle(GQGradients.primary)
+                    }
+                    if !club.isOpen {
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 10))
+                            .foregroundColor(GQColors.textTertiary)
                     }
                 }
                 Text(discoverSubtitle(club))
@@ -1606,11 +1712,17 @@ struct ClubFeedView: View {
     private func discoverTabChip(_ tab: DiscoverTab) -> some View {
         let selected = discoverTab == tab
         Button {
-            withAnimation(.easeInOut(duration: 0.18)) { discoverTab = tab }
+            #if canImport(UIKit)
+            UISelectionFeedbackGenerator().selectionChanged()
+            #endif
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.78)) {
+                discoverTab = tab
+            }
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: tab.icon)
                     .font(.system(size: 10, weight: .semibold))
+                    .symbolEffect(.bounce, value: selected)
                 Text(tab.label)
                     .font(.system(size: 13, weight: .semibold))
             }
@@ -1788,6 +1900,11 @@ struct ClubFeedView: View {
                             .font(.system(size: 11))
                             .foregroundStyle(GQGradients.primary)
                     }
+                    if !club.isOpen {
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 10))
+                            .foregroundColor(GQColors.textTertiary)
+                    }
                 }
                 if let firstName = firstFriendNameInClub(club) {
                     Text(friends == 1
@@ -1808,7 +1925,7 @@ struct ClubFeedView: View {
                     print("Join failed: \(error.localizedDescription)")
                 }
             } label: {
-                Text("Join")
+                Text(club.isOpen ? "Join" : "Request")
                     .font(.system(size: 12, weight: .bold))
                     .foregroundColor(.white)
                     .padding(.horizontal, 14)
