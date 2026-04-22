@@ -304,6 +304,7 @@ struct PreviousWorkoutsListView: View {
         .gqPageBackground()
         .navigationTitle("Previous Workouts")
         .navigationBarTitleDisplayMode(.inline)
+        .instagramBack()
     }
 
     @ViewBuilder
@@ -399,6 +400,7 @@ struct SavedWorkoutsListView: View {
         .gqPageBackground()
         .navigationTitle("Saved Workouts")
         .navigationBarTitleDisplayMode(.inline)
+        .instagramBack()
     }
 
     @ViewBuilder
@@ -670,6 +672,7 @@ struct AIGeneratedPlaceholderView: View {
         .navigationTitle("AI Generated")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
+        .instagramBack()
         #endif
         .onAppear {
             experienceLevel = profile.experienceLevel ?? .intermediate
