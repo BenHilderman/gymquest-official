@@ -788,16 +788,19 @@ struct ClubFeedView: View {
                 }
 
                 // Popular this week — horizontal featured-card rail so
-                // discovery has a visual, browseable hook above the list.
-                if !featuredClubs.isEmpty {
+                // discovery has a visual, browseable hook. Only shows
+                // when there are ≥2 cards so a single-card rail doesn't
+                // read as half-finished.
+                if featuredClubs.count >= 2 {
                     rowDivider
                     popularThisWeekRail
                         .padding(.vertical, 12)
                 }
 
                 // Discover — rich rows filtered by the active category
-                // chip. Tapping a chip above narrows this list.
-                if !searchFilteredRecommended.isEmpty {
+                // chip. Excludes the Popular rail's featured clubs so we
+                // don't show the same club twice in a row.
+                if !discoverClubs.isEmpty {
                     rowDivider
                     discoverBlock
                         .padding(.vertical, 10)
@@ -868,40 +871,43 @@ struct ClubFeedView: View {
 
     // MARK: - Search + categories strip (top of page)
 
-    /// Compact "search + browse" strip that mirrors the Discover page —
-    /// a tappable search bar on top of a horizontal row of category chips.
-    /// Bar opens the search sheet; chips filter Discover in-place.
+    /// Compact "search + browse" strip — tappable search bar sits
+    /// above a horizontal row of category chips. Bar opens the full
+    /// search sheet; chips filter Discover in-place.
     @ViewBuilder
     private var searchAndCategoryStrip: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 8) {
             Button { presentingSearch = true } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "magnifyingglass")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.system(size: 13, weight: .medium))
                         .foregroundColor(GQColors.textTertiary)
                     Text("Search clubs, locations, activities")
                         .font(.system(size: 14))
                         .foregroundColor(GQColors.textTertiary)
                     Spacer()
                 }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 9)
                 .background(GQColors.adaptiveOverlay(0.06))
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .clipShape(RoundedRectangle(cornerRadius: 11))
             }
             .buttonStyle(.plain)
             .padding(.horizontal, 16)
 
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
+                HStack(spacing: 6) {
                     categoryChip(nil, label: "All")
                     ForEach(browseCategories, id: \.self) { cat in
                         categoryChip(cat, label: cat.rawValue)
                     }
                 }
                 .padding(.horizontal, 16)
+                .padding(.vertical, 2)
             }
+            .scrollClipDisabled()
         }
+        .padding(.bottom, 4)
     }
 
     @ViewBuilder
@@ -912,17 +918,17 @@ struct ClubFeedView: View {
                 selectedCategory = selected ? nil : cat
             }
         } label: {
-            HStack(spacing: 5) {
+            HStack(spacing: 4) {
                 if let cat {
                     Image(systemName: cat.icon)
                         .font(.system(size: 10, weight: .semibold))
                 }
                 Text(label)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold))
             }
             .foregroundColor(selected ? .white : GQColors.textSecondary)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 7)
+            .padding(.horizontal, 11)
+            .padding(.vertical, 6)
             .background(
                 Capsule().fill(selected
                     ? AnyShapeStyle(GQGradients.primary)
@@ -1039,9 +1045,9 @@ struct ClubFeedView: View {
         let eventToday = hasEventToday(club)
 
         HStack(spacing: 12) {
-            clubAvatar(club, size: 48)
+            clubAvatar(club, size: 46)
 
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 5) {
                     Text(club.name)
                         .font(.system(size: 15, weight: .semibold))
@@ -1061,7 +1067,7 @@ struct ClubFeedView: View {
             yourClubTrailing(club, live: live, eventToday: eventToday)
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.vertical, 11)
         .contentShape(Rectangle())
     }
 
@@ -1144,19 +1150,19 @@ struct ClubFeedView: View {
     private func sectionHeaderLabel(_ title: String, trailing: String? = nil) -> some View {
         HStack {
             Text(title)
-                .font(.system(size: 10, weight: .semibold))
-                .tracking(1.2)
+                .font(.system(size: 11, weight: .semibold))
+                .tracking(1.0)
                 .foregroundColor(GQColors.textTertiary)
             Spacer()
             if let trailing {
                 Text(trailing)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(GQColors.textTertiary)
             }
         }
         .padding(.horizontal, 16)
-        .padding(.top, 10)
-        .padding(.bottom, 6)
+        .padding(.top, 12)
+        .padding(.bottom, 8)
     }
 
     /// Events feed — in-your-clubs events first, then nearby events.
@@ -1280,14 +1286,21 @@ struct ClubFeedView: View {
         return clubName
     }
 
+    /// Discover pool — nearest clubs minus the ones already surfaced in
+    /// Popular This Week, so the same club doesn't appear back-to-back.
+    private var discoverClubs: [Club] {
+        let featuredIds = featuredClubs.count >= 2 ? Set(featuredClubs.map(\.id)) : []
+        return searchFilteredRecommended.filter { !featuredIds.contains($0.id) }
+    }
+
     /// Discover block — clubs you haven't joined yet, sorted nearest
-    /// first by `searchFilteredRecommended`. Same monogram + two-line
-    /// row language as Your Clubs so the page reads as one list.
+    /// first. Same monogram + two-line row language as Your Clubs so
+    /// the page reads as one list.
     @ViewBuilder
     private var discoverBlock: some View {
-        let rows = Array(searchFilteredRecommended.prefix(8))
+        let rows = Array(discoverClubs.prefix(8))
         VStack(alignment: .leading, spacing: 0) {
-            sectionHeaderLabel("CLUBS NEAR YOU", trailing: "\(searchFilteredRecommended.count)")
+            sectionHeaderLabel("CLUBS NEAR YOU", trailing: "\(discoverClubs.count)")
 
             ForEach(Array(rows.enumerated()), id: \.element.id) { idx, club in
                 Button { selectedClub = club } label: {
@@ -1799,48 +1812,81 @@ struct ClubFeedView: View {
 
     @ViewBuilder
     private func featuredCard(_ club: Club) -> some View {
-        let accent = club.resolvedCategory.color
+        let cat = club.resolvedCategory
         ZStack(alignment: .bottomLeading) {
-            // Cover: use imageData when present, otherwise a clean category
-            // gradient. App-Store-style dual-gradient ensures text stays legible.
+            // Cover: photo if present, otherwise the brand gradient so
+            // every card has identity and legible contrast.
             Group {
                 #if canImport(UIKit)
                 if let data = club.imageData, let img = UIImage(data: data) {
                     Image(uiImage: img).resizable().aspectRatio(contentMode: .fill)
                 } else {
-                    LinearGradient(colors: [accent.opacity(0.85), accent.opacity(0.55)],
-                                   startPoint: .topLeading, endPoint: .bottomTrailing)
+                    GQGradients.primary
                 }
                 #else
-                LinearGradient(colors: [accent.opacity(0.85), accent.opacity(0.55)],
-                               startPoint: .topLeading, endPoint: .bottomTrailing)
+                GQGradients.primary
                 #endif
             }
 
-            LinearGradient(colors: [.clear, .black.opacity(0.55)],
-                           startPoint: .top, endPoint: .bottom)
+            LinearGradient(
+                colors: [.black.opacity(0.0), .black.opacity(0.15), .black.opacity(0.65)],
+                startPoint: .top, endPoint: .bottom
+            )
 
-            VStack(alignment: .leading, spacing: 4) {
+            // Top-left category pill
+            VStack {
+                HStack {
+                    HStack(spacing: 4) {
+                        Image(systemName: cat.icon)
+                            .font(.system(size: 9, weight: .bold))
+                        Text(cat.rawValue.uppercased())
+                            .font(.system(size: 9, weight: .bold))
+                            .tracking(0.5)
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Capsule().fill(.ultraThinMaterial))
+                    Spacer()
+                }
+                Spacer()
+            }
+            .padding(12)
+
+            // Bottom: name + meta
+            VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 4) {
                     Text(club.name)
-                        .font(.system(size: 18, weight: .bold))
+                        .font(.system(size: 17, weight: .bold))
                         .foregroundColor(.white)
                         .lineLimit(2)
                     if club.isVerified {
                         Image(systemName: "checkmark.seal.fill")
                             .font(.system(size: 12))
-                            .foregroundColor(GQColors.textPrimary)
+                            .foregroundColor(.white.opacity(0.95))
                     }
                 }
-                Text("\(club.memberCount == 1 ? "1 member" : "\(club.memberCount) members")\(club.location.map { " · \($0)" } ?? "")")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.white.opacity(0.85))
-                    .lineLimit(1)
+                HStack(spacing: 5) {
+                    if let loc = club.location, !loc.isEmpty {
+                        Image(systemName: "mappin")
+                            .font(.system(size: 9, weight: .semibold))
+                        Text(loc)
+                            .font(.system(size: 12, weight: .medium))
+                            .lineLimit(1)
+                    } else {
+                        Image(systemName: "person.2.fill")
+                            .font(.system(size: 9, weight: .semibold))
+                        Text("\(club.memberCount) members")
+                            .font(.system(size: 12, weight: .medium))
+                    }
+                }
+                .foregroundColor(.white.opacity(0.9))
             }
-            .padding(14)
+            .padding(12)
         }
-        .frame(width: 280, height: 160)
-        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .frame(width: 220, height: 150)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .shadow(color: .black.opacity(0.08), radius: 6, y: 2)
     }
 
     // MARK: - Categories grid
