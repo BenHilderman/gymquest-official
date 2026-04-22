@@ -13,14 +13,9 @@ import UIKit
 struct NavAvatarButton: View {
     let profile: UserProfile
 
-    @State private var presenting: Bool = false
-
     var body: some View {
-        Button {
-            #if canImport(UIKit)
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            #endif
-            presenting = true
+        NavigationLink {
+            ProfileView(profile: profile, isPushed: true)
         } label: {
             avatarImage
                 .frame(width: 28, height: 28)
@@ -28,11 +23,11 @@ struct NavAvatarButton: View {
                 .overlay(Circle().stroke(GQColors.borderDefault, lineWidth: 1))
         }
         .buttonStyle(.plain)
-        .sheet(isPresented: $presenting) {
-            NavigationStack {
-                ProfileView(profile: profile)
-            }
-        }
+        .simultaneousGesture(TapGesture().onEnded {
+            #if canImport(UIKit)
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            #endif
+        })
     }
 
     @ViewBuilder

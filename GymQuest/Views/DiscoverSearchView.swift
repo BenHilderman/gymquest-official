@@ -121,7 +121,7 @@ struct DiscoverSearchView: View {
                 set: { tappedProfileId = $0?.id }
             )) { wrapped in
                 if let target = allUserProfiles.first(where: { $0.id == wrapped.id }) {
-                    ProfileView(profile: target)
+                    ProfileView(profile: target, isPushed: true)
                 }
             }
             .sheet(item: $tappedExercise) { meta in

@@ -26,8 +26,14 @@ struct ProfileView: View {
     @Query(sort: \PREvent.date, order: .reverse) private var prEvents: [PREvent]
 
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismissProfile
 
     let profile: UserProfile
+    /// True when this view is pushed onto a parent NavigationStack
+    /// (e.g. tapping an author from a post, opening your own avatar
+    /// from a tab). Adds a leading back chevron and skips the inner
+    /// NavigationStack wrapper so dismiss() pops the parent stack.
+    var isPushed: Bool = false
 
     @StateObject private var healthKit = HealthKitService.shared
     @State private var showingSettings = false
@@ -130,11 +136,33 @@ struct ProfileView: View {
     private var totalWorkoutCount: Int { cachedWorkoutCount }
 
     var body: some View {
-        NavigationStack {
+        Group {
+            if isPushed {
+                profileRootContent
+            } else {
+                NavigationStack { profileRootContent }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var profileRootContent: some View {
             ScrollView {
                 VStack(spacing: 0) {
                     // Inline header — scrolls with content (Instagram-style)
                     HStack(spacing: 8) {
+                        if isPushed {
+                            Button {
+                                dismissProfile()
+                            } label: {
+                                Image(systemName: "chevron.left")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundColor(GQColors.textPrimary)
+                                    .frame(width: 30, height: 30)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                        }
                         HStack(spacing: 4) {
                             Text("@\(profile.username)")
                                 .font(.system(size: 20, weight: .bold))
@@ -145,17 +173,19 @@ struct ProfileView: View {
                         }
                         Spacer()
                         #if os(iOS)
-                        Button {
-                            showingSettings = true
-                        } label: {
-                            Image(systemName: "gearshape.fill")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(GQColors.textPrimary)
-                                .frame(width: 34, height: 34)
-                                .background(GQColors.overlayLight)
-                                .clipShape(Circle())
+                        if isOwnProfile {
+                            Button {
+                                showingSettings = true
+                            } label: {
+                                Image(systemName: "gearshape.fill")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(GQColors.textPrimary)
+                                    .frame(width: 34, height: 34)
+                                    .background(GQColors.overlayLight)
+                                    .clipShape(Circle())
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                         #endif
                     }
                     .padding(.horizontal, 16)
@@ -212,7 +242,6 @@ struct ProfileView: View {
             .onChange(of: workouts.count) { _, _ in
                 refreshProfileStats()
             }
-        }
     }
 
     // MARK: - AI Coach Card

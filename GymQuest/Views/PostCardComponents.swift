@@ -241,7 +241,7 @@ struct PostCardV2: View {
         }
         .navigationDestination(item: $profileUserId) { wrapped in
             if let target = allProfiles.first(where: { $0.id == wrapped.id }) {
-                ProfileView(profile: target)
+                ProfileView(profile: target, isPushed: true)
             }
         }
         .sheet(isPresented: $showStealSetSheet) {
