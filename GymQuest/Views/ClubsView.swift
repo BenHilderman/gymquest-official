@@ -847,21 +847,21 @@ struct ClubFeedView: View {
                 // rounded card. Sections hide when the active
                 // category filter leaves them empty.
                 if !sortedYourClubs.isEmpty {
-                    groupedSection(header: "YOUR CLUBS") {
+                    groupedSection(header: "YOUR CLUBS", icon: "person.3.fill") {
                         yourClubsRowsOnly
                     }
                     .padding(.top, 14)
                 }
 
                 if !computedEventRows.isEmpty {
-                    groupedSection(header: "UPCOMING EVENTS") {
+                    groupedSection(header: "UPCOMING EVENTS", icon: "calendar") {
                         eventsRowsOnly
                     }
                     .padding(.top, 22)
                 }
 
                 if hasAnyDiscoverContent {
-                    groupedSection(header: "DISCOVER") {
+                    groupedSection(header: "DISCOVER", icon: "sparkles") {
                         discoverCardContent
                     }
                     .padding(.top, 22)
@@ -952,18 +952,25 @@ struct ClubFeedView: View {
             .padding(.trailing, 16)
     }
 
-    /// Apple Music / News-style section — tracked-caps header at
-    /// 16pt from the screen edge, content sits in a full-width white
-    /// band below with a hairline at top and bottom. Page-level gray
-    /// gaps between sections carry the structure.
+    /// Apple Music / News-style section — icon + tracked-caps header
+    /// at 16pt from the screen edge, content sits in a full-width
+    /// white band below. The icon prefix adds a structural cue so
+    /// each section reads as its own object rather than a floating
+    /// label.
     @ViewBuilder
     private func groupedSection<Content: View>(
         header: String,
+        icon: String? = nil,
         headerAccessory: AnyView? = nil,
         @ViewBuilder content: () -> Content
     ) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack {
+            HStack(spacing: 6) {
+                if let icon {
+                    Image(systemName: icon)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(GQColors.textTertiary)
+                }
                 Text(header)
                     .font(.system(size: 12, weight: .semibold))
                     .tracking(0.6)
@@ -1818,19 +1825,20 @@ struct ClubFeedView: View {
     /// that flips between "For You", "Nearby", "Friends", and
     /// "Challenges" tabs. Keeps the page scannable while still balancing
     /// personal vs. exploratory discovery.
-    /// Content of the Discover card: segmented tab control at the top,
-    /// hairline, then the active tab's body. Putting the control
-    /// inside the card tightens the relationship between tabs and
-    /// their content.
+    /// Content of the Discover card: segmented tab control sits on a
+    /// tinted "toolbar" band with a prominent hairline below, then the
+    /// active tab's body on plain white. The tint+hairline combo keeps
+    /// the tabs from blending into the content.
     @ViewBuilder
     private var discoverCardContent: some View {
         VStack(alignment: .leading, spacing: 0) {
             discoverSegmentedControl
-                .padding(.vertical, 8)
+                .padding(.vertical, 9)
+                .background(GQColors.adaptiveOverlay(0.035))
 
             Rectangle()
-                .fill(GQColors.borderDefault.opacity(0.5))
-                .frame(height: 0.5)
+                .fill(GQColors.borderProminent)
+                .frame(height: 1)
 
             Group {
                 switch discoverTab {
@@ -1840,7 +1848,7 @@ struct ClubFeedView: View {
                 case .challenges: challengesTabContent
                 }
             }
-            .padding(.vertical, 8)
+            .padding(.vertical, 10)
             .animation(.easeInOut(duration: 0.18), value: discoverTab)
         }
     }
@@ -6153,12 +6161,12 @@ private struct GroupedCardModifier: ViewModifier {
             .background(GQColors.surfaceBase)
             .overlay(alignment: .top) {
                 Rectangle()
-                    .fill(GQColors.borderDefault.opacity(0.5))
+                    .fill(GQColors.borderProminent)
                     .frame(height: 0.5)
             }
             .overlay(alignment: .bottom) {
                 Rectangle()
-                    .fill(GQColors.borderDefault.opacity(0.5))
+                    .fill(GQColors.borderProminent)
                     .frame(height: 0.5)
             }
     }
