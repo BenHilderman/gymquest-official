@@ -779,35 +779,7 @@ struct DiscoverSearchView: View {
             subtitle: "\(meta.muscleGroup.rawValue.capitalized) · \(meta.equipment.rawValue.capitalized)"
         ))
         recents = RecentSearchStore.load()
-        // Prefer opening a real post featuring this exercise — same
-        // format the user sees elsewhere in the app. Fall back to the
-        // metadata sheet only when no post highlights this exercise.
-        if let post = featuredPost(for: meta) {
-            tappedPost = post
-        } else {
-            tappedExercise = meta
-        }
-    }
-
-    /// Pick the best post that features a given exercise. Prefers
-    /// runnable shared workouts where the exercise appears in the
-    /// title or exercise list, falls back to posts whose exercise
-    /// highlight matches the name.
-    private func featuredPost(for meta: ExerciseMetadata) -> Post? {
-        let name = meta.name.lowercased()
-        // First pass: shared-workout posts whose exercise list contains this name.
-        let shared = allPosts.first { post in
-            guard let data = post.sharedWorkoutData,
-                  let decoded = try? JSONDecoder().decode(SharedWorkoutData.self, from: data) else { return false }
-            return decoded.title.lowercased().contains(name)
-                || decoded.exercises.contains { $0.name.lowercased().contains(name) }
-        }
-        if let shared { return shared }
-        // Second pass: any post whose exerciseHighlight matches.
-        return allPosts.first {
-            ($0.exerciseHighlight?.lowercased().contains(name) ?? false)
-            && ($0.photoData != nil || $0.videoData != nil || !$0.mediaItems.isEmpty)
-        }
+        tappedExercise = meta
     }
 
     private func openPerson(_ person: UserProfile) {
