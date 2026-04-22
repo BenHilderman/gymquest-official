@@ -837,27 +837,30 @@ struct ClubFeedView: View {
                 searchAndCategoryStrip
                     .padding(.top, 4)
 
-                // Your clubs — rich vertical list. Each row shows what's
-                // happening in that specific club right now.
+                // Apple Settings-style inset groups: each section has
+                // its header outside the card, rows inside a white
+                // rounded card. The page-level gray background makes
+                // the cards stand out.
                 if !yourClubs.isEmpty {
-                    rowDivider
-                    yourClubsListBlock
-                        .padding(.bottom, 4)
+                    groupedSection(header: "YOUR CLUBS") {
+                        yourClubsRowsOnly
+                    }
+                    .padding(.top, 12)
                 }
 
-                // Upcoming events — any future event, my-clubs first.
                 if !upcomingEvents.isEmpty {
-                    rowDivider
-                    eventsBlock
-                        .padding(.bottom, 4)
+                    groupedSection(header: "UPCOMING EVENTS") {
+                        eventsRowsOnly
+                    }
+                    .padding(.top, 18)
                 }
 
-                // Discover — tabbed section combining "For You",
-                // "Nearby", "Friends", and "Challenges".
                 if hasAnyDiscoverContent {
-                    rowDivider
-                    discoverSection
-                        .padding(.bottom, 12)
+                    groupedSection(header: "DISCOVER", headerAccessory: AnyView(discoverSegmentedControl)) {
+                        discoverTabsContentOnly
+                    }
+                    .padding(.top, 18)
+                    .padding(.bottom, 16)
                 }
 
                 if yourClubs.isEmpty && searchFilteredRecommended.isEmpty {
@@ -932,6 +935,33 @@ struct ClubFeedView: View {
             .frame(height: 0.5)
             .padding(.leading, 74)
             .padding(.trailing, 16)
+    }
+
+    /// Apple Settings-style section — tracked-caps header at 32pt from
+    /// screen edge, rows inside a white rounded card just below.
+    @ViewBuilder
+    private func groupedSection<Content: View>(
+        header: String,
+        headerAccessory: AnyView? = nil,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(header)
+                    .font(.system(size: 11, weight: .semibold))
+                    .tracking(1.0)
+                    .foregroundColor(GQColors.textTertiary)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 32)
+
+            if let headerAccessory {
+                headerAccessory
+            }
+
+            content()
+                .groupedCard()
+        }
     }
 
     // MARK: - Search + categories strip (top of page)
@@ -1181,11 +1211,11 @@ struct ClubFeedView: View {
     /// what's actually happening right now in that specific club (live
     /// members, event today, next event, or fallback) so the user can
     /// scan the list and pick the one worth opening.
+    /// Rows-only variant for use inside a groupedSection card — omits
+    /// the header since that lives above the card now.
     @ViewBuilder
-    private var yourClubsListBlock: some View {
+    private var yourClubsRowsOnly: some View {
         VStack(alignment: .leading, spacing: 0) {
-            sectionHeaderLabel("YOUR CLUBS")
-
             ForEach(Array(sortedYourClubs.enumerated()), id: \.element.id) { idx, club in
                 Button { selectedClub = club } label: {
                     yourClubRow(club)
@@ -1196,6 +1226,14 @@ struct ClubFeedView: View {
                     inRowDivider
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private var yourClubsListBlock: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            sectionHeaderLabel("YOUR CLUBS")
+            yourClubsRowsOnly
         }
     }
 
@@ -1357,6 +1395,22 @@ struct ClubFeedView: View {
     /// recommendations from matching public clubs, then any other
     /// upcoming event. Rows are hairline-separated for a continuous
     /// list.
+    @ViewBuilder
+    private var eventsRowsOnly: some View {
+        let rows = computedEventRows
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(rows.enumerated()), id: \.element.event.id) { idx, item in
+                Button { selectedEvent = item.event } label: {
+                    eventRow(item.event, isJoinedClub: item.joined, recommended: item.recommended)
+                }
+                .buttonStyle(.plain)
+                if idx < rows.count - 1 {
+                    inRowDivider
+                }
+            }
+        }
+    }
+
     @ViewBuilder
     private var eventsBlock: some View {
         let rows = computedEventRows
@@ -1680,6 +1734,22 @@ struct ClubFeedView: View {
     /// that flips between "For You", "Nearby", "Friends", and
     /// "Challenges" tabs. Keeps the page scannable while still balancing
     /// personal vs. exploratory discovery.
+    /// Just the per-tab content, without the outer "DISCOVER" header
+    /// or segmented control — those live above the card in the new
+    /// grouped-section layout.
+    @ViewBuilder
+    private var discoverTabsContentOnly: some View {
+        Group {
+            switch discoverTab {
+            case .forYou: forYouTabContent
+            case .nearby: nearbyTabContent
+            case .friends: friendsTabContent
+            case .challenges: challengesTabContent
+            }
+        }
+        .animation(.easeInOut(duration: 0.18), value: discoverTab)
+    }
+
     @ViewBuilder
     private var discoverSection: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -5774,6 +5844,32 @@ struct ClubMapView: View {
         .padding(12)
         .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+}
+
+// MARK: - Grouped card container (inset white section)
+
+private struct GroupedCardModifier: ViewModifier {
+    var cornerRadius: CGFloat = 16
+
+    func body(content: Content) -> some View {
+        content
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(GQColors.surfaceBase)
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .strokeBorder(GQColors.borderDefault.opacity(0.5), lineWidth: 0.5)
+            )
+            .padding(.horizontal, 16)
+    }
+}
+
+extension View {
+    /// Wraps a section in an inset white rounded card with a subtle
+    /// border — matches Apple's grouped list style.
+    func groupedCard(cornerRadius: CGFloat = 16) -> some View {
+        modifier(GroupedCardModifier(cornerRadius: cornerRadius))
     }
 }
 
