@@ -116,48 +116,57 @@ struct ExploreView: View {
                 } else if allPosts.isEmpty {
                     emptyExploreState
                 } else {
-                    // Filter chips + mode toggle sit above the hero so
-                    // the For You carousel responds to them — tapping
-                    // "Push" reshapes the 5 picks into push-specific
-                    // recommendations. Mode toggle lives on the same
-                    // row at the trailing edge.
-                    HStack(spacing: 8) {
-                        discoverFilterChips
-                        discoverModeToggle
-                            .padding(.trailing, 12)
-                    }
-                    .padding(.top, 4)
+                    // One Section wraps the hero + discover grid so the
+                    // filter chip strip can pin at the top of the
+                    // scroll view as the user scrolls past the hero.
+                    Section {
+                        if let hero = cachedHeroPick {
+                            ExploreHeroCard(
+                                post: hero,
+                                rationale: heroRationale(for: hero),
+                                isSaved: isSaved(hero, in: .train),
+                                picksCount: heroPicks.count,
+                                currentIndex: heroIndex,
+                                onStart: { startWorkout(from: hero) },
+                                onOpen: { recommendedOpenPostId = hero.id },
+                                onToggleSave: { toggleSave(hero, collection: .train) },
+                                onAdvance: { advanceHero() },
+                                onRewind: { rewindHero() },
+                                onJumpTo: { idx in jumpHero(to: idx) },
+                                onLongPressSave: { sheetPostForCollection = hero }
+                            )
+                            .padding(.horizontal, 12)
+                        } else if workoutChipFilter(discoverFilter) != nil {
+                            heroEmptyForFilter
+                        }
 
-                    if let hero = cachedHeroPick {
-                        ExploreHeroCard(
-                            post: hero,
-                            rationale: heroRationale(for: hero),
-                            isSaved: isSaved(hero, in: .train),
-                            picksCount: heroPicks.count,
-                            currentIndex: heroIndex,
-                            onStart: { startWorkout(from: hero) },
-                            onOpen: { recommendedOpenPostId = hero.id },
-                            onToggleSave: { toggleSave(hero, collection: .train) },
-                            onAdvance: { advanceHero() },
-                            onRewind: { rewindHero() },
-                            onJumpTo: { idx in jumpHero(to: idx) },
-                            onLongPressSave: { sheetPostForCollection = hero }
+                        DiscoverGrid(
+                            items: cachedDiscoverItems,
+                            onTapVideo: { post in
+                                shortsEntryPostId = post.id
+                                presentingShorts = true
+                            },
+                            onTapPhoto: { post in
+                                feedOpenPostId = post.id
+                            },
+                            onStartWorkout: { post in
+                                startWorkout(from: post)
+                            }
                         )
-                        .padding(.horizontal, 12)
-                    } else if workoutChipFilter(discoverFilter) != nil {
-                        // Filter is set but no matching picks — tell
-                        // the user instead of silently hiding the hero.
-                        heroEmptyForFilter
+                    } header: {
+                        // Pinned chip strip — stays glued to the top
+                        // of the feed as the user scrolls past the
+                        // hero. Tapping a chip rebuilds the 5-pick
+                        // hero carousel around that category.
+                        HStack(spacing: 8) {
+                            discoverFilterChips
+                            discoverModeToggle
+                                .padding(.trailing, 12)
+                        }
+                        .padding(.vertical, 8)
+                        .frame(maxWidth: .infinity)
+                        .background(GQColors.surfaceBase)
                     }
-
-                    // ── 5. Unified discover feed ────────────────
-                    // Replaces: Shorts shelf + Next Session + Discover card.
-                    // One algorithmically-ranked mixed feed of videos, photos,
-                    // and workout suggestions.
-                    discoverSection
-
-                    // Clubs lives in its own tab now — no need for a
-                    // "Your Clubs" shelf at the bottom of Discover.
                 }
             }
             .padding(.bottom, 100)
