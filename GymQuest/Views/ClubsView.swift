@@ -852,14 +852,14 @@ struct ClubFeedView: View {
                     groupedSection(header: "UPCOMING EVENTS") {
                         eventsRowsOnly
                     }
-                    .padding(.top, 18)
+                    .padding(.top, 20)
                 }
 
                 if hasAnyDiscoverContent {
-                    groupedSection(header: "DISCOVER", headerAccessory: AnyView(discoverSegmentedControl)) {
-                        discoverTabsContentOnly
+                    groupedSection(header: "DISCOVER") {
+                        discoverCardContent
                     }
-                    .padding(.top, 18)
+                    .padding(.top, 20)
                     .padding(.bottom, 16)
                 }
 
@@ -1734,9 +1734,36 @@ struct ClubFeedView: View {
     /// that flips between "For You", "Nearby", "Friends", and
     /// "Challenges" tabs. Keeps the page scannable while still balancing
     /// personal vs. exploratory discovery.
+    /// Content of the Discover card: segmented tab control at the top,
+    /// hairline, then the active tab's body. Putting the control
+    /// inside the card tightens the relationship between tabs and
+    /// their content.
+    @ViewBuilder
+    private var discoverCardContent: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            discoverSegmentedControl
+                .padding(.vertical, 8)
+
+            Rectangle()
+                .fill(GQColors.borderDefault.opacity(0.5))
+                .frame(height: 0.5)
+
+            Group {
+                switch discoverTab {
+                case .forYou: forYouTabContent
+                case .nearby: nearbyTabContent
+                case .friends: friendsTabContent
+                case .challenges: challengesTabContent
+                }
+            }
+            .padding(.vertical, 8)
+            .animation(.easeInOut(duration: 0.18), value: discoverTab)
+        }
+    }
+
     /// Just the per-tab content, without the outer "DISCOVER" header
-    /// or segmented control — those live above the card in the new
-    /// grouped-section layout.
+    /// or segmented control — kept for any external caller that wants
+    /// a bare-content variant.
     @ViewBuilder
     private var discoverTabsContentOnly: some View {
         Group {
@@ -1830,6 +1857,15 @@ struct ClubFeedView: View {
     private var forYouTabContent: some View {
         if forYouPicks.isEmpty {
             emptyDiscoverState(icon: "sparkles", title: "Nothing new yet", subtitle: "Join a club to unlock personalized picks.")
+        } else if forYouPicks.count == 1, let only = forYouPicks.first {
+            // Single pick — fill the card width with a full-bleed
+            // hero so the card doesn't read as a lonely floating tile.
+            Button { selectedClub = only.club } label: {
+                forYouHeroCard(only.club, reason: only.reason)
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 4)
         } else {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
@@ -1840,9 +1876,84 @@ struct ClubFeedView: View {
                         .buttonStyle(.plain)
                     }
                 }
-                .padding(.horizontal, 16)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 4)
             }
         }
+    }
+
+    /// Full-width variant of the For You card — same overlay layout
+    /// but sized to the card's content width and 170pt tall.
+    @ViewBuilder
+    private func forYouHeroCard(_ club: Club, reason: String) -> some View {
+        let cat = club.resolvedCategory
+        let isMember = club.memberIds.contains(profile.id)
+        ZStack(alignment: .bottomLeading) {
+            ClubCoverImage(club: club, fallbackGradient: GQGradients.primary)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
+
+            LinearGradient(
+                colors: [.black.opacity(0.25), .black.opacity(0.08), .black.opacity(0.72)],
+                startPoint: .top, endPoint: .bottom
+            )
+
+            VStack {
+                HStack {
+                    HStack(spacing: 4) {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 9, weight: .bold))
+                        Text(reason)
+                            .font(.system(size: 10, weight: .bold))
+                            .lineLimit(1)
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Capsule().fill(.ultraThinMaterial))
+                    Spacer(minLength: 0)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(12)
+
+            HStack(alignment: .bottom, spacing: 10) {
+                VStack(alignment: .leading, spacing: 5) {
+                    HStack(spacing: 5) {
+                        Text(club.name)
+                            .font(.system(size: 19, weight: .bold))
+                            .foregroundColor(.white)
+                            .lineLimit(1)
+                        if club.isVerified {
+                            Image(systemName: "checkmark.seal.fill")
+                                .font(.system(size: 13))
+                                .foregroundColor(.white.opacity(0.95))
+                        }
+                    }
+                    HStack(spacing: 8) {
+                        Label(cat.rawValue, systemImage: cat.icon)
+                        if let loc = club.location, !loc.isEmpty {
+                            Label(loc, systemImage: "mappin").lineLimit(1)
+                        } else {
+                            Label("\(club.memberCount)", systemImage: "person.2.fill")
+                        }
+                    }
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.92))
+                    .labelStyle(CompactMetaLabelStyle())
+                }
+                Spacer(minLength: 0)
+                Text(isMember ? "Open" : "View")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(GQColors.textPrimary)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
+                    .background(Capsule().fill(.white))
+            }
+            .padding(12)
+        }
+        .frame(height: 170)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
     }
 
     /// For You card — 240x180 cover with a reason chip up top so users
@@ -5855,12 +5966,14 @@ private struct GroupedCardModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 4)
             .background(GQColors.surfaceBase)
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius)
-                    .strokeBorder(GQColors.borderDefault.opacity(0.5), lineWidth: 0.5)
+                    .strokeBorder(GQColors.borderDefault.opacity(0.35), lineWidth: 0.5)
             )
+            .shadow(color: .black.opacity(0.03), radius: 8, y: 2)
             .padding(.horizontal, 16)
     }
 }
