@@ -114,7 +114,7 @@ struct DiscoverSearchView: View {
                 query = rawQuery
             }
             .fullScreenCover(item: $tappedPost) { post in
-                PostDetailView(post: post, profile: profile)
+                searchPostView(post)
             }
             .sheet(item: Binding(
                 get: { tappedProfileId.map { IdentifiableUUID(id: $0) } },
@@ -127,6 +127,44 @@ struct DiscoverSearchView: View {
             }
         }
         .tint(GQColors.textPrimary)
+    }
+
+    // MARK: - Post view for tapped search results
+
+    /// Single-post view wrapped in a NavigationStack. Renders the
+    /// exact same PostCardV2 used on the Friends feed, so tapping a
+    /// workout in search lands the user on a familiar post layout
+    /// with media + reactions + comments. Non-swipeable by design —
+    /// no left/right navigation between posts.
+    @ViewBuilder
+    private func searchPostView(_ post: Post) -> some View {
+        NavigationStack {
+            ScrollView {
+                PostCardV2(
+                    post: post,
+                    currentUserId: profile.id,
+                    currentUserName: profile.name,
+                    profile: profile
+                )
+            }
+            .scrollContentBackground(.hidden)
+            .background(GQColors.surfaceBase)
+            .navigationTitle("Post")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarBackground(GQColors.background, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        tappedPost = nil
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(GQColors.textPrimary)
+                    }
+                }
+            }
+        }
     }
 
     // MARK: - Search bar
