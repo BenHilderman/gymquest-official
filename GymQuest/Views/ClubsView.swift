@@ -507,6 +507,7 @@ struct ClubFeedView: View {
     @State private var selectedMapClub: Club? = nil
     @State private var yourClubsSort: YourClubsSort = .recent
     @State private var presentingSearch: Bool = false
+    @State private var presentingMap: Bool = false
 
     // Demo "user location" — Kingston, ON. Replace with CoreLocation once
     // the real auth flow lands. Keeping the haversine helper lets us
@@ -766,24 +767,36 @@ struct ClubFeedView: View {
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
+                // Search + category chips pinned at the top. Mirrors the
+                // Discover page: bar is a tappable button that opens the
+                // full search sheet.
+                searchAndCategoryStrip
+                    .padding(.top, 4)
+
                 // Your clubs — rich vertical list. Each row shows what's
-                // happening in that specific club right now, so the live
-                // signal stays with the club instead of floating at the
-                // top of the page.
+                // happening in that specific club right now.
                 if !yourClubs.isEmpty {
+                    rowDivider
                     yourClubsListBlock
-                        .padding(.top, 4)
                 }
 
                 // Upcoming events — "your clubs" first, then nearby.
                 if !upcomingEventsInMyClubs.isEmpty || !upcomingEventsNearby.isEmpty {
-                    if !yourClubs.isEmpty { rowDivider }
+                    rowDivider
                     eventsBlock
                         .padding(.vertical, 10)
                 }
 
-                // Discover — clubs you're not in yet. Rich rows so they
-                // read as destinations, not categories.
+                // Popular this week — horizontal featured-card rail so
+                // discovery has a visual, browseable hook above the list.
+                if !featuredClubs.isEmpty {
+                    rowDivider
+                    popularThisWeekRail
+                        .padding(.vertical, 12)
+                }
+
+                // Discover — rich rows filtered by the active category
+                // chip. Tapping a chip above narrows this list.
                 if !searchFilteredRecommended.isEmpty {
                     rowDivider
                     discoverBlock
@@ -805,8 +818,8 @@ struct ClubFeedView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 HStack(spacing: 14) {
-                    Button { presentingSearch = true } label: {
-                        Image(systemName: "magnifyingglass")
+                    Button { presentingMap = true } label: {
+                        Image(systemName: "map")
                             .font(.system(size: 15, weight: .medium))
                             .foregroundColor(GQColors.textPrimary)
                     }
@@ -834,6 +847,14 @@ struct ClubFeedView: View {
         .sheet(isPresented: $presentingSearch) {
             clubSearchSheet
         }
+        .sheet(isPresented: $presentingMap) {
+            clubMapSheet
+        }
+        .sheet(item: $selectedEvent) { event in
+            if let club = allClubs.first(where: { $0.id == event.clubId }) {
+                ClubDetailView(club: club, profile: profile)
+            }
+        }
     }
 
     /// Thin borderDefault hairline between blocks — matches the
@@ -843,6 +864,148 @@ struct ClubFeedView: View {
             .fill(GQColors.borderDefault)
             .frame(height: 0.5)
             .padding(.horizontal, 16)
+    }
+
+    // MARK: - Search + categories strip (top of page)
+
+    /// Compact "search + browse" strip that mirrors the Discover page —
+    /// a tappable search bar on top of a horizontal row of category chips.
+    /// Bar opens the search sheet; chips filter Discover in-place.
+    @ViewBuilder
+    private var searchAndCategoryStrip: some View {
+        VStack(spacing: 10) {
+            Button { presentingSearch = true } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(GQColors.textTertiary)
+                    Text("Search clubs, locations, activities")
+                        .font(.system(size: 14))
+                        .foregroundColor(GQColors.textTertiary)
+                    Spacer()
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(GQColors.adaptiveOverlay(0.06))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 16)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    categoryChip(nil, label: "All")
+                    ForEach(browseCategories, id: \.self) { cat in
+                        categoryChip(cat, label: cat.rawValue)
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func categoryChip(_ cat: ClubCategory?, label: String) -> some View {
+        let selected = (cat == nil && selectedCategory == nil) || (cat != nil && selectedCategory == cat)
+        Button {
+            withAnimation(.easeInOut(duration: 0.18)) {
+                selectedCategory = selected ? nil : cat
+            }
+        } label: {
+            HStack(spacing: 5) {
+                if let cat {
+                    Image(systemName: cat.icon)
+                        .font(.system(size: 10, weight: .semibold))
+                }
+                Text(label)
+                    .font(.system(size: 13, weight: .semibold))
+            }
+            .foregroundColor(selected ? .white : GQColors.textSecondary)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(
+                Capsule().fill(selected
+                    ? AnyShapeStyle(GQGradients.primary)
+                    : AnyShapeStyle(GQColors.surfaceBase))
+            )
+            .overlay(
+                Capsule().stroke(
+                    selected ? Color.clear : GQColors.borderDefault.opacity(0.5),
+                    lineWidth: 1
+                )
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Popular this week (horizontal featured rail)
+
+    /// Horizontal rail of the top clubs by member count — gives the page
+    /// a browseable, visual hook above the flat Discover list.
+    @ViewBuilder
+    private var popularThisWeekRail: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("POPULAR THIS WEEK")
+                    .font(.system(size: 10, weight: .semibold))
+                    .tracking(1.2)
+                    .foregroundColor(GQColors.textTertiary)
+                Spacer()
+                Text("\(featuredClubs.count)")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+            .padding(.horizontal, 16)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(featuredClubs) { club in
+                        Button { selectedClub = club } label: {
+                            featuredCard(club)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+        }
+    }
+
+    // MARK: - Map sheet
+
+    /// Full-screen map sheet — reuses `mapModeContent` so clubs and
+    /// events show as pins. Recenter + filter chips at the top.
+    @ViewBuilder
+    private var clubMapSheet: some View {
+        NavigationStack {
+            ClubMapView(
+                clubs: clubsWithCoordinates,
+                events: allEvents.filter { $0.date > Date() },
+                profile: profile,
+                selectedClub: { club in
+                    presentingMap = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        selectedClub = club
+                    }
+                },
+                selectedEvent: { event in
+                    presentingMap = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        if let club = allClubs.first(where: { $0.id == event.clubId }) {
+                            selectedClub = club
+                        }
+                    }
+                }
+            )
+            .navigationTitle("Map")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { presentingMap = false }
+                        .foregroundColor(GQColors.textPrimary)
+                }
+            }
+        }
     }
 
     /// Your clubs — rich vertical list with a live status line under each
@@ -4476,6 +4639,287 @@ struct NewClubPostSheet: View {
         modelContext.insert(post)
         try? modelContext.save()
         dismiss()
+    }
+}
+
+// MARK: - Club Map sheet
+
+/// Full-screen map for browsing clubs + events by location. Club pins use
+/// the app-gradient monogram style; event pins are calendar-tiles tinted
+/// amber so they pop against club pins. Tapping a pin shows an overlay
+/// card with quick-action buttons.
+struct ClubMapView: View {
+    let clubs: [Club]
+    let events: [ClubEvent]
+    let profile: UserProfile
+    let selectedClub: (Club) -> Void
+    let selectedEvent: (ClubEvent) -> Void
+
+    @State private var selectedPin: MapPin? = nil
+    @State private var cameraPosition: MapCameraPosition = .region(MKCoordinateRegion(
+        center: CLLocationCoordinate2D(latitude: 44.225, longitude: -76.490),
+        span: MKCoordinateSpan(latitudeDelta: 0.04, longitudeDelta: 0.04)
+    ))
+    @State private var showEvents: Bool = true
+    @State private var showClubs: Bool = true
+
+    enum MapPin: Hashable, Identifiable {
+        case club(Club)
+        case event(ClubEvent, coord: CLLocationCoordinate2D)
+
+        var id: String {
+            switch self {
+            case .club(let c): return "club-\(c.id.uuidString)"
+            case .event(let e, _): return "event-\(e.id.uuidString)"
+            }
+        }
+
+        static func == (lhs: MapPin, rhs: MapPin) -> Bool { lhs.id == rhs.id }
+        func hash(into hasher: inout Hasher) { hasher.combine(id) }
+    }
+
+    /// Events with coordinates resolved from their parent club.
+    private var eventsWithCoords: [(event: ClubEvent, coord: CLLocationCoordinate2D)] {
+        events.compactMap { e in
+            guard let club = clubs.first(where: { $0.id == e.clubId }),
+                  let lat = club.latitude, let lon = club.longitude else { return nil }
+            return (e, CLLocationCoordinate2D(latitude: lat, longitude: lon))
+        }
+    }
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            Map(position: $cameraPosition) {
+                if showClubs {
+                    ForEach(clubs) { club in
+                        if let lat = club.latitude, let lon = club.longitude {
+                            Annotation(club.name, coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon)) {
+                                clubPin(club)
+                            }
+                        }
+                    }
+                }
+                if showEvents {
+                    ForEach(Array(eventsWithCoords.enumerated()), id: \.element.event.id) { _, item in
+                        Annotation(item.event.title, coordinate: item.coord) {
+                            eventPin(item.event)
+                        }
+                    }
+                }
+            }
+            .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
+            .ignoresSafeArea(edges: .bottom)
+            .onTapGesture {
+                withAnimation(.easeInOut(duration: 0.2)) { selectedPin = nil }
+            }
+
+            // Top-right filter toggles — show/hide clubs vs events
+            VStack(alignment: .trailing, spacing: 8) {
+                filterToggle(label: "Clubs", systemImage: "person.3.fill", on: $showClubs)
+                filterToggle(label: "Events", systemImage: "calendar", on: $showEvents)
+                Button {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        cameraPosition = .region(MKCoordinateRegion(
+                            center: CLLocationCoordinate2D(latitude: 44.225, longitude: -76.490),
+                            span: MKCoordinateSpan(latitudeDelta: 0.04, longitudeDelta: 0.04)
+                        ))
+                    }
+                } label: {
+                    Image(systemName: "location.fill")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(GQColors.textPrimary)
+                        .padding(10)
+                        .background(Circle().fill(.ultraThinMaterial))
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.top, 12)
+            .padding(.trailing, 12)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+
+            if let pin = selectedPin {
+                pinOverlay(pin)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 24)
+            }
+        }
+        .animation(.easeInOut(duration: 0.25), value: selectedPin?.id)
+    }
+
+    // MARK: - Pins
+
+    @ViewBuilder
+    private func clubPin(_ club: Club) -> some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.2)) { selectedPin = .club(club) }
+        } label: {
+            let initial = String(club.name.trimmingCharacters(in: .whitespaces).prefix(1)).uppercased()
+            ZStack {
+                Circle()
+                    .fill(GQGradients.primary)
+                    .frame(width: 34, height: 34)
+                Text(initial)
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
+            }
+            .overlay(Circle().stroke(Color.white, lineWidth: 2))
+            .shadow(color: .black.opacity(0.25), radius: 3, y: 1)
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private func eventPin(_ event: ClubEvent) -> some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.2)) { selectedPin = .event(event, coord: CLLocationCoordinate2D()) }
+        } label: {
+            let day = Calendar.current.component(.day, from: event.date)
+            VStack(spacing: 0) {
+                Image(systemName: "calendar")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 2)
+                    .background(Color.orange)
+                Text("\(day)")
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .foregroundColor(GQColors.textPrimary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            .frame(width: 30, height: 34)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 7))
+            .overlay(RoundedRectangle(cornerRadius: 7).stroke(Color.white, lineWidth: 1.5))
+            .shadow(color: .black.opacity(0.25), radius: 3, y: 1)
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Filter toggles
+
+    @ViewBuilder
+    private func filterToggle(label: String, systemImage: String, on: Binding<Bool>) -> some View {
+        Button { on.wrappedValue.toggle() } label: {
+            HStack(spacing: 5) {
+                Image(systemName: systemImage).font(.system(size: 11, weight: .semibold))
+                Text(label).font(.system(size: 12, weight: .semibold))
+            }
+            .foregroundColor(on.wrappedValue ? .white : GQColors.textSecondary)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(Capsule().fill(on.wrappedValue
+                ? AnyShapeStyle(GQGradients.primary)
+                : AnyShapeStyle(.ultraThinMaterial)))
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Overlay card
+
+    @ViewBuilder
+    private func pinOverlay(_ pin: MapPin) -> some View {
+        switch pin {
+        case .club(let club):
+            clubOverlayCard(club)
+        case .event(let event, _):
+            eventOverlayCard(event)
+        }
+    }
+
+    @ViewBuilder
+    private func clubOverlayCard(_ club: Club) -> some View {
+        let isMember = club.memberIds.contains(profile.id)
+        HStack(spacing: 12) {
+            ClubMonogramAvatar(club: club, size: 44)
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 4) {
+                    Text(club.name)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(GQColors.textPrimary)
+                        .lineLimit(1)
+                    if club.isVerified {
+                        Image(systemName: "checkmark.seal.fill")
+                            .font(.system(size: 10))
+                            .foregroundStyle(GQGradients.primary)
+                    }
+                }
+                HStack(spacing: 6) {
+                    if let loc = club.location {
+                        Text(loc).font(.system(size: 11))
+                    }
+                    Text("·").font(.system(size: 10))
+                    Text("\(club.memberCount) members").font(.system(size: 11))
+                }
+                .foregroundColor(GQColors.textTertiary)
+            }
+            Spacer(minLength: 8)
+            Button { selectedClub(club) } label: {
+                Text(isMember ? "Open" : "View")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 7)
+                    .background(Capsule().fill(GQGradients.primary))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(12)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+
+    private static let eventMonthFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "MMM"
+        return f
+    }()
+
+    @ViewBuilder
+    private func eventOverlayCard(_ event: ClubEvent) -> some View {
+        let day = Calendar.current.component(.day, from: event.date)
+        HStack(spacing: 12) {
+            VStack(spacing: 0) {
+                Text(Self.eventMonthFormatter.string(from: event.date).uppercased())
+                    .font(.system(size: 9, weight: .bold))
+                    .tracking(0.5)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 2)
+                    .background(Color.orange)
+                Text("\(day)")
+                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                    .foregroundColor(GQColors.textPrimary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            .frame(width: 44, height: 44)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(event.title)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(GQColors.textPrimary)
+                    .lineLimit(1)
+                Text("\(event.date.formatted(date: .omitted, time: .shortened))\((event.location ?? "").isEmpty ? "" : " · \(event.location ?? "")")")
+                    .font(.system(size: 11))
+                    .foregroundColor(GQColors.textTertiary)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 8)
+            Button { selectedEvent(event) } label: {
+                Text("Open")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 7)
+                    .background(Capsule().fill(GQGradients.primary))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(12)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
     }
 }
 
