@@ -111,8 +111,8 @@ struct FriendsFeedView: View {
                             },
                             onStartWorkout: { dismiss() }
                         )
-                        .padding(.top, 2)
-                        .padding(.bottom, 6)
+                        .padding(.top, 0)
+                        .padding(.bottom, 4)
                         .frame(maxWidth: .infinity)
                         .background(GQColors.background)
                     }
@@ -625,18 +625,18 @@ struct FriendsFeedView: View {
     }
 
     private var suggestedPostBanner: some View {
-        HStack(spacing: 5) {
+        HStack(spacing: 4) {
             Image(systemName: "sparkles")
-                .font(.system(size: 10, weight: .bold))
+                .font(.system(size: 9, weight: .bold))
             Text("SUGGESTED FOR YOU")
-                .font(.system(size: 10, weight: .bold))
+                .font(.system(size: 9, weight: .bold))
                 .tracking(0.6)
             Spacer(minLength: 0)
         }
         .foregroundStyle(GQGradients.primary)
         .padding(.horizontal, 16)
-        .padding(.top, 10)
-        .padding(.bottom, 4)
+        .padding(.top, 8)
+        .padding(.bottom, 3)
         .background(GQColors.surfaceBase)
     }
 
@@ -645,77 +645,71 @@ struct FriendsFeedView: View {
     /// and mid-feed positions.
     @ViewBuilder
     private func suggestedPeopleCard(_ people: [UserProfile]) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 5) {
                 Image(systemName: "person.badge.plus")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(GQGradients.primary)
                 Text("PEOPLE YOU MIGHT KNOW")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.system(size: 9, weight: .bold))
                     .tracking(0.6)
                     .foregroundColor(GQColors.textSecondary)
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 16)
-            .padding(.top, 14)
+            .padding(.top, 10)
 
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
+                HStack(spacing: 8) {
                     ForEach(people) { person in
                         suggestedPersonMiniCard(person)
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.bottom, 14)
+                .padding(.bottom, 10)
             }
         }
         .background(GQColors.surfaceBase)
     }
 
-    /// 140pt-wide vertical card used in the horizontal people rail —
-    /// avatar, name, username, inline Follow button.
+    /// Compact vertical card used in the horizontal people rail —
+    /// avatar, name, Follow button. Username dropped to save vertical
+    /// space; tap the card in a later pass to view profile.
     @ViewBuilder
     private func suggestedPersonMiniCard(_ person: UserProfile) -> some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 6) {
             ZStack {
                 Circle()
                     .fill(GQGradients.primary)
-                    .frame(width: 52, height: 52)
+                    .frame(width: 42, height: 42)
                 Text(String(person.name.prefix(1)).uppercased())
-                    .font(.system(size: 19, weight: .bold, design: .rounded))
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
                     .foregroundColor(.white)
             }
-            VStack(spacing: 1) {
-                Text(person.name)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(GQColors.textPrimary)
-                    .lineLimit(1)
-                if !person.username.isEmpty {
-                    Text("@\(person.username)")
-                        .font(.system(size: 10))
-                        .foregroundColor(GQColors.textTertiary)
-                        .lineLimit(1)
-                }
-            }
+            Text(person.name.components(separatedBy: " ").first ?? person.name)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(GQColors.textPrimary)
+                .lineLimit(1)
+
             Button {
                 followUser(person)
             } label: {
                 Text("Follow")
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.system(size: 10, weight: .bold))
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 6)
+                    .padding(.vertical, 5)
                     .background(Capsule().fill(GQGradients.primary))
             }
             .buttonStyle(.plain)
         }
-        .frame(width: 126)
-        .padding(10)
+        .frame(width: 106)
+        .padding(8)
         .background(GQColors.background)
-        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
         .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(GQColors.borderDefault.opacity(0.7), lineWidth: 0.5)
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(GQColors.borderDefault.opacity(0.6), lineWidth: 0.5)
         )
     }
 

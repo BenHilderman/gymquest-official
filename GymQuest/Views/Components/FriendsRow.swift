@@ -112,38 +112,35 @@ struct FriendsRow: View {
 
     var body: some View {
         if members.isEmpty { EmptyView() } else {
-            VStack(alignment: .leading, spacing: 6) {
-                // "ACTIVE NOW · N friends today" — compact header with
-                // a green presence dot, matches the cleaner shipped
-                // design instead of a loud "FRIENDS" label.
-                HStack(spacing: 6) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 5) {
                     Circle()
                         .fill(GQColors.success)
-                        .frame(width: 6, height: 6)
+                        .frame(width: 5, height: 5)
                         .scaleEffect(pulse ? 1.18 : 1.0)
                         .animation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true), value: pulse)
                     Text("ACTIVE NOW")
-                        .font(.system(size: 10, weight: .semibold))
-                        .tracking(1.2)
+                        .font(.system(size: 9, weight: .semibold))
+                        .tracking(1.0)
                         .foregroundColor(GQColors.textTertiary)
                     Text("·")
                         .foregroundColor(GQColors.textTertiary)
                     Text(activeLabel)
-                        .font(.system(size: 10))
+                        .font(.system(size: 9))
                         .foregroundColor(GQColors.textTertiary)
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 6)
+                .padding(.top, 4)
 
                 ScrollView(.horizontal, showsIndicators: false) {
-                    LazyHStack(spacing: 14) {
+                    LazyHStack(spacing: 12) {
                         ForEach(members) { member in
                             memberCell(member)
                         }
                         startCell
                     }
                     .padding(.horizontal, 16)
-                    .padding(.vertical, 4)
+                    .padding(.vertical, 2)
                 }
             }
             .onAppear { pulse = true }
@@ -167,49 +164,42 @@ struct FriendsRow: View {
             #endif
             onTapMember(member)
         } label: {
-            VStack(spacing: 4) {
-                // Fixed 44pt frame for every cell so live (with ring)
-                // and non-live (avatar only) share the same baseline.
-                // Previously the ring bumped live cells 2pt taller,
-                // pushing the text down relative to neighbors.
+            VStack(spacing: 3) {
                 ZStack {
                     if isLive(member) {
                         Circle()
-                            .stroke(GQColors.success, lineWidth: 2)
-                            .frame(width: 44, height: 44)
+                            .stroke(GQColors.success, lineWidth: 1.5)
+                            .frame(width: 38, height: 38)
                             .scaleEffect(pulse ? 1.05 : 1.0)
                             .animation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true), value: pulse)
                     }
 
                     avatarImage(member)
-                        .frame(width: 40, height: 40)
+                        .frame(width: 34, height: 34)
                         .clipShape(Circle())
                         .opacity(isInactive(member) ? 0.55 : 1.0)
 
                     if isLive(member) {
                         Circle()
                             .fill(GQColors.success)
-                            .frame(width: 11, height: 11)
-                            .overlay(Circle().stroke(GQColors.background, lineWidth: 2))
-                            .frame(width: 44, height: 44, alignment: .bottomTrailing)
+                            .frame(width: 9, height: 9)
+                            .overlay(Circle().stroke(GQColors.background, lineWidth: 1.5))
+                            .frame(width: 38, height: 38, alignment: .bottomTrailing)
                     }
                 }
-                .frame(width: 44, height: 44)
+                .frame(width: 38, height: 38)
 
                 Text(firstName(member))
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: 10, weight: .semibold))
                     .foregroundColor(GQColors.textPrimary)
                     .lineLimit(1)
-                    .frame(maxWidth: 56)
+                    .frame(maxWidth: 50)
 
-                // Second line — workout type + elapsed (or total when
-                // completed), e.g. "Push · 6m" / "Pull · 42m". Tertiary
-                // text so it stays subtle under the name.
                 Text(member.statusText)
-                    .font(.system(size: 9, weight: .medium))
+                    .font(.system(size: 8, weight: .medium))
                     .foregroundColor(GQColors.textTertiary)
                     .lineLimit(1)
-                    .frame(maxWidth: 56)
+                    .frame(maxWidth: 50)
             }
         }
         .buttonStyle(.plain)
@@ -217,19 +207,19 @@ struct FriendsRow: View {
 
     private var startCell: some View {
         Button(action: onStartWorkout) {
-            VStack(spacing: 4) {
+            VStack(spacing: 3) {
                 ZStack {
                     Circle()
-                        .stroke(GQColors.borderDefault, lineWidth: 1.5)
-                        .frame(width: 40, height: 40)
+                        .stroke(GQColors.borderDefault, lineWidth: 1.2)
+                        .frame(width: 34, height: 34)
                     Image(systemName: "plus")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(GQGradients.primary)
                 }
-                .frame(width: 44, height: 44)
+                .frame(width: 38, height: 38)
 
                 Text("Start")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: 10, weight: .semibold))
                     .foregroundColor(GQColors.textSecondary)
             }
         }
