@@ -502,7 +502,7 @@ enum DiscoverTab: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var label: String {
         switch self {
-        case .forYou: return "Trending"
+        case .forYou: return "For You"
         case .nearby: return "Nearby"
         case .friends: return "Friends"
         case .challenges: return "Challenges"
@@ -510,7 +510,7 @@ enum DiscoverTab: String, CaseIterable, Identifiable {
     }
     var icon: String {
         switch self {
-        case .forYou: return "flame.fill"
+        case .forYou: return "sparkles"
         case .nearby: return "location.fill"
         case .friends: return "person.2.fill"
         case .challenges: return "flag.checkered"
@@ -558,11 +558,15 @@ struct ClubFeedView: View {
         topLevelClubs.filter { $0.memberIds.contains(profile.id) }
     }
 
-    /// yourClubs reordered by the active sort. Category chips now
-    /// live inside the Discover card and only affect discovery pools;
-    /// Your Clubs shows all of the user's clubs regardless.
+    /// yourClubs reordered by the active sort + category filter. When
+    /// a category chip is selected, only clubs in that category appear.
     private var sortedYourClubs: [Club] {
-        let pool = yourClubs
+        let pool: [Club]
+        if let cat = selectedCategory {
+            pool = yourClubs.filter { $0.resolvedCategory == cat }
+        } else {
+            pool = yourClubs
+        }
         switch yourClubsSort {
         case .recent:
             return pool.sorted { a, b in
@@ -832,10 +836,16 @@ struct ClubFeedView: View {
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
-                // Filters moved inside the Discover card (contextual
-                // to discovery, not page-wide chrome). Each section
-                // lives in a white rounded card, with gray page-level
-                // gaps between them.
+                // Search + category chips pinned at the top. Mirrors the
+                // Discover page: bar is a tappable button that opens the
+                // full search sheet.
+                searchAndCategoryStrip
+                    .padding(.top, 4)
+
+                // Apple Settings-style inset groups: each section has
+                // its header outside the card, rows inside a white
+                // rounded card. Sections hide when the active
+                // category filter leaves them empty.
                 if !sortedYourClubs.isEmpty {
                     groupedSection(header: "Your Clubs", icon: "person.3.fill") {
                         yourClubsRowsOnly
@@ -861,8 +871,15 @@ struct ClubFeedView: View {
                     .padding(.bottom, 16)
                 }
 
-                // Category chips live inside Discover now, so the
-                // page-wide filter-empty state is obsolete.
+                // When an active filter hides everything, show a
+                // friendly nudge with a one-tap clear.
+                if selectedCategory != nil
+                    && sortedYourClubs.isEmpty
+                    && computedEventRows.isEmpty
+                    && !hasAnyDiscoverContent {
+                    filterEmptyStateBlock
+                        .padding(.top, 40)
+                }
 
                 if yourClubs.isEmpty && searchFilteredRecommended.isEmpty {
                     emptyStateBlock
@@ -884,11 +901,6 @@ struct ClubFeedView: View {
                 HStack(spacing: 16) {
                     Button { presentingSearch = true } label: {
                         Image(systemName: "magnifyingglass")
-                            .font(.system(size: 15, weight: .medium))
-                            .foregroundColor(GQColors.textPrimary)
-                    }
-                    Button { presentingMap = true } label: {
-                        Image(systemName: "map")
                             .font(.system(size: 15, weight: .medium))
                             .foregroundColor(GQColors.textPrimary)
                     }
@@ -1437,11 +1449,16 @@ struct ClubFeedView: View {
         .padding(.bottom, 8)
     }
 
-    /// Pre-computed ordered rows for the events section. Category
-    /// chips are Discover-scoped now, so events show all upcoming
-    /// regardless of the chip state.
+    /// Pre-computed ordered rows for the events section — separates the
+    /// non-View logic out of the @ViewBuilder body so we can use
+    /// imperative control flow (prefix + de-dup + mapping). Applies
+    /// the selected category chip to filter events by their parent
+    /// club's category.
     private var computedEventRows: [(event: ClubEvent, joined: Bool, recommended: Bool)] {
-        let categoryFilter: (ClubEvent) -> Bool = { _ in true }
+        let categoryFilter: (ClubEvent) -> Bool = { [selectedCategory] event in
+            guard let cat = selectedCategory else { return true }
+            return allClubs.first(where: { $0.id == event.clubId })?.resolvedCategory == cat
+        }
 
         let myEvents = Array(upcomingEventsInMyClubs.filter(categoryFilter).prefix(3))
         var seen = Set(myEvents.map(\.id))
@@ -1838,16 +1855,12 @@ struct ClubFeedView: View {
     /// that flips between "For You", "Nearby", "Friends", and
     /// "Challenges" tabs. Keeps the page scannable while still balancing
     /// personal vs. exploratory discovery.
-    /// Content of the Discover card: category filter chips at the
-    /// top (scoped to Discover, filters the active tab's pool), then
-    /// segmented tab control, hairline, and the active tab body.
+    /// Content of the Discover card: segmented tab control at top,
+    /// hairline below, active tab body underneath. Sits inside a
+    /// groupedSection so the outer card already supplies padding.
     @ViewBuilder
     private var discoverCardContent: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Category filter chips — live here now, not at page top
-            discoverCategoryChips
-                .padding(.bottom, 8)
-
             discoverSegmentedControl
                 .padding(.bottom, 10)
 
@@ -1865,21 +1878,6 @@ struct ClubFeedView: View {
             .padding(.top, 10)
             .animation(.easeInOut(duration: 0.18), value: discoverTab)
         }
-    }
-
-    /// Category chip strip scoped to the Discover card. Same chips
-    /// as the old page-top strip, just lives here where it belongs.
-    @ViewBuilder
-    private var discoverCategoryChips: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
-                categoryChip(nil, label: "All")
-                ForEach(browseCategories, id: \.self) { cat in
-                    categoryChip(cat, label: cat.rawValue)
-                }
-            }
-        }
-        .scrollClipDisabled()
     }
 
     /// Just the per-tab content, without the outer "DISCOVER" header
