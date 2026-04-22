@@ -65,6 +65,11 @@ struct HealthDashboardView: View {
             integration.computeUnifiedMetrics()
             integration.computeStrengthScore(workouts: workouts)
         }
+        .navigationTitle("Health")
+        .navigationBarTitleDisplayMode(.inline)
+        #if os(iOS)
+        .instagramBack()
+        #endif
     }
 }
 

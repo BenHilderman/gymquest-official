@@ -4598,16 +4598,7 @@ struct ClubDetailView: View {
         #endif
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbarBackground(GQColors.background, for: .navigationBar)
-        .navigationBarBackButtonHidden(true)
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button { dismiss() } label: {
-                    Image(systemName: "chevron.backward")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundColor(.black)
-                }
-            }
-        }
+        .instagramBack()
         .sheet(isPresented: $showingNewPost) {
             NewClubPostSheet(club: club, profile: profile)
         }

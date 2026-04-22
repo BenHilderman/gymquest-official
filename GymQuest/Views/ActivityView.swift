@@ -123,6 +123,7 @@ struct SocialActivityView: View {
                     }
                 }
             }
+            .instagramBack()
             .onAppear { buildActivityItems() }
             .sheet(item: $profileUserId) { wrapped in
                 UserProfileSheet(userId: wrapped.id, currentProfile: profile)

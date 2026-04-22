@@ -35,18 +35,7 @@ struct CalendarHistoryView: View {
             .background(GQColors.background.ignoresSafeArea())
             .navigationTitle("Workout History")
             .navigationBarTitleDisplayMode(.inline)
-            .navigationBarBackButtonHidden(true)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "chevron.backward")
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundColor(.black)
-                    }
-                }
-            }
+            .instagramBack()
             .sheet(isPresented: $showingWorkoutReview) {
                 if let workout = selectedWorkout {
                     WorkoutReviewSheet(workout: workout)

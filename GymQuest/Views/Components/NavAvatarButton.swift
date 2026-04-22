@@ -10,6 +10,41 @@ import UIKit
 ///
 /// Apply via `.toolbar { ToolbarItem(placement: .topBarTrailing) { NavAvatarButton(profile: profile) } }`
 /// on every top-level tab view.
+// MARK: - Instagram-style back chevron modifier
+
+/// Hides the native "< Parent Title" back button and installs a
+/// clean Instagram-style black chevron in its place. Apply to every
+/// push-destination view so all back buttons look identical across
+/// the app.
+struct InstagramBackChevronModifier: ViewModifier {
+    @Environment(\.dismiss) private var dismiss
+
+    func body(content: Content) -> some View {
+        content
+            .navigationBarBackButtonHidden(true)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "chevron.backward")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundColor(.black)
+                    }
+                }
+            }
+    }
+}
+
+extension View {
+    /// Apply to any view that's pushed onto a NavigationStack so the
+    /// leading back control is a black `<` icon with no page-name
+    /// label, matching the pattern used everywhere in the app.
+    func instagramBack() -> some View {
+        modifier(InstagramBackChevronModifier())
+    }
+}
+
 struct NavAvatarButton: View {
     let profile: UserProfile
 

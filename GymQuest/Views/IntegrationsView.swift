@@ -86,6 +86,7 @@ struct IntegrationsView: View {
         .navigationTitle("Integrations")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
+        .instagramBack()
         #endif
     }
 
