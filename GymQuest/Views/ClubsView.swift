@@ -901,6 +901,9 @@ struct ClubFeedView: View {
         .background(GQColors.background.ignoresSafeArea())
         .navigationTitle("Clubs")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbarBackground(GQColors.background, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 HStack(spacing: 16) {
