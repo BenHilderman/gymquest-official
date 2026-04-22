@@ -116,12 +116,17 @@ struct ExploreView: View {
                 } else if allPosts.isEmpty {
                     emptyExploreState
                 } else {
-                    // Filter chips sit above the hero so the For You
-                    // carousel responds to them — e.g. tapping "Push"
-                    // reshapes the 5 picks into push-specific
-                    // recommendations.
-                    discoverFilterChips
-                        .padding(.top, 4)
+                    // Filter chips + mode toggle sit above the hero so
+                    // the For You carousel responds to them — tapping
+                    // "Push" reshapes the 5 picks into push-specific
+                    // recommendations. Mode toggle lives on the same
+                    // row at the trailing edge.
+                    HStack(spacing: 8) {
+                        discoverFilterChips
+                        discoverModeToggle
+                            .padding(.trailing, 12)
+                    }
+                    .padding(.top, 4)
 
                     if let hero = cachedHeroPick {
                         ExploreHeroCard(
@@ -985,18 +990,13 @@ struct ExploreView: View {
                 }
             )
         } header: {
-            // Section header now only carries the grid mode toggle
-            // (Browse vs Watch) — filter chips moved up above the
-            // For You hero so the carousel can react to them.
-            HStack {
-                Spacer()
-                discoverModeToggle
-                    .padding(.trailing, 12)
-            }
-            .padding(.top, 8)
-            .padding(.bottom, 8)
-            .frame(maxWidth: .infinity)
-            .background(GQColors.surfaceBase)
+            // Header collapsed — filter chips + mode toggle moved up
+            // above the hero. A tiny surfaceBase spacer keeps pinned
+            // section semantics without showing chrome.
+            Color.clear
+                .frame(height: 4)
+                .frame(maxWidth: .infinity)
+                .background(GQColors.surfaceBase)
         }
     }
 
