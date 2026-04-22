@@ -842,23 +842,22 @@ struct ClubFeedView: View {
                 if !yourClubs.isEmpty {
                     rowDivider
                     yourClubsListBlock
+                        .padding(.bottom, 4)
                 }
 
                 // Upcoming events — any future event, my-clubs first.
                 if !upcomingEvents.isEmpty {
                     rowDivider
                     eventsBlock
-                        .padding(.vertical, 10)
+                        .padding(.bottom, 4)
                 }
 
                 // Discover — tabbed section combining "For You",
-                // "Nearby", "Friends", and "Challenges" so one block
-                // handles both browsing and recommendation. Replaces
-                // the separate Popular rail + Nearby list.
+                // "Nearby", "Friends", and "Challenges".
                 if hasAnyDiscoverContent {
                     rowDivider
                     discoverSection
-                        .padding(.vertical, 12)
+                        .padding(.bottom, 12)
                 }
 
                 if yourClubs.isEmpty && searchFilteredRecommended.isEmpty {
@@ -915,13 +914,24 @@ struct ClubFeedView: View {
         }
     }
 
-    /// Thin borderDefault hairline between blocks — matches the
-    /// separator language used on the Friends feed.
+    /// Hairline between sections — edge-to-edge, matches Apple List
+    /// section separators.
     private var rowDivider: some View {
         Rectangle()
             .fill(GQColors.borderDefault)
             .frame(height: 0.5)
             .padding(.horizontal, 16)
+    }
+
+    /// Hairline between rows *within* a section — inset past the
+    /// avatar so it looks like a grouped-list separator instead of a
+    /// full-width section break.
+    private var inRowDivider: some View {
+        Rectangle()
+            .fill(GQColors.borderDefault.opacity(0.7))
+            .frame(height: 0.5)
+            .padding(.leading, 74)
+            .padding(.trailing, 16)
     }
 
     // MARK: - Search + categories strip (top of page)
@@ -1137,7 +1147,7 @@ struct ClubFeedView: View {
     private var clubMapSheet: some View {
         NavigationStack {
             ClubMapView(
-                clubs: clubsWithCoordinates,
+                clubs: topLevelClubs,
                 events: allEvents.filter { $0.date > Date() },
                 profile: profile,
                 selectedClub: { club in
@@ -1174,7 +1184,7 @@ struct ClubFeedView: View {
     @ViewBuilder
     private var yourClubsListBlock: some View {
         VStack(alignment: .leading, spacing: 0) {
-            sectionHeaderLabel("YOUR CLUBS", trailing: "\(yourClubs.count)")
+            sectionHeaderLabel("YOUR CLUBS")
 
             ForEach(Array(sortedYourClubs.enumerated()), id: \.element.id) { idx, club in
                 Button { selectedClub = club } label: {
@@ -1183,7 +1193,7 @@ struct ClubFeedView: View {
                 .buttonStyle(.plain)
 
                 if idx < sortedYourClubs.count - 1 {
-                    rowDivider
+                    inRowDivider
                 }
             }
         }
@@ -1224,7 +1234,7 @@ struct ClubFeedView: View {
             yourClubTrailing(club, live: live, eventToday: eventToday)
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 11)
+        .padding(.vertical, 12)
         .contentShape(Rectangle())
     }
 
@@ -1352,7 +1362,7 @@ struct ClubFeedView: View {
         let rows = computedEventRows
 
         VStack(alignment: .leading, spacing: 0) {
-            sectionHeaderLabel("UPCOMING EVENTS", trailing: "\(rows.count)")
+            sectionHeaderLabel("UPCOMING EVENTS")
 
             ForEach(Array(rows.enumerated()), id: \.element.event.id) { idx, item in
                 Button { selectedEvent = item.event } label: {
@@ -1591,7 +1601,7 @@ struct ClubFeedView: View {
     private var discoverBlock: some View {
         let rows = Array(discoverClubs.prefix(8))
         VStack(alignment: .leading, spacing: 0) {
-            sectionHeaderLabel("CLUBS NEAR YOU", trailing: "\(discoverClubs.count)")
+            sectionHeaderLabel("CLUBS NEAR YOU")
 
             ForEach(Array(rows.enumerated()), id: \.element.id) { idx, club in
                 Button { selectedClub = club } label: {
@@ -1608,7 +1618,7 @@ struct ClubFeedView: View {
 
     private func discoverClubRow(_ club: Club) -> some View {
         HStack(spacing: 12) {
-            clubAvatar(club, size: 44)
+            clubAvatar(club, size: 46)
 
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 5) {
@@ -1845,7 +1855,7 @@ struct ClubFeedView: View {
                         discoverClubRow(club)
                     }
                     .buttonStyle(.plain)
-                    if idx < rows.count - 1 { rowDivider }
+                    if idx < rows.count - 1 { inRowDivider }
                 }
             }
         }
@@ -1868,7 +1878,7 @@ struct ClubFeedView: View {
                         friendsClubRow(club)
                     }
                     .buttonStyle(.plain)
-                    if idx < min(friendsDiscoverClubs.count, 8) - 1 { rowDivider }
+                    if idx < min(friendsDiscoverClubs.count, 8) - 1 { inRowDivider }
                 }
             }
         }
@@ -5484,12 +5494,36 @@ struct ClubMapView: View {
         func hash(into hasher: inout Hasher) { hasher.combine(id) }
     }
 
+    /// Deterministic jitter for clubs without hard coords — spreads
+    /// them around the Kingston center instead of stacking on one pin.
+    private func fallbackCoord(for club: Club) -> CLLocationCoordinate2D {
+        let seed = abs(club.id.uuidString.unicodeScalars.reduce(0) { $0 &+ Int($1.value) })
+        let jitterLat = Double((seed % 60) - 30) / 3500.0   // ±~0.009°
+        let jitterLon = Double(((seed / 60) % 60) - 30) / 3500.0
+        return CLLocationCoordinate2D(latitude: 44.225 + jitterLat, longitude: -76.490 + jitterLon)
+    }
+
+    /// Coord for a club — real lat/lon if present, else a fallback
+    /// jitter around the city center so every club renders a pin.
+    /// Clubs without any location signal (neither coords nor location
+    /// string) are filtered out upstream.
+    private func resolvedCoord(_ club: Club) -> CLLocationCoordinate2D {
+        if let lat = club.latitude, let lon = club.longitude {
+            return CLLocationCoordinate2D(latitude: lat, longitude: lon)
+        }
+        return fallbackCoord(for: club)
+    }
+
+    private var mappableClubs: [Club] {
+        clubs.filter { $0.latitude != nil || ($0.location.map { !$0.isEmpty } ?? false) }
+    }
+
     /// Events with coordinates resolved from their parent club.
     private var eventsWithCoords: [(event: ClubEvent, coord: CLLocationCoordinate2D)] {
         events.compactMap { e in
-            guard let club = clubs.first(where: { $0.id == e.clubId }),
-                  let lat = club.latitude, let lon = club.longitude else { return nil }
-            return (e, CLLocationCoordinate2D(latitude: lat, longitude: lon))
+            guard let club = clubs.first(where: { $0.id == e.clubId }) else { return nil }
+            guard club.latitude != nil || (club.location.map { !$0.isEmpty } ?? false) else { return nil }
+            return (e, resolvedCoord(club))
         }
     }
 
@@ -5497,11 +5531,9 @@ struct ClubMapView: View {
         ZStack(alignment: .bottom) {
             Map(position: $cameraPosition) {
                 if showClubs {
-                    ForEach(clubs) { club in
-                        if let lat = club.latitude, let lon = club.longitude {
-                            Annotation(club.name, coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon)) {
-                                clubPin(club)
-                            }
+                    ForEach(mappableClubs) { club in
+                        Annotation(club.name, coordinate: resolvedCoord(club)) {
+                            clubPin(club)
                         }
                     }
                 }
@@ -5606,17 +5638,33 @@ struct ClubMapView: View {
 
     @ViewBuilder
     private func filterToggle(label: String, systemImage: String, on: Binding<Bool>) -> some View {
-        Button { on.wrappedValue.toggle() } label: {
+        Button {
+            #if canImport(UIKit)
+            UISelectionFeedbackGenerator().selectionChanged()
+            #endif
+            on.wrappedValue.toggle()
+        } label: {
             HStack(spacing: 5) {
-                Image(systemName: systemImage).font(.system(size: 11, weight: .semibold))
-                Text(label).font(.system(size: 12, weight: .semibold))
+                Image(systemName: systemImage)
+                    .font(.system(size: 11, weight: .semibold))
+                Text(label)
+                    .font(.system(size: 12, weight: .semibold))
             }
             .foregroundColor(on.wrappedValue ? .white : GQColors.textSecondary)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
-            .background(Capsule().fill(on.wrappedValue
-                ? AnyShapeStyle(GQGradients.primary)
-                : AnyShapeStyle(.ultraThinMaterial)))
+            .background(
+                Capsule().fill(on.wrappedValue
+                    ? AnyShapeStyle(GQGradients.primary)
+                    : AnyShapeStyle(.ultraThinMaterial))
+            )
+            .overlay(
+                Capsule().stroke(
+                    on.wrappedValue ? Color.clear : Color.white.opacity(0.25),
+                    lineWidth: 1
+                )
+            )
+            .opacity(on.wrappedValue ? 1.0 : 0.85)
         }
         .buttonStyle(.plain)
     }
