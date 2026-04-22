@@ -558,13 +558,18 @@ struct ClubFeedView: View {
         topLevelClubs.filter { $0.memberIds.contains(profile.id) }
     }
 
-    /// yourClubs reordered by the active sort. `.recent` means "most
-    /// recently on" — clubs with live members first, then by latest
-    /// activity, so the list mirrors where people are right now.
+    /// yourClubs reordered by the active sort + category filter. When
+    /// a category chip is selected, only clubs in that category appear.
     private var sortedYourClubs: [Club] {
+        let pool: [Club]
+        if let cat = selectedCategory {
+            pool = yourClubs.filter { $0.resolvedCategory == cat }
+        } else {
+            pool = yourClubs
+        }
         switch yourClubsSort {
         case .recent:
-            return yourClubs.sorted { a, b in
+            return pool.sorted { a, b in
                 let la = liveCount(for: a), lb = liveCount(for: b)
                 if la != lb { return la > lb }
                 let ta = a.lastActivityDate ?? a.createdAt
@@ -572,21 +577,19 @@ struct ClubFeedView: View {
                 return ta > tb
             }
         case .nearby:
-            return yourClubs.sorted {
+            return pool.sorted {
                 let a = distanceKm(lat: $0.latitude ?? 90, lon: $0.longitude ?? 0)
                 let b = distanceKm(lat: $1.latitude ?? 90, lon: $1.longitude ?? 0)
                 return a < b
             }
         case .upNext:
-            // Clubs with an upcoming event first, sorted by soonest. Clubs
-            // with no events fall to the bottom in original order.
-            return yourClubs.sorted { a, b in
+            return pool.sorted { a, b in
                 let da = nextEvent(for: a)?.date ?? .distantFuture
                 let db = nextEvent(for: b)?.date ?? .distantFuture
                 return da < db
             }
         case .active:
-            return yourClubs.sorted { liveCount(for: $0) > liveCount(for: $1) }
+            return pool.sorted { liveCount(for: $0) > liveCount(for: $1) }
         }
     }
 
@@ -841,16 +844,16 @@ struct ClubFeedView: View {
 
                 // Apple Settings-style inset groups: each section has
                 // its header outside the card, rows inside a white
-                // rounded card. The page-level gray background makes
-                // the cards stand out.
-                if !yourClubs.isEmpty {
+                // rounded card. Sections hide when the active
+                // category filter leaves them empty.
+                if !sortedYourClubs.isEmpty {
                     groupedSection(header: "YOUR CLUBS") {
                         yourClubsRowsOnly
                     }
                     .padding(.top, 12)
                 }
 
-                if !upcomingEvents.isEmpty {
+                if !computedEventRows.isEmpty {
                     groupedSection(header: "UPCOMING EVENTS") {
                         eventsRowsOnly
                     }
@@ -863,6 +866,16 @@ struct ClubFeedView: View {
                     }
                     .padding(.top, 20)
                     .padding(.bottom, 16)
+                }
+
+                // When an active filter hides everything, show a
+                // friendly nudge with a one-tap clear.
+                if selectedCategory != nil
+                    && sortedYourClubs.isEmpty
+                    && computedEventRows.isEmpty
+                    && !hasAnyDiscoverContent {
+                    filterEmptyStateBlock
+                        .padding(.top, 40)
                 }
 
                 if yourClubs.isEmpty && searchFilteredRecommended.isEmpty {
@@ -880,6 +893,11 @@ struct ClubFeedView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 HStack(spacing: 14) {
+                    Button { presentingSearch = true } label: {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundColor(GQColors.textPrimary)
+                    }
                     Button { presentingMap = true } label: {
                         Image(systemName: "map")
                             .font(.system(size: 15, weight: .medium))
@@ -968,42 +986,22 @@ struct ClubFeedView: View {
 
     // MARK: - Search + categories strip (top of page)
 
-    /// Compact "search + browse" strip — tappable search bar sits
-    /// above a horizontal row of category chips. Bar opens the full
-    /// search sheet; chips filter Discover in-place.
+    /// Top filter strip — matches the Discover tab's pattern: a single
+    /// horizontal row of category chips directly under the nav. Search
+    /// lives as a toolbar icon instead of an inline bar.
     @ViewBuilder
     private var searchAndCategoryStrip: some View {
-        VStack(spacing: 8) {
-            Button { presentingSearch = true } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(GQColors.textTertiary)
-                    Text("Search clubs, locations, activities")
-                        .font(.system(size: 14))
-                        .foregroundColor(GQColors.textTertiary)
-                    Spacer()
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                categoryChip(nil, label: "All")
+                ForEach(browseCategories, id: \.self) { cat in
+                    categoryChip(cat, label: cat.rawValue)
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 9)
-                .background(GQColors.adaptiveOverlay(0.06))
-                .clipShape(RoundedRectangle(cornerRadius: 11))
             }
-            .buttonStyle(.plain)
             .padding(.horizontal, 16)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
-                    categoryChip(nil, label: "All")
-                    ForEach(browseCategories, id: \.self) { cat in
-                        categoryChip(cat, label: cat.rawValue)
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 2)
-            }
-            .scrollClipDisabled()
+            .padding(.vertical, 2)
         }
+        .scrollClipDisabled()
         .padding(.bottom, 4)
     }
 
@@ -1413,17 +1411,24 @@ struct ClubFeedView: View {
 
     /// Pre-computed ordered rows for the events section — separates the
     /// non-View logic out of the @ViewBuilder body so we can use
-    /// imperative control flow (prefix + de-dup + mapping).
+    /// imperative control flow (prefix + de-dup + mapping). Applies
+    /// the selected category chip to filter events by their parent
+    /// club's category.
     private var computedEventRows: [(event: ClubEvent, joined: Bool, recommended: Bool)] {
-        let myEvents = Array(upcomingEventsInMyClubs.prefix(3))
+        let categoryFilter: (ClubEvent) -> Bool = { [selectedCategory] event in
+            guard let cat = selectedCategory else { return true }
+            return allClubs.first(where: { $0.id == event.clubId })?.resolvedCategory == cat
+        }
+
+        let myEvents = Array(upcomingEventsInMyClubs.filter(categoryFilter).prefix(3))
         var seen = Set(myEvents.map(\.id))
         let recEvents = Array(recommendedEvents
-            .filter { !seen.contains($0.id) }
+            .filter { !seen.contains($0.id) && categoryFilter($0) }
             .prefix(2))
         for r in recEvents { seen.insert(r.id) }
         let remainingBudget = max(0, 6 - myEvents.count - recEvents.count)
         let otherEvents = Array(upcomingEvents
-            .filter { !seen.contains($0.id) }
+            .filter { !seen.contains($0.id) && categoryFilter($0) }
             .prefix(remainingBudget))
 
         let myClubIdSet = Set(yourClubs.map(\.id))
@@ -2450,6 +2455,34 @@ struct ClubFeedView: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 28)
         .padding(.horizontal, 24)
+    }
+
+    /// Shown when the active category filter hides every section —
+    /// nudges the user to clear the filter instead of staring at a
+    /// blank page.
+    @ViewBuilder
+    private var filterEmptyStateBlock: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "line.3.horizontal.decrease.circle")
+                .font(.system(size: 26))
+                .foregroundColor(GQColors.textTertiary)
+            Text("No clubs match \(selectedCategory?.rawValue ?? "this filter")")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(GQColors.textSecondary)
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) { selectedCategory = nil }
+            } label: {
+                Text("Clear filter")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(Capsule().fill(GQGradients.primary))
+            }
+            .buttonStyle(.plain)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 28)
     }
 
     /// Empty state — only shown when the user has zero clubs AND there
