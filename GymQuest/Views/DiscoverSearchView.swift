@@ -23,6 +23,11 @@ struct DiscoverSearchView: View {
     @State private var query: String = ""
     @State private var selectedTab: SearchTab = .top
     @State private var recents: [RecentSearchEntry] = RecentSearchStore.load()
+    /// Optional workout-type narrowing applied on top of the search
+    /// query — "push" / "pull" / "legs" / "cardio" / "yoga" / "hiit".
+    /// Set via the browse chips on the idle state or the pill below
+    /// the search bar. Nil means no type filter.
+    @State private var typeFilter: String? = nil
 
     @FocusState private var focused: Bool
 
@@ -85,7 +90,9 @@ struct DiscoverSearchView: View {
                 searchBar
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
-                    .padding(.bottom, 12)
+                    .padding(.bottom, 10)
+
+                activeFilterPill
 
                 if query.trimmingCharacters(in: .whitespaces).isEmpty {
                     recentsBody
@@ -176,10 +183,6 @@ struct DiscoverSearchView: View {
 
                 browseByCategorySection
 
-                if !trendingPosts.isEmpty {
-                    trendingWorkoutsSection
-                }
-
                 if !suggestedClubs.isEmpty {
                     suggestedClubsSection
                 }
@@ -233,7 +236,7 @@ struct DiscoverSearchView: View {
     @ViewBuilder
     private var browseByCategorySection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Browse")
+            Text("Filter by workout type")
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundColor(GQColors.textPrimary)
                 .padding(.horizontal, 16)
@@ -241,8 +244,11 @@ struct DiscoverSearchView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(idleBrowseCategories, id: \.label) { item in
+                        let selected = typeFilter == item.query
                         Button {
-                            rawQuery = item.query
+                            withAnimation(.easeInOut(duration: 0.15)) {
+                                typeFilter = selected ? nil : item.query
+                            }
                         } label: {
                             HStack(spacing: 5) {
                                 Image(systemName: item.icon)
@@ -250,10 +256,14 @@ struct DiscoverSearchView: View {
                                 Text(item.label)
                                     .font(.system(size: 13, weight: .semibold))
                             }
-                            .foregroundColor(GQColors.textPrimary)
+                            .foregroundColor(selected ? .white : GQColors.textPrimary)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
-                            .background(Capsule().fill(GQColors.adaptiveOverlay(0.06)))
+                            .background(
+                                Capsule().fill(selected
+                                    ? AnyShapeStyle(GQGradients.primary)
+                                    : AnyShapeStyle(GQColors.adaptiveOverlay(0.06)))
+                            )
                         }
                         .buttonStyle(.plain)
                     }
@@ -263,87 +273,35 @@ struct DiscoverSearchView: View {
         }
     }
 
-    /// Top 5 posts with shareable workout data, ordered by recency.
-    /// Light approximation of "trending" — no like/comment @Query here
-    /// so we keep it cheap and bias on recency of runnable posts.
-    private var trendingPosts: [Post] {
-        allPosts
-            .filter { $0.sharedWorkoutData != nil }
-            .prefix(6)
-            .map { $0 }
-    }
-
+    /// Pill shown below the search bar when a type filter is active —
+    /// gives the user a clear "Filter: Pull ×" affordance to clear it.
     @ViewBuilder
-    private var trendingWorkoutsSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 5) {
-                Image(systemName: "flame.fill")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(GQGradients.primary)
-                Text("Trending workouts")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(GQColors.textPrimary)
+    private var activeFilterPill: some View {
+        if let filter = typeFilter {
+            HStack {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.15)) { typeFilter = nil }
+                } label: {
+                    HStack(spacing: 4) {
+                        Text("Filter:")
+                            .font(.system(size: 11))
+                            .foregroundColor(.white.opacity(0.85))
+                        Text(filter.capitalized)
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(.white)
+                        Image(systemName: "xmark")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundColor(.white)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Capsule().fill(GQGradients.primary))
+                }
+                .buttonStyle(.plain)
+                Spacer()
             }
             .padding(.horizontal, 16)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
-                    ForEach(trendingPosts) { post in
-                        Button { tappedPost = post } label: {
-                            trendingWorkoutCard(post)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(.horizontal, 16)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func trendingWorkoutCard(_ post: Post) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            ZStack(alignment: .bottomLeading) {
-                #if canImport(UIKit)
-                if let data = primaryPostThumbData(post), let img = UIImage(data: data) {
-                    Image(uiImage: img)
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .frame(width: 148, height: 110)
-                        .clipped()
-                } else {
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(GQGradients.primary.opacity(0.14))
-                        .frame(width: 148, height: 110)
-                        .overlay(
-                            Image(systemName: "figure.strengthtraining.traditional")
-                                .font(.system(size: 20))
-                                .foregroundStyle(GQGradients.primary)
-                        )
-                }
-                #else
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(GQGradients.primary.opacity(0.14))
-                    .frame(width: 148, height: 110)
-                #endif
-
-                if let dur = post.duration, dur > 0 {
-                    Text("\(dur)m")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Capsule().fill(.black.opacity(0.55)))
-                        .padding(6)
-                }
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 10))
-
-            Text(postTitle(post))
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(GQColors.textPrimary)
-                .lineLimit(1)
-                .frame(width: 148, alignment: .leading)
+            .padding(.bottom, 8)
         }
     }
 
@@ -554,20 +512,11 @@ struct DiscoverSearchView: View {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 6) {
                         switch selectedTab {
-                        case .top:
-                            topResults
-                        case .workouts:
-                            if matchedWorkouts.isEmpty { perTabEmptyState(label: "workouts") }
-                            else { listResults(matchedWorkouts.map(workoutEntry)) }
-                        case .exercises:
-                            if matchedExercises.isEmpty { perTabEmptyState(label: "exercises") }
-                            else { listResults(matchedExercises.map(exerciseEntry)) }
-                        case .people:
-                            if matchedPeople.isEmpty { perTabEmptyState(label: "people") }
-                            else { listResults(matchedPeople.map(personEntry)) }
-                        case .clubs:
-                            if matchedClubs.isEmpty { perTabEmptyState(label: "clubs") }
-                            else { listResults(matchedClubs.map(clubEntry)) }
+                        case .top: topResults
+                        case .workouts: listResults(matchedWorkouts.map(workoutEntry))
+                        case .exercises: listResults(matchedExercises.map(exerciseEntry))
+                        case .people: listResults(matchedPeople.map(personEntry))
+                        case .clubs: listResults(matchedClubs.map(clubEntry))
                         }
                     }
                     .padding(.vertical, 8)
@@ -575,41 +524,6 @@ struct DiscoverSearchView: View {
                 }
             }
         }
-    }
-
-    /// Shown when the active tab has zero matches but other tabs do —
-    /// instead of the old silent blank. Points the user at the Top tab
-    /// which aggregates cross-tab matches.
-    @ViewBuilder
-    private func perTabEmptyState(label: String) -> some View {
-        VStack(spacing: 10) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 24))
-                .foregroundColor(GQColors.textTertiary)
-            Text("No \(label) match “\(query)”")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(GQColors.textSecondary)
-                .multilineTextAlignment(.center)
-            Text("Matches live in other tabs — try Top.")
-                .font(.system(size: 11))
-                .foregroundColor(GQColors.textTertiary)
-                .multilineTextAlignment(.center)
-            Button {
-                withAnimation(.easeInOut(duration: 0.15)) { selectedTab = .top }
-            } label: {
-                Text("See Top matches")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 7)
-                    .background(Capsule().fill(GQGradients.primary))
-            }
-            .buttonStyle(.plain)
-            .padding(.top, 2)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.top, 48)
-        .padding(.horizontal, 24)
     }
 
     private var tabBar: some View {
@@ -907,6 +821,9 @@ struct DiscoverSearchView: View {
         var results: [(Post, Int)] = []
         results.reserveCapacity(perTabCap * 2)
         for row in postIndex {
+            // Type filter narrows the pool first — "pull" means only
+            // pull-tagged posts survive, regardless of text score.
+            if let filter = typeFilter, !row.typeLower.contains(filter) { continue }
             guard row.blob.contains(q) else { continue }  // fast prefilter
             var score = 0
             if row.titleLower.contains(q) { score += 4 }
