@@ -140,10 +140,11 @@ struct ExploreView: View {
                             heroEmptyForFilter
                         }
 
-                        // Grid sits on a white band that starts with a
-                        // single hairline. One clean transition: hero →
-                        // small gray gap → hairline → grid. No stacked
-                        // white padding inside the band.
+                        // Grid sits on a white band with the same
+                        // hairline + subtle shadow treatment as the
+                        // filter bar above, so the transition from
+                        // For You card into the media grid reads as a
+                        // matching edge.
                         DiscoverGrid(
                             items: cachedDiscoverItems,
                             onTapVideo: { post in
@@ -164,6 +165,7 @@ struct ExploreView: View {
                                         .fill(GQColors.borderDefault.opacity(0.55))
                                         .frame(height: 0.5)
                                 }
+                                .shadow(color: .black.opacity(0.04), radius: 4, y: -2)
                         )
                     } header: {
                         // Pinned chip strip — uses the page gray as its
