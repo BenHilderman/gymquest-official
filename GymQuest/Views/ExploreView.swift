@@ -142,9 +142,9 @@ struct ExploreView: View {
 
                         // Grid sits on a white band with the same
                         // hairline + subtle shadow treatment as the
-                        // filter bar above, so the transition from
-                        // For You card into the media grid reads as a
-                        // matching edge.
+                        // filter bar above, and with matching 8pt top
+                        // breathing room so the first media row
+                        // doesn't butt against the edge.
                         DiscoverGrid(
                             items: cachedDiscoverItems,
                             onTapVideo: { post in
@@ -158,6 +158,7 @@ struct ExploreView: View {
                                 startWorkout(from: post)
                             }
                         )
+                        .padding(.top, 8)
                         .background(
                             GQColors.surfaceBase
                                 .overlay(alignment: .top) {
