@@ -847,22 +847,14 @@ struct ClubFeedView: View {
                 // rounded card. Sections hide when the active
                 // category filter leaves them empty.
                 if !sortedYourClubs.isEmpty {
-                    groupedSection(
-                        header: "Your Clubs",
-                        icon: "person.3.fill",
-                        trailing: yourClubs.count > 1 ? "\(yourClubs.count) joined" : nil
-                    ) {
+                    groupedSection(header: "Your Clubs", icon: "person.3.fill") {
                         yourClubsRowsOnly
                     }
                     .padding(.top, 14)
                 }
 
                 if !computedEventRows.isEmpty {
-                    groupedSection(
-                        header: "Upcoming Events",
-                        icon: "calendar",
-                        trailing: computedEventRows.count > 1 ? "\(computedEventRows.count) this week" : nil
-                    ) {
+                    groupedSection(header: "Upcoming Events", icon: "calendar") {
                         eventsRowsOnly
                     }
                     .padding(.top, 16)
@@ -1297,17 +1289,19 @@ struct ClubFeedView: View {
     }
 
     /// Collapse/expand row used at the bottom of capped lists —
-    /// small, centered, subtle (Apple-style footer link).
+    /// small, centered, subtle (Apple-style footer link). Subdued
+    /// blue accent rather than the full brand gradient so it doesn't
+    /// compete with row content above.
     @ViewBuilder
     private func showAllRow(label: String, icon: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            HStack(spacing: 5) {
+            HStack(spacing: 4) {
                 Text(label)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 13, weight: .medium))
                 Image(systemName: icon)
                     .font(.system(size: 10, weight: .semibold))
             }
-            .foregroundStyle(GQGradients.primary)
+            .foregroundColor(GQColors.deepBlue)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 11)
             .contentShape(Rectangle())
@@ -1542,18 +1536,27 @@ struct ClubFeedView: View {
         }
     }
 
-    /// One event row — date tile + title + club name + meta + friend
-    /// social-proof line. Shows a "FOR YOU" badge when this is a
-    /// recommendation from a club the user hasn't joined.
+    /// Compact event row — date tile + title + one combined meta line
+    /// (club · time · location) + optional quiet friend-going signal.
+    /// Trims the old three-line subtitle to two lines total.
     private func eventRow(_ event: ClubEvent, isJoinedClub: Bool, recommended: Bool = false) -> some View {
         let club = allClubs.first { $0.id == event.clubId }
         let isGoing = event.attendeeIds.contains(profile.id)
         let friends = friendsGoingNames(event)
+        let clubName = club?.name ?? "Club"
+        let timeText = event.date.formatted(date: .omitted, time: .shortened)
+        let locText = event.location ?? club?.location ?? ""
+
+        // Build one compact meta string so the row collapses to just
+        // "Title" + "Meta" rather than three stacked lines.
+        var metaParts: [String] = [clubName]
+        metaParts.append(timeText)
+        if !locText.isEmpty { metaParts.append(locText) }
 
         return HStack(spacing: 12) {
             eventDateTile(event.date, accent: recommended ? Color.orange : nil)
 
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(event.title)
                         .font(.system(size: 15, weight: .semibold))
@@ -1563,31 +1566,17 @@ struct ClubFeedView: View {
                         Text("FOR YOU")
                             .font(.system(size: 9, weight: .bold))
                             .tracking(0.5)
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Capsule().fill(GQGradients.primary))
+                            .foregroundColor(GQColors.textSecondary)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1.5)
+                            .background(Capsule().fill(GQColors.adaptiveOverlay(0.08)))
                     }
                 }
-                Text(eventSubtitle(event, isJoinedClub: isJoinedClub))
+                Text(metaParts.joined(separator: " · "))
                     .font(.system(size: 12))
                     .foregroundColor(GQColors.textTertiary)
                     .lineLimit(1)
-                HStack(spacing: 8) {
-                    Label(event.date.formatted(date: .omitted, time: .shortened), systemImage: "clock")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(GQColors.textSecondary)
-                        .labelStyle(CompactMetaLabelStyle())
-                    if let loc = event.location ?? club?.location, !loc.isEmpty {
-                        Label(loc, systemImage: "mappin")
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(GQColors.textSecondary)
-                            .lineLimit(1)
-                            .labelStyle(CompactMetaLabelStyle())
-                    }
-                }
-                // Friend social-proof line — strongest signal for
-                // turning an event row into a "let's go" moment.
+
                 if !friends.isEmpty {
                     HStack(spacing: 4) {
                         Image(systemName: "person.2.fill")
@@ -1596,7 +1585,7 @@ struct ClubFeedView: View {
                             .font(.system(size: 11, weight: .semibold))
                             .lineLimit(1)
                     }
-                    .foregroundStyle(GQGradients.primary)
+                    .foregroundColor(GQColors.textSecondary)
                     .padding(.top, 1)
                 }
             }
@@ -1604,13 +1593,17 @@ struct ClubFeedView: View {
             Spacer(minLength: 8)
 
             if isGoing {
-                Text("GOING")
-                    .font(.system(size: 10, weight: .bold))
-                    .tracking(0.4)
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 3)
-                    .background(Capsule().fill(GQGradients.primary))
+                HStack(spacing: 3) {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 9, weight: .bold))
+                    Text("GOING")
+                        .font(.system(size: 10, weight: .bold))
+                        .tracking(0.4)
+                }
+                .foregroundColor(GQColors.success)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 3)
+                .background(Capsule().fill(GQColors.success.opacity(0.12)))
             } else {
                 HStack(spacing: 3) {
                     Image(systemName: "person.2.fill")
