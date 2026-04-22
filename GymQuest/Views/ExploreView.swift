@@ -116,8 +116,13 @@ struct ExploreView: View {
                 } else if allPosts.isEmpty {
                     emptyExploreState
                 } else {
-                    // Friends strip moved to the Friends tab — Discover stays
-                    // focused on content browsing.
+                    // Filter chips sit above the hero so the For You
+                    // carousel responds to them — e.g. tapping "Push"
+                    // reshapes the 5 picks into push-specific
+                    // recommendations.
+                    discoverFilterChips
+                        .padding(.top, 4)
+
                     if let hero = cachedHeroPick {
                         ExploreHeroCard(
                             post: hero,
@@ -134,6 +139,10 @@ struct ExploreView: View {
                             onLongPressSave: { sheetPostForCollection = hero }
                         )
                         .padding(.horizontal, 12)
+                    } else if workoutChipFilter(discoverFilter) != nil {
+                        // Filter is set but no matching picks — tell
+                        // the user instead of silently hiding the hero.
+                        heroEmptyForFilter
                     }
 
                     // ── 5. Unified discover feed ────────────────
@@ -627,11 +636,51 @@ struct ExploreView: View {
     /// iterate all posts on every SwiftUI render pass.
     private func rebuildFeedCache() {
         cachedFriendsMembers = friendsMembers
-        let newPicks = ExploreShelfService.shared.heroPicks(for: context, count: 5)
-        heroPicks = newPicks
-        if heroIndex >= newPicks.count { heroIndex = 0 }
+        heroPicks = buildHeroPicks()
+        if heroIndex >= heroPicks.count { heroIndex = 0 }
         cachedShortsClips = shortsClips
         cachedDiscoverItems = discoverGridItems
+    }
+
+    /// Build the 5-pick hero carousel based on the active filter chip:
+    /// - "For You": default personalized picks from ExploreShelfService
+    /// - "Following": posts from accounts the user follows
+    /// - workout type (Push/Pull/Legs/Cardio): top engaging posts of
+    ///   that type so the carousel delivers tailored recommendations
+    ///   when the user picks a specific split
+    private func buildHeroPicks() -> [Post] {
+        let followedIds = Set(follows.filter { $0.userId == profile.id }.map(\.odId))
+
+        switch discoverFilter {
+        case "For You":
+            return ExploreShelfService.shared.heroPicks(for: context, count: 5)
+
+        case "Following":
+            let pool = allPosts
+                .filter { followedIds.contains($0.authorId) && $0.sharedWorkoutData != nil }
+                .sorted { $0.timestamp > $1.timestamp }
+            return Array(pool.prefix(5))
+
+        default:
+            // Workout type chip (Push/Pull/Legs/Cardio). Match on the
+            // normalized chip label so case differences don't miss.
+            let target = discoverFilter.lowercased()
+            let pool = allPosts
+                .filter { post in
+                    post.sharedWorkoutData != nil
+                    && (post.workoutType?.lowercased().contains(target) ?? false
+                        || workoutLabelMatchesChip(post: post, target: target))
+                }
+                .sorted { $0.timestamp > $1.timestamp }
+            return Array(pool.prefix(5))
+        }
+    }
+
+    /// Fallback text match for chip filters when workoutType doesn't
+    /// line up directly. Looks at the exercise highlight / title.
+    private func workoutLabelMatchesChip(post: Post, target: String) -> Bool {
+        let fields: [String?] = [post.exerciseHighlight, post.workoutType]
+        return fields.compactMap { $0?.lowercased() }.contains { $0.contains(target) }
     }
 
     // MARK: - Pinned header (Today-style tab bar ported to Feed)
@@ -651,6 +700,8 @@ struct ExploreView: View {
                         withAnimation(.easeInOut(duration: 0.2)) {
                             discoverFilter = chip
                             cachedDiscoverItems = discoverGridItems
+                            heroPicks = buildHeroPicks()
+                            heroIndex = 0
                         }
                     } label: {
                         Text(chip)
@@ -934,11 +985,11 @@ struct ExploreView: View {
                 }
             )
         } header: {
-            // Filter bar on surfaceBase floats above the grey page —
-            // the shade contrast alone separates the filter zone
-            // from the grid below, no hairline needed.
-            HStack(spacing: 10) {
-                discoverFilterChips
+            // Section header now only carries the grid mode toggle
+            // (Browse vs Watch) — filter chips moved up above the
+            // For You hero so the carousel can react to them.
+            HStack {
+                Spacer()
                 discoverModeToggle
                     .padding(.trailing, 12)
             }
@@ -947,6 +998,27 @@ struct ExploreView: View {
             .frame(maxWidth: .infinity)
             .background(GQColors.surfaceBase)
         }
+    }
+
+    /// Friendly "no picks for this chip yet" placeholder — replaces
+    /// the silent hero hide when a narrow filter (Push/Pull/etc.) has
+    /// zero matching posts in the cache.
+    @ViewBuilder
+    private var heroEmptyForFilter: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 22))
+                .foregroundColor(GQColors.textTertiary)
+            Text("No \(discoverFilter.lowercased()) picks yet")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(GQColors.textSecondary)
+            Text("Try another filter while we find more.")
+                .font(.system(size: 12))
+                .foregroundColor(GQColors.textTertiary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 28)
+        .padding(.horizontal, 24)
     }
 
     private func suggestionTitle(_ post: Post) -> String {
