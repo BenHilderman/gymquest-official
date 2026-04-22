@@ -327,11 +327,20 @@ struct ClubSeeder {
         let now = Date()
 
         let allComms = (try? modelContext.fetch(FetchDescriptor<Club>(predicate: #Predicate { $0.parentClubId == nil }))) ?? []
-        guard let runClub = allComms.first(where: { $0.name == "Queen's Run Club" }),
-              let basketball = allComms.first(where: { $0.name == "Kingston Pickup Basketball" }),
-              let powerlifting = allComms.first(where: { $0.name == "Queen's Powerlifting" }),
-              let cycling = allComms.first(where: { $0.name == "Kingston Cycling Group" }),
-              let soccer = allComms.first(where: { $0.name == "Queen's Intramural Soccer" }) else { return }
+        guard !allComms.isEmpty else { return }
+
+        // Prefer named clubs when they exist (rich seed), but fall back
+        // to whatever top-level clubs the user's DB has so events are
+        // never missing on older installs.
+        func pick(_ name: String, fallback idx: Int) -> Club {
+            if let match = allComms.first(where: { $0.name == name }) { return match }
+            return allComms[idx % allComms.count]
+        }
+        let runClub = pick("Queen's Run Club", fallback: 0)
+        let basketball = pick("Kingston Pickup Basketball", fallback: 1)
+        let powerlifting = pick("Queen's Powerlifting", fallback: 2)
+        let cycling = pick("Kingston Cycling Group", fallback: 3)
+        let soccer = pick("Queen's Intramural Soccer", fallback: 4)
 
         // Helper: next occurrence of a weekday at a given hour
         func nextWeekday(_ weekday: Int, hour: Int, minute: Int = 0) -> Date {
@@ -978,22 +987,26 @@ struct ClubFeedView: View {
         }
     }
 
-    /// Full-width hero variant of the featured card — used when there's
-    /// only one featured club so the page still feels finished.
+    /// Full-width hero variant of the featured card — bounded 190pt
+    /// height, photo clipped, overlay shows category + FEATURED tag on
+    /// top and name + distance + members + Open CTA on bottom.
     @ViewBuilder
     private func featuredHeroCard(_ club: Club) -> some View {
         let cat = club.resolvedCategory
+        let isMember = club.memberIds.contains(profile.id)
         ZStack(alignment: .bottomLeading) {
             ClubCoverImage(club: club, fallbackGradient: GQGradients.primary)
-                .aspectRatio(16.0 / 9.0, contentMode: .fill)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
 
             LinearGradient(
-                colors: [.black.opacity(0.0), .black.opacity(0.2), .black.opacity(0.70)],
+                colors: [.black.opacity(0.35), .black.opacity(0.1), .black.opacity(0.78)],
                 startPoint: .top, endPoint: .bottom
             )
 
+            // Top row — category + FEATURED
             VStack {
-                HStack {
+                HStack(spacing: 6) {
                     HStack(spacing: 5) {
                         Image(systemName: cat.icon)
                             .font(.system(size: 10, weight: .bold))
@@ -1002,47 +1015,65 @@ struct ClubFeedView: View {
                             .tracking(0.6)
                     }
                     .foregroundColor(.white)
-                    .padding(.horizontal, 10)
+                    .padding(.horizontal, 9)
                     .padding(.vertical, 5)
                     .background(Capsule().fill(.ultraThinMaterial))
+
                     Spacer()
+
                     Text("FEATURED")
                         .font(.system(size: 10, weight: .bold))
                         .tracking(0.6)
                         .foregroundColor(.white)
-                        .padding(.horizontal, 10)
+                        .padding(.horizontal, 9)
                         .padding(.vertical, 5)
                         .background(Capsule().fill(GQGradients.primary))
                 }
-                Spacer()
+                Spacer(minLength: 0)
             }
-            .padding(14)
+            .padding(12)
 
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 5) {
-                    Text(club.name)
-                        .font(.system(size: 22, weight: .bold))
-                        .foregroundColor(.white)
-                        .lineLimit(2)
-                    if club.isVerified {
-                        Image(systemName: "checkmark.seal.fill")
-                            .font(.system(size: 14))
-                            .foregroundColor(.white.opacity(0.95))
-                    }
-                }
-                HStack(spacing: 10) {
-                    Label("\(club.memberCount) members", systemImage: "person.2.fill")
-                    if let loc = club.location, !loc.isEmpty {
-                        Label(loc, systemImage: "mappin")
+            // Bottom — name, meta row, Open CTA
+            HStack(alignment: .bottom, spacing: 10) {
+                VStack(alignment: .leading, spacing: 5) {
+                    HStack(spacing: 5) {
+                        Text(club.name)
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundColor(.white)
                             .lineLimit(1)
+                        if club.isVerified {
+                            Image(systemName: "checkmark.seal.fill")
+                                .font(.system(size: 13))
+                                .foregroundColor(.white.opacity(0.95))
+                        }
                     }
+                    HStack(spacing: 8) {
+                        if let loc = club.location, !loc.isEmpty {
+                            Label(loc, systemImage: "mappin")
+                                .lineLimit(1)
+                        }
+                        Label("\(club.memberCount)", systemImage: "person.2.fill")
+                        if let dist = distanceString(for: club) {
+                            Label(dist, systemImage: "location.fill")
+                        }
+                    }
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.92))
+                    .labelStyle(CompactMetaLabelStyle())
                 }
-                .font(.system(size: 12, weight: .medium))
-                .foregroundColor(.white.opacity(0.92))
+
+                Spacer(minLength: 0)
+
+                Text(isMember ? "Open" : "View")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(GQColors.textPrimary)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
+                    .background(Capsule().fill(.white))
             }
-            .padding(16)
+            .padding(12)
         }
-        .frame(maxWidth: .infinity)
+        .frame(height: 190)
         .clipShape(RoundedRectangle(cornerRadius: 18))
         .shadow(color: .black.opacity(0.1), radius: 8, y: 3)
     }
@@ -1901,6 +1932,8 @@ struct ClubFeedView: View {
         let cat = club.resolvedCategory
         ZStack(alignment: .bottomLeading) {
             ClubCoverImage(club: club, fallbackGradient: GQGradients.primary)
+                .frame(width: 220, height: 150)
+                .clipped()
 
             LinearGradient(
                 colors: [.black.opacity(0.0), .black.opacity(0.15), .black.opacity(0.65)],
@@ -5040,6 +5073,19 @@ struct ClubMapView: View {
         .padding(12)
         .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+}
+
+// MARK: - Shared label style for compact meta rows
+
+/// Tight icon+text label used on overlay chrome. Keeps the icon visually
+/// aligned with the text baseline and drops the default padding.
+struct CompactMetaLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 4) {
+            configuration.icon.font(.system(size: 9, weight: .semibold))
+            configuration.title
+        }
     }
 }
 
