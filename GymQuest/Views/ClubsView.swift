@@ -847,24 +847,35 @@ struct ClubFeedView: View {
                 // rounded card. Sections hide when the active
                 // category filter leaves them empty.
                 if !sortedYourClubs.isEmpty {
-                    groupedSection(header: "YOUR CLUBS", icon: "person.3.fill") {
+                    groupedSection(
+                        header: "Your Clubs",
+                        icon: "person.3.fill",
+                        trailing: yourClubs.count > 1 ? "\(yourClubs.count) joined" : nil
+                    ) {
                         yourClubsRowsOnly
                     }
                     .padding(.top, 14)
                 }
 
                 if !computedEventRows.isEmpty {
-                    groupedSection(header: "UPCOMING EVENTS", icon: "calendar") {
+                    groupedSection(
+                        header: "Upcoming Events",
+                        icon: "calendar",
+                        trailing: computedEventRows.count > 1 ? "\(computedEventRows.count) this week" : nil
+                    ) {
                         eventsRowsOnly
                     }
-                    .padding(.top, 22)
+                    .padding(.top, 16)
                 }
 
                 if hasAnyDiscoverContent {
-                    groupedSection(header: "DISCOVER", icon: "sparkles") {
+                    groupedSection(
+                        header: "Discover",
+                        icon: "sparkles"
+                    ) {
                         discoverCardContent
                     }
-                    .padding(.top, 22)
+                    .padding(.top, 16)
                     .padding(.bottom, 16)
                 }
 
@@ -941,52 +952,49 @@ struct ClubFeedView: View {
             .padding(.horizontal, 16)
     }
 
-    /// Hairline between rows *within* a section — inset past the
-    /// avatar so it reads as a grouped-list separator. Uses the
-    /// prominent border color so each row looks distinctly separate,
-    /// not visually continuous.
+    /// Hairline between rows inside a grouped card — matches the
+    /// Progress "Recent PRs" card: full-width subtle divider, no
+    /// avatar inset since the card already pads its content. Uses
+    /// adaptiveOverlay 0.06 so it reads as a subtle line, not a
+    /// section break.
     private var inRowDivider: some View {
         Rectangle()
-            .fill(GQColors.borderProminent)
+            .fill(GQColors.adaptiveOverlay(0.06))
             .frame(height: 0.5)
-            .padding(.leading, 72)
-            .padding(.trailing, 16)
     }
 
-    /// Apple Music / News-style section — icon + tracked-caps header
-    /// at 16pt from the screen edge, content sits in a full-width
-    /// white band below. The icon prefix adds a structural cue so
-    /// each section reads as its own object rather than a floating
-    /// label.
+    /// Mirrors the Recent PRs card on Progress: icon + readable title
+    /// ("Your Clubs", "Upcoming Events"...) at the top of a rounded
+    /// white inset card, optional trailing meta text, then the rows
+    /// below. Replaces the earlier tracked-caps header pattern.
     @ViewBuilder
     private func groupedSection<Content: View>(
         header: String,
         icon: String? = nil,
-        headerAccessory: AnyView? = nil,
+        trailing: String? = nil,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 7) {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
                 if let icon {
                     Image(systemName: icon)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(GQColors.textSecondary)
+                        .font(.system(size: 14))
+                        .foregroundStyle(GQGradients.primary)
                 }
                 Text(header)
-                    .font(.system(size: 13, weight: .semibold))
-                    .tracking(0.4)
-                    .foregroundColor(GQColors.textSecondary)
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 16)
-
-            if let headerAccessory {
-                headerAccessory
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(GQColors.textPrimary)
+                Spacer()
+                if let trailing {
+                    Text(trailing)
+                        .font(.system(size: 11))
+                        .foregroundColor(GQColors.textTertiary)
+                }
             }
 
             content()
-                .groupedCard()
         }
+        .groupedCard()
     }
 
     // MARK: - Search + categories strip (top of page)
@@ -1319,7 +1327,7 @@ struct ClubFeedView: View {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 5) {
                     Text(club.name)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.system(size: 15, weight: .medium))
                         .foregroundColor(GQColors.textPrimary)
                         .lineLimit(1)
                     if club.isVerified {
@@ -1340,8 +1348,7 @@ struct ClubFeedView: View {
 
             yourClubTrailing(club, live: live, eventToday: eventToday)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
+        .padding(.vertical, 10)
         .contentShape(Rectangle())
     }
 
@@ -1605,8 +1612,7 @@ struct ClubFeedView: View {
                 .foregroundColor(GQColors.textTertiary)
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.vertical, 10)
         .contentShape(Rectangle())
     }
 
@@ -1804,8 +1810,7 @@ struct ClubFeedView: View {
                     .foregroundColor(GQColors.textTertiary)
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.vertical, 10)
         .contentShape(Rectangle())
     }
 
@@ -1829,19 +1834,18 @@ struct ClubFeedView: View {
     /// that flips between "For You", "Nearby", "Friends", and
     /// "Challenges" tabs. Keeps the page scannable while still balancing
     /// personal vs. exploratory discovery.
-    /// Content of the Discover card: segmented tab control sits on
-    /// plain white with a prominent hairline below separating it from
-    /// the tab body. No tinted strip — the hairline alone carries the
-    /// separation, which reads cleaner against the white card.
+    /// Content of the Discover card: segmented tab control at top,
+    /// hairline below, active tab body underneath. Sits inside a
+    /// groupedSection so the outer card already supplies padding.
     @ViewBuilder
     private var discoverCardContent: some View {
         VStack(alignment: .leading, spacing: 0) {
             discoverSegmentedControl
-                .padding(.vertical, 10)
+                .padding(.bottom, 10)
 
             Rectangle()
-                .fill(GQColors.borderProminent)
-                .frame(height: 1)
+                .fill(GQColors.adaptiveOverlay(0.06))
+                .frame(height: 0.5)
 
             Group {
                 switch discoverTab {
@@ -1851,7 +1855,7 @@ struct ClubFeedView: View {
                 case .challenges: challengesTabContent
                 }
             }
-            .padding(.vertical, 10)
+            .padding(.top, 10)
             .animation(.easeInOut(duration: 0.18), value: discoverTab)
         }
     }
@@ -1906,8 +1910,8 @@ struct ClubFeedView: View {
                     discoverTabChip(tab)
                 }
             }
-            .padding(.horizontal, 16)
         }
+        .scrollClipDisabled()
     }
 
     @ViewBuilder
@@ -2205,8 +2209,7 @@ struct ClubFeedView: View {
             }
             .buttonStyle(.plain)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.vertical, 10)
         .contentShape(Rectangle())
     }
 
@@ -2343,8 +2346,7 @@ struct ClubFeedView: View {
                     Spacer(minLength: 0)
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .padding(.vertical, 10)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -6157,21 +6159,16 @@ struct ClubMapView: View {
 
 // MARK: - Grouped card container (inset white section)
 
+/// Uses the same `homeSocialCard` pattern as Progress's Recent PRs
+/// card — rounded white inset card with a subtle shadow. Inset 16pt
+/// from screen edge, 16pt internal padding for content.
 private struct GroupedCardModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(GQColors.surfaceBase)
-            .overlay(alignment: .top) {
-                Rectangle()
-                    .fill(GQColors.borderProminent)
-                    .frame(height: 0.5)
-            }
-            .overlay(alignment: .bottom) {
-                Rectangle()
-                    .fill(GQColors.borderProminent)
-                    .frame(height: 0.5)
-            }
+            .padding(16)
+            .homeSocialCard(cornerRadius: 16)
+            .padding(.horizontal, 16)
     }
 }
 
