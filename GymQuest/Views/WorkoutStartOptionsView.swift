@@ -23,61 +23,23 @@ struct WorkoutStartOptionsView: View {
     var body: some View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 24) {
-                    heroSubtitle
-                        .padding(.top, 8)
+                VStack(spacing: 20) {
+                    // Profile-style identity band
+                    heroBand
+                        .padding(.top, 4)
 
-                    sectionLabel("CHOOSE YOUR PATH")
+                    // Path section — continuous white list with
+                    // hairlines between rows, like Friends feed posts
+                    pathSection
 
-                    VStack(spacing: 14) {
-                        routeCard(
-                            icon: "figure.strengthtraining.traditional",
-                            title: "Custom Workout",
-                            subtitle: "Choose your split and go",
-                            accent: GQColors.deepBlue,
-                            useGradient: true
-                        ) {
-                            WorkoutTypeSelectionView(profile: profile)
-                        }
+                    // Momentum stats row — profile-style stat columns
+                    momentumSection
 
-                        routeCard(
-                            icon: "clock.arrow.circlepath",
-                            title: "Follow Previous",
-                            subtitle: previousWorkoutSubtitle,
-                            accent: GQColors.deepBlue,
-                            useGradient: true
-                        ) {
-                            PreviousWorkoutsListView(profile: profile, workouts: nonRestWorkouts)
-                        }
-
-                        routeCard(
-                            icon: "bookmark.fill",
-                            title: "Saved Workouts",
-                            subtitle: savedWorkoutsSubtitle,
-                            accent: GQColors.deepBlue,
-                            useGradient: true
-                        ) {
-                            SavedWorkoutsListView(profile: profile, templates: savedTemplates)
-                        }
-
-                        routeCard(
-                            icon: "brain.head.profile",
-                            title: "AI Generated",
-                            subtitle: "Smart recommendation",
-                            accent: GQColors.deepBlue,
-                            useGradient: true
-                        ) {
-                            AIGeneratedPlaceholderView(profile: profile)
-                        }
-                    }
-
-                    motivationalStats
-
-                    Spacer(minLength: 34)
+                    Spacer(minLength: 40)
                 }
-                .padding(.horizontal, 16)
             }
-            .gqPageBackground()
+            .scrollContentBackground(.hidden)
+            .background(GQColors.background)
             .navigationTitle("Start Workout")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.visible, for: .navigationBar)
@@ -85,6 +47,179 @@ struct WorkoutStartOptionsView: View {
             .instagramBack()
         }
         .tint(GQColors.textPrimary)
+    }
+
+    // MARK: - Hero band (profile-style)
+
+    private var heroBand: some View {
+        VStack(spacing: 10) {
+            ZStack {
+                Circle()
+                    .fill(GQGradients.primary.opacity(0.12))
+                    .frame(width: 72, height: 72)
+                Image(systemName: "figure.strengthtraining.traditional")
+                    .font(.system(size: 30, weight: .semibold))
+                    .foregroundStyle(GQGradients.primary)
+            }
+
+            VStack(spacing: 4) {
+                Text(profile.showUpFor.trimmingCharacters(in: .whitespaces).isEmpty
+                     ? "Let's train"
+                     : "Showing up for \(profile.showUpFor)")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundColor(GQColors.textPrimary)
+
+                Text("Pick how you want to train today.")
+                    .font(.system(size: 13))
+                    .foregroundColor(GQColors.textSecondary)
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    // MARK: - Path section (friends-style list)
+
+    private var pathSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("CHOOSE YOUR PATH")
+                .font(.system(size: 11, weight: .semibold))
+                .tracking(0.8)
+                .foregroundColor(GQColors.textTertiary)
+                .padding(.horizontal, 32)
+
+            VStack(spacing: 0) {
+                pathRow(icon: "figure.strengthtraining.traditional",
+                        title: "Custom Workout",
+                        subtitle: "Choose your split and go") {
+                    WorkoutTypeSelectionView(profile: profile)
+                }
+                pathDivider
+                pathRow(icon: "clock.arrow.circlepath",
+                        title: "Follow Previous",
+                        subtitle: previousWorkoutSubtitle) {
+                    PreviousWorkoutsListView(profile: profile, workouts: nonRestWorkouts)
+                }
+                pathDivider
+                pathRow(icon: "bookmark.fill",
+                        title: "Saved Workouts",
+                        subtitle: savedWorkoutsSubtitle) {
+                    SavedWorkoutsListView(profile: profile, templates: savedTemplates)
+                }
+                pathDivider
+                pathRow(icon: "brain.head.profile",
+                        title: "AI Generated",
+                        subtitle: "Smart recommendation") {
+                    AIGeneratedPlaceholderView(profile: profile)
+                }
+            }
+            .background(GQColors.surfaceBase)
+            .overlay(alignment: .top) {
+                Rectangle().fill(GQColors.borderProminent).frame(height: 0.5)
+            }
+            .overlay(alignment: .bottom) {
+                Rectangle().fill(GQColors.borderProminent).frame(height: 0.5)
+            }
+            .shadow(color: .black.opacity(0.04), radius: 6, y: 2)
+        }
+    }
+
+    private var pathDivider: some View {
+        Rectangle()
+            .fill(GQColors.borderProminent)
+            .frame(height: 0.5)
+            .padding(.leading, 72)
+    }
+
+    @ViewBuilder
+    private func pathRow<Destination: View>(
+        icon: String,
+        title: String,
+        subtitle: String,
+        @ViewBuilder destination: @escaping () -> Destination
+    ) -> some View {
+        NavigationLink(destination: destination) {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle()
+                        .fill(GQGradients.primary.opacity(0.12))
+                        .frame(width: 44, height: 44)
+                    Image(systemName: icon)
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(GQGradients.primary)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(GQColors.textPrimary)
+                    Text(subtitle)
+                        .font(.system(size: 12))
+                        .foregroundColor(GQColors.textTertiary)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 8)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Momentum section
+
+    private var momentumSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("THIS MONTH")
+                .font(.system(size: 11, weight: .semibold))
+                .tracking(0.8)
+                .foregroundColor(GQColors.textTertiary)
+                .padding(.horizontal, 32)
+
+            HStack(spacing: 0) {
+                momentumCol(value: "\(streakDays)", label: "Streak", valueColor: streakDays > 0 ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQColors.textPrimary))
+                momentumDivider
+                momentumCol(value: "\(workoutsThisWeek)", label: "This Week")
+                momentumDivider
+                momentumCol(value: "Lv \(profile.level)", label: UserProfile.levelTitle(for: profile.level))
+            }
+            .padding(.vertical, 16)
+            .frame(maxWidth: .infinity)
+            .background(GQColors.surfaceBase)
+            .overlay(alignment: .top) {
+                Rectangle().fill(GQColors.borderProminent).frame(height: 0.5)
+            }
+            .overlay(alignment: .bottom) {
+                Rectangle().fill(GQColors.borderProminent).frame(height: 0.5)
+            }
+            .shadow(color: .black.opacity(0.04), radius: 6, y: 2)
+        }
+    }
+
+    private var momentumDivider: some View {
+        Rectangle()
+            .fill(GQColors.borderDefault.opacity(0.4))
+            .frame(width: 0.5)
+            .padding(.vertical, 4)
+    }
+
+    private func momentumCol(value: String, label: String, valueColor: AnyShapeStyle = AnyShapeStyle(GQColors.textPrimary)) -> some View {
+        VStack(spacing: 3) {
+            Text(value)
+                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .foregroundStyle(valueColor)
+            Text(label.uppercased())
+                .font(.system(size: 9, weight: .semibold))
+                .tracking(0.6)
+                .foregroundColor(GQColors.textTertiary)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity)
     }
 
     // MARK: - Header
