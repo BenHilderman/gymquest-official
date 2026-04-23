@@ -1003,7 +1003,7 @@ struct PostCardV2: View {
                     .rotationEffect(.degrees(-90))
                     .frame(width: 26, height: 26)
                     .animation(.easeOut(duration: 0.8).delay(0.5), value: widgetAnimated)
-                Text("\(Int(prog * 100))")
+                Text("\(Int(prog * 100))%")
                     .font(.system(size: 8, weight: .bold, design: .rounded))
                     .foregroundStyle(GQGradients.primary)
             }
@@ -3614,7 +3614,7 @@ struct PostWidgetInlineBubble: View {
                     .stroke(GQGradients.primary, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
                     .frame(width: 32, height: 32)
                     .rotationEffect(.degrees(-90))
-                Text("\(Int(goalProgress * 100))")
+                Text("\(Int(goalProgress * 100))%")
                     .font(.system(size: 9, weight: .bold))
                     .foregroundStyle(GQGradients.primary)
             }
@@ -3631,9 +3631,15 @@ struct PostWidgetInlineBubble: View {
                     .stroke(GQColors.deepBlue, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
                     .frame(width: 32, height: 32)
                     .rotationEffect(.degrees(-90))
-                Text("\(widget.calories ?? 0)")
-                    .font(.system(size: 8, weight: .bold))
-                    .foregroundColor(GQColors.textSecondary)
+                VStack(spacing: 0) {
+                    Text("\(widget.calories ?? 0)")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundColor(GQColors.textSecondary)
+                    Text("cal")
+                        .font(.system(size: 6, weight: .semibold))
+                        .tracking(0.3)
+                        .foregroundColor(GQColors.textTertiary)
+                }
             }
         case .body:
             Image(systemName: "scalemass.fill")
