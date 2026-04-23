@@ -153,6 +153,9 @@ struct WorkoutTypeSelectionView: View {
         .gqPageBackground()
         .navigationTitle("Custom Workout")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbarBackground(GQColors.background, for: .navigationBar)
+        .instagramBack()
         .sheet(isPresented: $showCardioSubTypePicker) {
             CardioSubTypePickerSheet { subType in
                 startCardioWorkout(subType: subType)
