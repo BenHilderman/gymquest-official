@@ -125,8 +125,10 @@ struct SocialActivityView: View {
             }
             .instagramBack()
             .onAppear { buildActivityItems() }
-            .sheet(item: $profileUserId) { wrapped in
-                UserProfileSheet(userId: wrapped.id, currentProfile: profile)
+            .navigationDestination(item: $profileUserId) { wrapped in
+                if let target = userProfiles.first(where: { $0.id == wrapped.id }) {
+                    ProfileView(profile: target, isPushed: true, isOtherUser: target.id != profile.id)
+                }
             }
         }
     }

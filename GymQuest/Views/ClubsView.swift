@@ -6226,24 +6226,37 @@ struct ClubMapView: View {
     }
 }
 
-// MARK: - Grouped card container (inset white section)
+// MARK: - Grouped card container (edge-to-edge white section)
 
-/// Uses the same `homeSocialCard` pattern as Progress's Recent PRs
-/// card — rounded white inset card with a subtle shadow. Inset 16pt
-/// from screen edge, 16pt internal padding for content.
+/// Full-width white section band — edge-to-edge (no horizontal inset)
+/// so it matches the Friends + Discover feeds. A subtle borderProminent
+/// hairline at top and bottom visually separates it from the gray page
+/// gaps between sections. Internal 16pt vertical padding gives rows
+/// breathing room; row-level horizontal padding supplies their own
+/// content indent.
 private struct GroupedCardModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(16)
-            .homeSocialCard(cornerRadius: 16)
             .padding(.horizontal, 16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 12)
+            .background(GQColors.surfaceBase)
+            .overlay(alignment: .top) {
+                Rectangle()
+                    .fill(GQColors.borderProminent)
+                    .frame(height: 0.5)
+            }
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(GQColors.borderProminent)
+                    .frame(height: 0.5)
+            }
     }
 }
 
 extension View {
-    /// Wraps a section in a full-width white band with hairline
-    /// top/bottom separators — Apple Music / News section style.
+    /// Wraps a section in a full-width edge-to-edge white band —
+    /// matches the Friends / Discover feed surface language.
     func groupedCard() -> some View {
         modifier(GroupedCardModifier())
     }
