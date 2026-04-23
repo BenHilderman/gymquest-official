@@ -39,6 +39,7 @@ struct TrainingPlanView: View {
             .padding()
         }
         .navigationTitle("Training Plan")
+        .instagramBack()
         .sheet(isPresented: $showingGenerateSheet) {
             generatePlanSheet
         }

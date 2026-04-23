@@ -162,6 +162,7 @@ struct LearnThisPanel: View {
             .navigationTitle("Learn This")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            .instagramBack()
             #endif
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {

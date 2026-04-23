@@ -100,6 +100,7 @@ struct BodyMeasurementsView: View {
         .navigationTitle("Body Measurements")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
+        .instagramBack()
         #endif
         .toolbar {
             ToolbarItem(placement: .primaryAction) {

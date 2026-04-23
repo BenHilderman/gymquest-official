@@ -34,6 +34,10 @@ struct ProfileView: View {
     /// from a tab). Adds a leading back chevron and skips the inner
     /// NavigationStack wrapper so dismiss() pops the parent stack.
     var isPushed: Bool = false
+    /// True when this is someone else's profile (opened from a post,
+    /// search result, or member row). Hides owner-only UI like the
+    /// "Complete profile" banner + settings gear.
+    var isOtherUser: Bool = false
 
     @StateObject private var healthKit = HealthKitService.shared
     @State private var showingSettings = false
@@ -1145,6 +1149,10 @@ struct ProfileView: View {
     /// app-level authenticated user id; defaults to true when no auth (single
     /// user shell, or dev mode).
     private var isOwnProfile: Bool {
+        // Explicit signal from caller wins — pushes to other users'
+        // profiles set isOtherUser=true, which reliably hides all
+        // owner-only UI even in demo/unauth mode.
+        if isOtherUser { return false }
         guard let currentId = SupabaseAuthService.shared.currentUserId else { return true }
         return currentId == profile.id
     }

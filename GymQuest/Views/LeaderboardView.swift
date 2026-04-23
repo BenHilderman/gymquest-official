@@ -40,6 +40,7 @@ struct LeaderboardView: View {
             }
         }
         .navigationTitle("Leaderboard")
+        .instagramBack()
         .onAppear { loadEntries() }
         .onChange(of: selectedExercise) { _, _ in loadEntries() }
         .onChange(of: selectedTimeFilter) { _, _ in loadEntries() }
