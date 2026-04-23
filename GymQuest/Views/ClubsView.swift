@@ -4594,7 +4594,7 @@ struct ClubDetailView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 14) {
+            VStack(spacing: 10) {
                 detailHeader
                 activeInThisClubStrip
                 joinButton
@@ -5138,34 +5138,39 @@ struct ClubDetailView: View {
     @ViewBuilder
     private var actionButtons: some View {
         if isMember {
-            HStack(spacing: 12) {
+            HStack(spacing: 8) {
                 Button { showingNewPost = true } label: {
-                    HStack {
-                        Image(systemName: "plus.circle.fill")
+                    HStack(spacing: 5) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 12, weight: .bold))
                         Text("Post")
+                            .font(.system(size: 14, weight: .semibold))
                     }
-                    .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(GQColors.deepBlue)
-                    .cornerRadius(10)
+                    .padding(.vertical, 9)
+                    .background(GQGradients.primary)
+                    .clipShape(Capsule())
                 }
 
                 Button {
                     selectedSection = .members
                     showPartnerOnly = true
                 } label: {
-                    HStack {
+                    HStack(spacing: 5) {
                         Image(systemName: "person.2.fill")
+                            .font(.system(size: 11, weight: .semibold))
                         Text("Find Partner")
+                            .font(.system(size: 14, weight: .semibold))
                     }
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(GQColors.textSecondary)
-                    .cornerRadius(10)
+                    .padding(.vertical, 9)
+                    .background(GQColors.adaptiveOverlay(0.06))
+                    .clipShape(Capsule())
+                    .overlay(
+                        Capsule().stroke(GQColors.borderDefault.opacity(0.5), lineWidth: 0.5)
+                    )
                 }
             }
             .buttonStyle(.plain)
