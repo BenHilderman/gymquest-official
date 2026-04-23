@@ -122,6 +122,10 @@ struct ProgressAnalyticsView: View {
                 ScrollView { analyticsContent }
                     .gqPageBackground()
                     .navigationTitle("Progress")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbarBackground(.visible, for: .navigationBar)
+                    .toolbarBackground(GQColors.background, for: .navigationBar)
+                    .instagramBack()
                     .onAppear {
                         guard let target = scrollTarget else { return }
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
