@@ -94,19 +94,18 @@ struct WorkoutStartOptionsView: View {
             Button {
                 dismiss()
             } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(GQColors.textPrimary)
+                Image(systemName: "chevron.backward")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundColor(.black)
                     .frame(width: 34, height: 34)
-                    .background(GQColors.adaptiveOverlay(0.04))
-                    .clipShape(Circle())
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
 
             Spacer()
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 16)
+        .padding(.horizontal, 12)
+        .padding(.top, 12)
     }
 
     // MARK: - Hero

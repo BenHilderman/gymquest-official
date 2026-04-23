@@ -178,7 +178,7 @@ struct ContentView: View {
         .sheet(isPresented: $appState.showingLogWorkout) {
             LogWorkoutView(profile: profile)
         }
-        .sheet(isPresented: $appState.showingWorkoutStartOptions) {
+        .fullScreenCover(isPresented: $appState.showingWorkoutStartOptions) {
             WorkoutStartOptionsView(profile: profile)
         }
         .sheet(item: $appState.selectedSession) { session in
