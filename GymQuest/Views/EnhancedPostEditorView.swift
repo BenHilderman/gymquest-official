@@ -735,7 +735,11 @@ struct EnhancedPostEditorView: View {
                     Text(profile.name)
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(GQColors.textPrimary)
-                    if let workout = workout {
+                    // Stats line is gated by the Include Stats toggle
+                    // in the options card — toggling it off removes
+                    // the meta from the preview (and from the final
+                    // post body that createPost() writes).
+                    if includeStats, let workout = workout {
                         Text("\(workout.type.rawValue) \u{00B7} \(duration)m \u{00B7} \(workout.totalSets) sets")
                             .font(.system(size: 12))
                             .foregroundColor(GQColors.textSecondary)
