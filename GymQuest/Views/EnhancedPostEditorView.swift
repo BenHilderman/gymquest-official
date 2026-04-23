@@ -568,8 +568,30 @@ struct EnhancedPostEditorView: View {
     private var postCustomizationPhase: some View {
         ScrollView {
             VStack(spacing: 12) {
-                // Post preview card
-                postPreviewCard
+                // Live-updating preview: renders PostCardV2 against a
+                // previewPost built from current editor state so the
+                // user sees the exact final post (widgets, music,
+                // challenge, location, stats toggle, tags) update as
+                // they edit.
+                PostCardV2(
+                    post: previewPost,
+                    currentUserId: profile.id,
+                    currentUserName: profile.name,
+                    profile: profile
+                )
+                .allowsHitTesting(false)
+                .frame(maxWidth: .infinity)
+                .background(GQColors.surfaceBase)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(GQColors.borderDefault, lineWidth: 0.5)
+                )
+                .padding(.horizontal, 16)
+
+                // Caption editor lives outside the preview — the
+                // preview reflects what you type here.
+                captionEditorRow
                     .padding(.horizontal, 16)
 
                 // Add-ons row (music, extras) — horizontal compact pills
@@ -617,6 +639,44 @@ struct EnhancedPostEditorView: View {
         .gqPageBackground()
         .navigationTitle("Customize Post")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbarBackground(GQColors.background, for: .navigationBar)
+        .instagramBack()
+    }
+
+    /// Inline caption field pulled out of the old preview card.
+    /// Lives above the add-ons row; PostCardV2 preview above it
+    /// reflects what's typed here immediately.
+    @ViewBuilder
+    private var captionEditorRow: some View {
+        HStack(alignment: .top, spacing: 8) {
+            ZStack(alignment: .topLeading) {
+                TextEditor(text: $caption)
+                    .scrollContentBackground(.hidden)
+                    .foregroundColor(GQColors.textPrimary)
+                    .font(.system(size: 15))
+                    .lineSpacing(2)
+                    .frame(minHeight: 44)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+
+                if caption.isEmpty {
+                    Text("What's the highlight?")
+                        .font(.system(size: 15))
+                        .foregroundColor(GQColors.textTertiary)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 18)
+                        .allowsHitTesting(false)
+                }
+            }
+            .background(GQColors.surfaceBase)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(GQColors.borderDefault, lineWidth: 0.5)
+            )
+        }
     }
 
     // MARK: - Post Preview Card
@@ -1166,6 +1226,65 @@ struct EnhancedPostEditorView: View {
                 #endif
             }
         }
+    }
+
+    /// Preview Post built from current editor state — reactively
+    /// rebuilds on every dependent @State change so the PostCardV2
+    /// preview lives-updates as the user toggles music, widgets,
+    /// challenges, location, stats, caption, tags, and squads.
+    /// Never inserted into modelContext (ephemeral).
+    private var previewPost: Post {
+        let firstPhoto = mediaItems.first(where: { $0.mediaType == .photo })
+        let firstVideo = mediaItems.first(where: { $0.mediaType == .video })
+
+        let sharedWorkoutPayload: Data? = {
+            guard includeStats, let workout else { return nil }
+            let shared = SharedWorkoutData.from(workout: workout, author: profile)
+            return try? JSONEncoder().encode(shared)
+        }()
+
+        let post = Post(
+            authorId: profile.id,
+            authorName: profile.name,
+            authorUsername: profile.username,
+            caption: caption,
+            photoData: firstPhoto?.data ?? mediaItems.first?.data,
+            videoData: firstVideo?.data,
+            workoutType: includeStats ? workout?.type.rawValue : nil,
+            duration: includeStats ? duration : nil,
+            setCount: includeStats ? workout?.totalSets : nil,
+            exerciseHighlight: exercises.first?.name,
+            songTitle: selectedSong?.title,
+            artistName: selectedSong?.artist,
+            songPreviewURL: selectedSong?.previewURL,
+            musicSource: selectedSong?.source.rawValue,
+            playlistId: selectedSong?.playlistId,
+            sharedWorkoutData: sharedWorkoutPayload,
+            taggedUsernames: taggedUsernames,
+            mediaItemsData: try? JSONEncoder().encode(mediaItems),
+            locationName: selectedLocation?.name,
+            locationId: selectedLocation?.clubId,
+            taggedSquadIds: taggedSquads.map { $0.id },
+            taggedSquadNames: taggedSquads.map { $0.name },
+            spotifyPlaylistURL: spotifyPlaylistURL.isEmpty ? nil : spotifyPlaylistURL,
+            appleMusicPlaylistURL: appleMusicPlaylistURL.isEmpty ? nil : appleMusicPlaylistURL,
+            workoutEmotion: selectedEmotion?.rawValue,
+            voiceNoteData: voiceNoteData,
+            voiceNoteDuration: voiceNoteDuration > 0 ? voiceNoteDuration : nil,
+            musicSnippetStart: selectedSong?.previewURL != nil ? snippetStartTime : nil
+        )
+
+        if let widget = attachedWidget {
+            post.postWidgetData = try? JSONEncoder().encode(widget)
+        }
+
+        if let challenge = attachedChallenge {
+            post.challengeId = challenge.challengeId
+            post.challengeData = try? JSONEncoder().encode(challenge)
+        }
+
+        post.audience = selectedAudience.rawValue
+        return post
     }
 
     private func createPost() {
