@@ -835,58 +835,53 @@ struct ClubFeedView: View {
 
     var body: some View {
         ScrollView {
-            LazyVStack(spacing: 0) {
-                // Search + category chips pinned at the top. Mirrors the
-                // Discover page: bar is a tappable button that opens the
-                // full search sheet.
-                searchAndCategoryStrip
-                    .padding(.top, 4)
-
-                // Apple Settings-style inset groups: each section has
-                // its header outside the card, rows inside a white
-                // rounded card. Sections hide when the active
-                // category filter leaves them empty.
-                if !sortedYourClubs.isEmpty {
-                    groupedSection(header: "Your Clubs", icon: "person.3.fill") {
-                        yourClubsRowsOnly
+            // pinnedViews: [.sectionHeaders] makes the filter strip
+            // stick to the top of the scroll view as the user scrolls
+            // past it — same pattern Discover uses.
+            LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
+                Section {
+                    if !sortedYourClubs.isEmpty {
+                        groupedSection(header: "Your Clubs", icon: "person.3.fill") {
+                            yourClubsRowsOnly
+                        }
+                        .padding(.top, 14)
                     }
-                    .padding(.top, 14)
-                }
 
-                if !computedEventRows.isEmpty {
-                    groupedSection(header: "Upcoming Events", icon: "calendar") {
-                        eventsRowsOnly
+                    if !computedEventRows.isEmpty {
+                        groupedSection(header: "Upcoming Events", icon: "calendar") {
+                            eventsRowsOnly
+                        }
+                        .padding(.top, 16)
                     }
-                    .padding(.top, 16)
-                }
 
-                if hasAnyDiscoverContent {
-                    groupedSection(
-                        header: "Discover",
-                        icon: "sparkles"
-                    ) {
-                        discoverCardContent
+                    if hasAnyDiscoverContent {
+                        groupedSection(
+                            header: "Discover",
+                            icon: "sparkles"
+                        ) {
+                            discoverCardContent
+                        }
+                        .padding(.top, 16)
+                        .padding(.bottom, 16)
                     }
-                    .padding(.top, 16)
-                    .padding(.bottom, 16)
-                }
 
-                // When an active filter hides everything, show a
-                // friendly nudge with a one-tap clear.
-                if selectedCategory != nil
-                    && sortedYourClubs.isEmpty
-                    && computedEventRows.isEmpty
-                    && !hasAnyDiscoverContent {
-                    filterEmptyStateBlock
-                        .padding(.top, 40)
-                }
+                    if selectedCategory != nil
+                        && sortedYourClubs.isEmpty
+                        && computedEventRows.isEmpty
+                        && !hasAnyDiscoverContent {
+                        filterEmptyStateBlock
+                            .padding(.top, 40)
+                    }
 
-                if yourClubs.isEmpty && searchFilteredRecommended.isEmpty {
-                    emptyStateBlock
-                        .padding(.top, 40)
-                }
+                    if yourClubs.isEmpty && searchFilteredRecommended.isEmpty {
+                        emptyStateBlock
+                            .padding(.top, 40)
+                    }
 
-                Spacer(minLength: 60)
+                    Spacer(minLength: 60)
+                } header: {
+                    pinnedFilterStrip
+                }
             }
         }
         .scrollContentBackground(.hidden)
@@ -997,51 +992,60 @@ struct ClubFeedView: View {
     /// content that follows.
     @ViewBuilder
     private var searchAndCategoryStrip: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 0) {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 6) {
-                        categoryChip(nil, label: "All")
-                        ForEach(browseCategories, id: \.self) { cat in
-                            categoryChip(cat, label: cat.rawValue)
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 2)
-                }
-                .scrollClipDisabled()
+        pinnedFilterStrip
+    }
 
-                Button {
-                    #if canImport(UIKit)
-                    UISelectionFeedbackGenerator().selectionChanged()
-                    #endif
-                    presentingMap = true
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "map")
-                            .font(.system(size: 10, weight: .semibold))
-                        Text("Map")
-                            .font(.system(size: 12, weight: .semibold))
+    /// Pinned header — same pattern as Discover's sticky filter bar.
+    /// Scrollable category chips on the left, trailing Map pill on
+    /// the right, GQColors.background to blend with the page when
+    /// pinned, bottom hairline + light drop shadow for depth.
+    @ViewBuilder
+    private var pinnedFilterStrip: some View {
+        HStack(spacing: 8) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    categoryChip(nil, label: "All")
+                    ForEach(browseCategories, id: \.self) { cat in
+                        categoryChip(cat, label: cat.rawValue)
                     }
-                    .foregroundColor(GQColors.textSecondary)
-                    .padding(.horizontal, 11)
-                    .padding(.vertical, 6)
-                    .background(Capsule().fill(GQColors.surfaceBase))
-                    .overlay(
-                        Capsule().stroke(GQColors.borderDefault.opacity(0.5), lineWidth: 1)
-                    )
                 }
-                .buttonStyle(.plain)
-                .padding(.trailing, 12)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 2)
             }
-            .padding(.bottom, 8)
+            .scrollClipDisabled()
 
-            // Hairline separator — gives the nav + filter strip a
-            // clear bottom edge before the first grouped card.
+            Button {
+                #if canImport(UIKit)
+                UISelectionFeedbackGenerator().selectionChanged()
+                #endif
+                presentingMap = true
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "map")
+                        .font(.system(size: 10, weight: .semibold))
+                    Text("Map")
+                        .font(.system(size: 12, weight: .semibold))
+                }
+                .foregroundColor(GQColors.textSecondary)
+                .padding(.horizontal, 11)
+                .padding(.vertical, 6)
+                .background(Capsule().fill(GQColors.surfaceBase))
+                .overlay(
+                    Capsule().stroke(GQColors.borderDefault.opacity(0.5), lineWidth: 1)
+                )
+            }
+            .buttonStyle(.plain)
+            .padding(.trailing, 12)
+        }
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity)
+        .background(GQColors.background)
+        .overlay(alignment: .bottom) {
             Rectangle()
                 .fill(GQColors.borderDefault.opacity(0.55))
                 .frame(height: 0.5)
         }
+        .shadow(color: .black.opacity(0.04), radius: 4, y: 2)
     }
 
     @ViewBuilder
