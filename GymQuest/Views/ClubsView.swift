@@ -6251,6 +6251,10 @@ private struct GroupedCardModifier: ViewModifier {
                     .fill(GQColors.borderProminent)
                     .frame(height: 0.5)
             }
+            // Light drop shadow — matches the Friends feed depth
+            // treatment so bands read as layered surfaces on top of
+            // the gray page instead of flat color blocks.
+            .shadow(color: .black.opacity(0.04), radius: 6, y: 2)
     }
 }
 
