@@ -3766,6 +3766,14 @@ struct StreakFlame: View {
         colors: [.yellow, .orange, .red.opacity(0.85)],
         startPoint: .bottom, endPoint: .top
     )
+    private let haloGrad = LinearGradient(
+        colors: [Color.orange.opacity(0.85), Color.red.opacity(0.9)],
+        startPoint: .bottom, endPoint: .top
+    )
+    private let coreGrad = LinearGradient(
+        colors: [.white, .yellow],
+        startPoint: .bottom, endPoint: .top
+    )
     private let dullGrad = LinearGradient(
         colors: [.orange, .red.opacity(0.8)],
         startPoint: .bottom, endPoint: .top
@@ -3773,19 +3781,19 @@ struct StreakFlame: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            // Sparks. Three small dots rising at staggered phases so
-            // the effect looks organic — not a mechanical trio.
             if isAlive {
-                spark(size: 2.5, xOffset: -3, delay: 0)
-                spark(size: 2.0, xOffset: 3, delay: 0.55)
-                spark(size: 1.8, xOffset: 0, delay: 1.1)
+                warmGlow
+                sparks
+                halo
             }
 
             Image(systemName: "flame.fill")
                 .font(.system(size: 15))
                 .foregroundStyle(isAlive ? flameGrad : dullGrad)
-                .scaleEffect(isAlive && flicker ? 1.06 : 1.0)
+                .scaleEffect(isAlive && flicker ? 1.08 : 1.0)
                 .rotationEffect(.degrees(isAlive ? (flicker ? -2 : 2) : 0))
+
+            if isAlive { hotCore }
         }
         .frame(width: 18, height: 22)
         .onAppear {
@@ -3794,6 +3802,52 @@ struct StreakFlame: View {
                 flicker = true
             }
         }
+    }
+
+    // Warm radial glow behind the flame — reads as radiated heat.
+    @ViewBuilder private var warmGlow: some View {
+        Circle()
+            .fill(
+                RadialGradient(
+                    colors: [Color.orange.opacity(0.55), Color.orange.opacity(0.0)],
+                    center: .center, startRadius: 0, endRadius: 18
+                )
+            )
+            .frame(width: 34, height: 34)
+            .offset(y: 6)
+            .blur(radius: 3)
+            .opacity(flicker ? 0.95 : 0.55)
+            .scaleEffect(flicker ? 1.15 : 0.92)
+    }
+
+    // Five staggered rising sparks — feels organic, not mechanical.
+    @ViewBuilder private var sparks: some View {
+        spark(size: 2.6, xOffset: -3, delay: 0)
+        spark(size: 2.0, xOffset: 3, delay: 0.4)
+        spark(size: 1.8, xOffset: 0, delay: 0.8)
+        spark(size: 1.4, xOffset: -5, delay: 1.2)
+        spark(size: 1.4, xOffset: 1.5, delay: 1.5)
+    }
+
+    // Blurred flame-shaped halo sitting behind the main icon.
+    @ViewBuilder private var halo: some View {
+        Image(systemName: "flame.fill")
+            .font(.system(size: 17))
+            .foregroundStyle(haloGrad)
+            .blur(radius: 2.2)
+            .scaleEffect(flicker ? 1.18 : 1.02)
+            .rotationEffect(.degrees(flicker ? -3 : 3))
+    }
+
+    // Bright yellow-white core riding on top — the "hot" center of the fire.
+    @ViewBuilder private var hotCore: some View {
+        Image(systemName: "flame.fill")
+            .font(.system(size: 9))
+            .foregroundStyle(coreGrad)
+            .scaleEffect(flicker ? 1.15 : 0.85)
+            .offset(y: -2)
+            .opacity(flicker ? 0.9 : 0.65)
+            .blendMode(.plusLighter)
     }
 
     /// A single upward-drifting spark. Scales from 1 to 0 and rises

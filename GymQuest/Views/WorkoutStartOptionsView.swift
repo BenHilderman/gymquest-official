@@ -23,20 +23,20 @@ struct WorkoutStartOptionsView: View {
     var body: some View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
-                VStack(spacing: 20) {
-                    // Profile-style identity band
+                VStack(alignment: .leading, spacing: 24) {
                     heroBand
                         .padding(.top, 4)
 
-                    // Path section — continuous white list with
-                    // hairlines between rows, like Friends feed posts
+                    sectionLabel("PICK HOW YOU WANT TO TRAIN")
                     pathSection
 
-                    // Momentum stats row — profile-style stat columns
+                    sectionLabel("THIS MONTH")
                     momentumSection
 
-                    Spacer(minLength: 40)
+                    Spacer(minLength: 34)
                 }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
             }
             .scrollContentBackground(.hidden)
             .background(GQColors.background)
@@ -52,20 +52,20 @@ struct WorkoutStartOptionsView: View {
     // MARK: - Hero band (profile-style)
 
     private var heroBand: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 8) {
             ZStack {
                 Circle()
-                    .fill(GQGradients.primary.opacity(0.12))
-                    .frame(width: 72, height: 72)
+                    .fill(GQColors.deepBlue.opacity(0.08))
+                    .frame(width: 56, height: 56)
                 Image(systemName: "figure.strengthtraining.traditional")
-                    .font(.system(size: 30, weight: .semibold))
+                    .font(.system(size: 24, weight: .semibold))
                     .foregroundStyle(GQGradients.primary)
             }
 
             Text(profile.showUpFor.trimmingCharacters(in: .whitespaces).isEmpty
                  ? "Let's train"
                  : "Showing up for \(profile.showUpFor)")
-                .font(.system(size: 17, weight: .semibold))
+                .font(.system(size: 15, weight: .semibold))
                 .foregroundColor(GQColors.textPrimary)
         }
         .frame(maxWidth: .infinity)
@@ -74,54 +74,28 @@ struct WorkoutStartOptionsView: View {
     // MARK: - Path section (friends-style list)
 
     private var pathSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("PICK HOW YOU WANT TO TRAIN")
-                .font(.system(size: 11, weight: .semibold))
-                .tracking(0.8)
-                .foregroundColor(GQColors.textTertiary)
-                .padding(.horizontal, 32)
-
-            VStack(spacing: 0) {
-                pathRow(icon: "figure.strengthtraining.traditional",
-                        title: "Custom Workout",
-                        subtitle: "Choose your split and go") {
-                    WorkoutTypeSelectionView(profile: profile)
-                }
-                pathDivider
-                pathRow(icon: "clock.arrow.circlepath",
-                        title: "Follow Previous",
-                        subtitle: previousWorkoutSubtitle) {
-                    PreviousWorkoutsListView(profile: profile, workouts: nonRestWorkouts)
-                }
-                pathDivider
-                pathRow(icon: "bookmark.fill",
-                        title: "Saved Workouts",
-                        subtitle: savedWorkoutsSubtitle) {
-                    SavedWorkoutsListView(profile: profile, templates: savedTemplates)
-                }
-                pathDivider
-                pathRow(icon: "brain.head.profile",
-                        title: "AI Generated",
-                        subtitle: "Smart recommendation") {
-                    AIGeneratedPlaceholderView(profile: profile)
-                }
+        VStack(spacing: 12) {
+            pathRow(icon: "figure.strengthtraining.traditional",
+                    title: "Custom Workout",
+                    subtitle: "Choose your split and go") {
+                WorkoutTypeSelectionView(profile: profile)
             }
-            .background(GQColors.surfaceBase)
-            .overlay(alignment: .top) {
-                Rectangle().fill(GQColors.borderProminent).frame(height: 0.5)
+            pathRow(icon: "clock.arrow.circlepath",
+                    title: "Follow Previous",
+                    subtitle: previousWorkoutSubtitle) {
+                PreviousWorkoutsListView(profile: profile, workouts: nonRestWorkouts)
             }
-            .overlay(alignment: .bottom) {
-                Rectangle().fill(GQColors.borderProminent).frame(height: 0.5)
+            pathRow(icon: "bookmark.fill",
+                    title: "Saved Workouts",
+                    subtitle: savedWorkoutsSubtitle) {
+                SavedWorkoutsListView(profile: profile, templates: savedTemplates)
             }
-            .shadow(color: .black.opacity(0.04), radius: 6, y: 2)
+            pathRow(icon: "brain.head.profile",
+                    title: "AI Generated",
+                    subtitle: "Smart recommendation") {
+                AIGeneratedPlaceholderView(profile: profile)
+            }
         }
-    }
-
-    private var pathDivider: some View {
-        Rectangle()
-            .fill(GQColors.borderProminent)
-            .frame(height: 0.5)
-            .padding(.leading, 72)
     }
 
     @ViewBuilder
@@ -132,65 +106,50 @@ struct WorkoutStartOptionsView: View {
         @ViewBuilder destination: @escaping () -> Destination
     ) -> some View {
         NavigationLink(destination: destination) {
-            HStack(spacing: 14) {
-                ZStack {
-                    Circle()
-                        .fill(GQGradients.primary.opacity(0.12))
-                        .frame(width: 44, height: 44)
-                    Image(systemName: icon)
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(GQGradients.primary)
-                }
+            HStack(spacing: 12) {
+                Circle()
+                    .fill(GQColors.deepBlue.opacity(0.08))
+                    .frame(width: 40, height: 40)
+                    .overlay(
+                        Image(systemName: icon)
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(GQGradients.primary)
+                    )
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(GQColors.textPrimary)
+                        .lineLimit(1)
                     Text(subtitle)
-                        .font(.system(size: 12))
-                        .foregroundColor(GQColors.textTertiary)
+                        .font(.system(size: 11))
+                        .foregroundColor(GQColors.textSecondary)
                         .lineLimit(1)
                 }
 
                 Spacer(minLength: 8)
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(GQColors.textTertiary)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-            .contentShape(Rectangle())
+            .padding(14)
+            .homeSocialCard(cornerRadius: 14)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(GQInteractiveStyle())
     }
 
     // MARK: - Momentum section
 
     private var momentumSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("THIS MONTH")
-                .font(.system(size: 11, weight: .semibold))
-                .tracking(0.8)
-                .foregroundColor(GQColors.textTertiary)
-                .padding(.horizontal, 32)
-
-            HStack(spacing: 0) {
-                momentumCol(value: "\(streakDays)", label: "Streak", valueColor: streakDays > 0 ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQColors.textPrimary))
-                momentumDivider
-                momentumCol(value: "\(workoutsThisWeek)", label: "This Week")
-            }
-            .padding(.vertical, 16)
-            .frame(maxWidth: .infinity)
-            .background(GQColors.surfaceBase)
-            .overlay(alignment: .top) {
-                Rectangle().fill(GQColors.borderProminent).frame(height: 0.5)
-            }
-            .overlay(alignment: .bottom) {
-                Rectangle().fill(GQColors.borderProminent).frame(height: 0.5)
-            }
-            .shadow(color: .black.opacity(0.04), radius: 6, y: 2)
+        HStack(spacing: 0) {
+            momentumCol(value: "\(streakDays)", label: "Streak", valueColor: streakDays > 0 ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQColors.textPrimary))
+            momentumDivider
+            momentumCol(value: "\(workoutsThisWeek)", label: "This Week")
         }
+        .padding(.vertical, 14)
+        .frame(maxWidth: .infinity)
+        .homeSocialCard(cornerRadius: 14)
     }
 
     private var momentumDivider: some View {

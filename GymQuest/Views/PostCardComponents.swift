@@ -26,6 +26,9 @@ struct PostCardV2: View {
     let currentUserId: UUID
     var currentUserName: String = ""
     var profile: UserProfile? = nil
+    /// Which feed surface this card belongs to. Drives the session-scoped
+    /// mute preference so Friends and Discover keep independent intent.
+    var audioScope: FeedAudioScope = .friends
 
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject var appState: AppState
@@ -38,7 +41,6 @@ struct PostCardV2: View {
     @State private var showVideoPlayer = false
     @State private var showComments = false
     @State private var hasAppeared = false
-    @State private var isPlayingMusic = false
     @State private var showWorkoutDetail = false
     @State private var showStealSetSheet = false
     @State private var showFullCaption = false
@@ -154,20 +156,19 @@ struct PostCardV2: View {
             hasAppeared = true
             fetchTopComment()
             EngagementTrackingService.shared.trackPostAppeared(postId: post.id, userId: currentUserId)
-            if post.songTitle != nil, let previewURL = post.songPreviewURL {
+            if post.songTitle != nil, let previewURL = post.songPreviewURL,
+               !FeedAudioPreference.shared.isMuted(scope: audioScope) {
                 MusicPreviewService.shared.playURL(
                     postId: post.id,
                     previewURL: previewURL,
                     snippetStart: post.musicSnippetStart ?? 0
                 )
-                isPlayingMusic = true
             }
         }
         .onDisappear {
             EngagementTrackingService.shared.trackPostDisappeared(postId: post.id, userId: currentUserId)
             if post.songTitle != nil && !showWorkoutDetail && !showComments {
                 MusicPreviewService.shared.stop()
-                isPlayingMusic = false
             }
         }
         .fullScreenCover(isPresented: $showVideoPlayer) {
@@ -536,7 +537,7 @@ struct PostCardV2: View {
                 // Main music row
                 HStack(spacing: 12) {
                     // Vinyl disc
-                    InlineVinylDisc(serviceColor: serviceColor, isPlaying: isPlayingMusic)
+                    InlineVinylDisc(serviceColor: serviceColor, isPlaying: isAudioPlaying)
 
                     // Song info
                     VStack(alignment: .leading, spacing: 2) {
@@ -554,7 +555,7 @@ struct PostCardV2: View {
 
                     // EQ bars + service icon
                     HStack(spacing: 8) {
-                        MusicEQBars(barCount: 4, barWidth: 2.5, maxHeight: 16, color: serviceColor, isPlaying: isPlayingMusic)
+                        MusicEQBars(barCount: 4, barWidth: 2.5, maxHeight: 16, color: serviceColor, isPlaying: isAudioPlaying)
                             .frame(width: 18, height: 16)
 
                         if post.musicSource != nil {
@@ -570,16 +571,20 @@ struct PostCardV2: View {
                 .padding(.vertical, 10)
                 .contentShape(Rectangle())
                 .onTapGesture {
-                    if isPlayingMusic {
+                    // Tapping the inline music row is an explicit play
+                    // intent — flip scope mute off and start this post's
+                    // preview, or mute the scope and stop if it's already
+                    // the active preview.
+                    if isAudioPlaying {
+                        FeedAudioPreference.shared.setMuted(true, scope: audioScope)
                         MusicPreviewService.shared.stop()
-                        isPlayingMusic = false
                     } else if let previewURL = post.songPreviewURL {
+                        FeedAudioPreference.shared.setMuted(false, scope: audioScope)
                         MusicPreviewService.shared.playURL(
                             postId: post.id,
                             previewURL: previewURL,
                             snippetStart: post.musicSnippetStart ?? 0
                         )
-                        isPlayingMusic = true
                     }
                 }
                 .contextMenu {
@@ -804,11 +809,14 @@ struct PostCardV2: View {
             // subtle shadow — no pill background, matches the other
             // tile overlays (duration, workout icon) instead of the
             // heavier ultraThinMaterial circle it was before.
+            // Glyph reflects the scope-wide mute intent so every card on
+            // the same feed surface shows a consistent state.
             if hasToggleableAudio {
+                let scopeMuted = FeedAudioPreference.shared.isMuted(scope: audioScope)
                 Button {
                     toggleMusicPreview()
                 } label: {
-                    Image(systemName: isPlayingMusic ? "speaker.wave.2.fill" : "speaker.slash.fill")
+                    Image(systemName: scopeMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(.white)
                         .shadow(color: .black.opacity(0.45), radius: 2, y: 1)
@@ -865,27 +873,35 @@ struct PostCardV2: View {
         return false
     }
 
-    /// Toggle the inline music preview. Flashes a brief mute/unmute
-    /// indicator whenever a song is available — on posts without music
-    /// the tap is a silent no-op.
+    /// True when this specific post is currently producing audio — used
+    /// by the inline visual indicators (vinyl spin, EQ bars). Combines
+    /// the scope-wide mute intent with whether `MusicPreviewService` is
+    /// pointed at this post, so a muted scope freezes every indicator
+    /// even if the service is mid-cycle.
+    private var isAudioPlaying: Bool {
+        !FeedAudioPreference.shared.isMuted(scope: audioScope) &&
+        MusicPreviewService.shared.isPlayingPost(post.id)
+    }
+
+    /// Toggle the inline music preview. The mute intent lives on
+    /// `FeedAudioPreference` keyed by `audioScope`, so flipping it here
+    /// silences (or revives) every card on the same surface for the rest
+    /// of the session — matches the IG Reels-style scope-wide toggle.
+    /// Posts without audio still flash the overlay so the tap feels
+    /// responsive even when nothing is playing.
     private func toggleMusicPreview() {
-        let nowPlaying: Bool
-        if isPlayingMusic {
+        guard hasToggleableAudio else { return }
+        let nowMuted = FeedAudioPreference.shared.toggle(scope: audioScope)
+        if nowMuted {
             MusicPreviewService.shared.stop()
-            isPlayingMusic = false
-            nowPlaying = false
         } else if let previewURL = post.songPreviewURL {
             MusicPreviewService.shared.playURL(
                 postId: post.id,
                 previewURL: previewURL,
                 snippetStart: post.musicSnippetStart ?? 0
             )
-            isPlayingMusic = true
-            nowPlaying = true
-        } else {
-            return
         }
-        flashMuteOverlay(muted: !nowPlaying)
+        flashMuteOverlay(muted: nowMuted)
     }
 
     /// Pop a short-lived icon at the center of the hero that mirrors the
@@ -936,7 +952,7 @@ struct PostCardV2: View {
                         .foregroundColor(.white.opacity(0.7))
                         .lineLimit(1)
 
-                    MusicEQBars(barCount: 3, barWidth: 1.5, maxHeight: 7, color: .white.opacity(0.6), isPlaying: isPlayingMusic)
+                    MusicEQBars(barCount: 3, barWidth: 1.5, maxHeight: 7, color: .white.opacity(0.6), isPlaying: isAudioPlaying)
                         .frame(width: 10, height: 7)
                 }
                 .padding(.horizontal, 10)
@@ -1317,7 +1333,7 @@ struct PostCardV2: View {
                             .lineLimit(1)
                     }
 
-                    MusicEQBars(barCount: 3, barWidth: 2, maxHeight: 12, color: serviceColor, isPlaying: isPlayingMusic)
+                    MusicEQBars(barCount: 3, barWidth: 2, maxHeight: 12, color: serviceColor, isPlaying: isAudioPlaying)
                         .frame(width: 14, height: 12)
                 }
                 .padding(.horizontal, 12)
@@ -1381,7 +1397,7 @@ struct PostCardV2: View {
 
                     Spacer()
 
-                    MusicEQBars(barCount: 4, barWidth: 2.5, maxHeight: 14, color: serviceColor, isPlaying: isPlayingMusic)
+                    MusicEQBars(barCount: 4, barWidth: 2.5, maxHeight: 14, color: serviceColor, isPlaying: isAudioPlaying)
                         .frame(width: 20, height: 14)
                 }
                 .padding(.horizontal, 12)

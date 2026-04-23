@@ -471,36 +471,37 @@ struct ProgressAnalyticsView: View {
     // MARK: - Body Progress
 
     private var bodyProgressCard: some View {
-        VStack(spacing: 14) {
-            HStack {
-                Text("Body")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(GQColors.textPrimary)
-                Spacer()
-                if latestWeight != nil {
-                    NavigationLink {
-                        BodyMeasurementsView(profile: profile)
-                    } label: {
-                        HStack(spacing: 3) {
-                            Text("Details")
-                                .font(.system(size: 10))
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 8, weight: .semibold))
-                        }
-                        .foregroundColor(GQColors.textTertiary)
+        // Entire card taps through to the log page so users can jump
+        // straight from "glance at my weight" → "record today's weight".
+        NavigationLink {
+            BodyMeasurementsView(profile: profile)
+        } label: {
+            VStack(spacing: 14) {
+                HStack {
+                    Text("Body")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(GQColors.textPrimary)
+                    Spacer()
+                    HStack(spacing: 3) {
+                        Text(latestWeight != nil ? "Details" : "Log")
+                            .font(.system(size: 10, weight: .semibold))
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 8, weight: .semibold))
                     }
+                    .foregroundColor(GQColors.textTertiary)
+                }
+
+                if weightMeasurements.isEmpty {
+                    emptyState(icon: "scalemass", text: "No data")
+                } else {
+                    bodyContent
                 }
             }
-
-            if weightMeasurements.isEmpty {
-                emptyState(icon: "scalemass", text: "No data")
-            } else {
-                bodyContent
-            }
+            .padding(14)
+            .frame(maxWidth: .infinity)
+            .homeSocialCard(cornerRadius: 14)
         }
-        .padding(14)
-        .frame(maxWidth: .infinity)
-        .homeSocialCard(cornerRadius: 14)
+        .buttonStyle(.plain)
     }
 
     @ViewBuilder
@@ -638,42 +639,60 @@ struct ProgressAnalyticsView: View {
         .homeSocialCard(cornerRadius: 14)
     }
 
-    // MARK: - Nutrition (7-day calories bar chart)
+    // MARK: - Nutrition (7-day stacked macro chart)
 
     private var nutritionCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .firstTextBaseline) {
-                Image(systemName: "flame.fill")
-                    .font(.system(size: 13))
-                    .foregroundStyle(GQGradients.primary)
-                Text("Nutrition")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(GQColors.textPrimary)
-                Spacer()
-                if profile.dailyCalorieGoal > 0 {
-                    Text("\(profile.dailyCalorieGoal) cal goal")
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundColor(GQColors.textTertiary)
+        // Whole card taps through to a detail sheet with macro
+        // breakdown and recent meals, so this card is a launch point
+        // rather than a dead-end glance.
+        NavigationLink {
+            NutritionProgressDetail(profile: profile, totals: nutritionWeeklyTotals)
+        } label: {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .firstTextBaseline) {
+                    Image(systemName: "flame.fill")
+                        .font(.system(size: 13))
+                        .foregroundStyle(GQGradients.primary)
+                    Text("Nutrition")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(GQColors.textPrimary)
+                    Spacer()
+                    HStack(spacing: 4) {
+                        if profile.dailyCalorieGoal > 0 {
+                            Text("\(profile.dailyCalorieGoal) cal goal")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundColor(GQColors.textTertiary)
+                        }
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 8, weight: .semibold))
+                            .foregroundColor(GQColors.textTertiary)
+                    }
                 }
-            }
 
-            nutritionBars
+                nutritionBars
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .homeSocialCard(cornerRadius: 14)
         }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .homeSocialCard(cornerRadius: 14)
+        .buttonStyle(.plain)
     }
 
-    private var nutritionWeeklyTotals: [(date: Date, cal: Int)] {
+    private var nutritionWeeklyTotals: [NutritionDayTotal] {
         let service = NutritionService.shared
         service.configure(modelContext: modelContext)
         let cal = Calendar.current
-        return (0..<7).reversed().compactMap { offset -> (date: Date, cal: Int)? in
+        return (0..<7).reversed().compactMap { offset -> NutritionDayTotal? in
             guard let start = cal.date(byAdding: .day, value: -offset, to: cal.startOfDay(for: Date())) else { return nil }
             guard let end = cal.date(byAdding: .day, value: 1, to: start) else { return nil }
             let meals = service.getMeals(userId: profile.id, from: start, to: end)
-            let total = meals.reduce(0) { $0 + ($1.estimatedCalories ?? 0) }
-            return (start, total)
+            return NutritionDayTotal(
+                date: start,
+                calories: meals.reduce(0) { $0 + ($1.estimatedCalories ?? 0) },
+                protein: meals.reduce(0) { $0 + ($1.estimatedProtein ?? 0) },
+                carbs: meals.reduce(0) { $0 + ($1.estimatedCarbs ?? 0) },
+                fat: meals.reduce(0) { $0 + ($1.estimatedFat ?? 0) }
+            )
         }
     }
 
@@ -687,29 +706,109 @@ struct ProgressAnalyticsView: View {
     @ViewBuilder
     private var nutritionBars: some View {
         let totals = nutritionWeeklyTotals
-        let anyLogged = totals.contains { $0.cal > 0 }
+        let anyLogged = totals.contains { $0.calories > 0 }
         if !anyLogged {
             emptyState(icon: "flame", text: "No meals logged yet")
         } else {
-            let maxCal = max(totals.map(\.cal).max() ?? 0, profile.dailyCalorieGoal > 0 ? profile.dailyCalorieGoal : 2000)
-            HStack(alignment: .bottom, spacing: 6) {
-                ForEach(Array(totals.enumerated()), id: \.offset) { _, entry in
-                    VStack(spacing: 4) {
-                        ZStack(alignment: .bottom) {
-                            RoundedRectangle(cornerRadius: 4)
-                                .fill(GQColors.adaptiveOverlay(0.05))
-                                .frame(height: 70)
-                            RoundedRectangle(cornerRadius: 4)
-                                .fill(GQGradients.primary)
-                                .frame(height: maxCal > 0 ? 70 * CGFloat(entry.cal) / CGFloat(maxCal) : 0)
-                        }
-                        Text(weekdayInitial(entry.date))
+            VStack(spacing: 10) {
+                macroChart(totals: totals)
+                macroLegend(totals: totals)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func macroChart(totals: [NutritionDayTotal]) -> some View {
+        let goal = profile.dailyCalorieGoal
+        Chart {
+            ForEach(totals) { entry in
+                if entry.hasMacros {
+                    // Stacked by calorie contribution (P·4, C·4, F·9) so
+                    // bar height still reads as "total calories."
+                    BarMark(
+                        x: .value("Day", entry.date, unit: .day),
+                        y: .value("Cal", entry.protein * 4)
+                    )
+                    .foregroundStyle(by: .value("Macro", "Protein"))
+                    .cornerRadius(2)
+
+                    BarMark(
+                        x: .value("Day", entry.date, unit: .day),
+                        y: .value("Cal", entry.carbs * 4)
+                    )
+                    .foregroundStyle(by: .value("Macro", "Carbs"))
+                    .cornerRadius(2)
+
+                    BarMark(
+                        x: .value("Day", entry.date, unit: .day),
+                        y: .value("Cal", entry.fat * 9)
+                    )
+                    .foregroundStyle(by: .value("Macro", "Fat"))
+                    .cornerRadius(2)
+                } else if entry.calories > 0 {
+                    BarMark(
+                        x: .value("Day", entry.date, unit: .day),
+                        y: .value("Cal", entry.calories)
+                    )
+                    .foregroundStyle(by: .value("Macro", "Calories"))
+                    .cornerRadius(2)
+                }
+            }
+            if goal > 0 {
+                RuleMark(y: .value("Goal", goal))
+                    .foregroundStyle(GQColors.textTertiary.opacity(0.55))
+                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
+            }
+        }
+        .chartForegroundStyleScale([
+            "Protein": GQColors.cyanSpark,
+            "Carbs": GQColors.sunsetOrange,
+            "Fat": GQColors.vividPurple,
+            "Calories": GQColors.deepBlue
+        ])
+        .chartLegend(.hidden)
+        .chartXAxis {
+            AxisMarks(values: totals.map(\.date)) { value in
+                if let date = value.as(Date.self) {
+                    AxisValueLabel(anchor: .top) {
+                        Text(weekdayInitial(date))
                             .font(.system(size: 10, weight: .semibold))
                             .foregroundColor(GQColors.textTertiary)
                     }
-                    .frame(maxWidth: .infinity)
                 }
             }
+        }
+        .chartYAxis(.hidden)
+        .frame(height: 90)
+    }
+
+    @ViewBuilder
+    private func macroLegend(totals: [NutritionDayTotal]) -> some View {
+        let withMacros = totals.filter(\.hasMacros)
+        let avgP = withMacros.isEmpty ? 0 : withMacros.map(\.protein).reduce(0, +) / withMacros.count
+        let avgC = withMacros.isEmpty ? 0 : withMacros.map(\.carbs).reduce(0, +) / withMacros.count
+        let avgF = withMacros.isEmpty ? 0 : withMacros.map(\.fat).reduce(0, +) / withMacros.count
+        HStack(spacing: 10) {
+            macroChip(label: "P", grams: avgP, color: GQColors.cyanSpark)
+            macroChip(label: "C", grams: avgC, color: GQColors.sunsetOrange)
+            macroChip(label: "F", grams: avgF, color: GQColors.vividPurple)
+            Spacer()
+            Text("daily avg")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundColor(GQColors.textTertiary)
+        }
+    }
+
+    @ViewBuilder
+    private func macroChip(label: String, grams: Int, color: Color) -> some View {
+        HStack(spacing: 4) {
+            Circle().fill(color).frame(width: 6, height: 6)
+            Text(label)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundColor(GQColors.textSecondary)
+            Text("\(grams)g")
+                .font(.system(size: 11, weight: .bold, design: .rounded))
+                .foregroundColor(GQColors.textPrimary)
         }
     }
 
@@ -1229,5 +1328,268 @@ struct AddGoalSheet: View {
 
         modelContext.insert(goal)
         dismiss()
+    }
+}
+
+// MARK: - Nutrition Detail
+
+struct NutritionDayTotal: Identifiable, Hashable {
+    let date: Date
+    let calories: Int
+    let protein: Int
+    let carbs: Int
+    let fat: Int
+    var id: Date { date }
+    var hasMacros: Bool { (protein + carbs + fat) > 0 }
+}
+
+/// Drill-down for the nutrition card — bigger chart, macro split ring,
+/// per-day breakdown, and a launch point into the food logger.
+struct NutritionProgressDetail: View {
+    let profile: UserProfile
+    let totals: [NutritionDayTotal]
+
+    @Environment(\.modelContext) private var modelContext
+    @State private var showingLog = false
+
+    private var weekAvgCal: Int {
+        let logged = totals.filter { $0.calories > 0 }
+        guard !logged.isEmpty else { return 0 }
+        return logged.map(\.calories).reduce(0, +) / logged.count
+    }
+
+    private var weekTotal: (p: Int, c: Int, f: Int) {
+        (totals.map(\.protein).reduce(0, +),
+         totals.map(\.carbs).reduce(0, +),
+         totals.map(\.fat).reduce(0, +))
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 18) {
+                summaryRow
+                bigChart
+                macroSplit
+                dailyBreakdown
+                logButton
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+            .padding(.bottom, 80)
+        }
+        .gqPageBackground()
+        .navigationTitle("Nutrition")
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+        #endif
+        .sheet(isPresented: $showingLog) {
+            MealLogView(profile: profile)
+        }
+    }
+
+    @ViewBuilder
+    private var summaryRow: some View {
+        HStack(spacing: 10) {
+            summaryTile(label: "Daily avg", value: "\(weekAvgCal)", unit: "cal")
+            summaryTile(label: "Goal", value: profile.dailyCalorieGoal > 0 ? "\(profile.dailyCalorieGoal)" : "—", unit: "cal")
+            summaryTile(label: "Days logged", value: "\(totals.filter { $0.calories > 0 }.count)", unit: "/ 7")
+        }
+    }
+
+    private func summaryTile(label: String, value: String, unit: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(.system(size: 10, weight: .semibold))
+                .tracking(0.8)
+                .foregroundColor(GQColors.textTertiary)
+            HStack(alignment: .firstTextBaseline, spacing: 2) {
+                Text(value)
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .foregroundColor(GQColors.textPrimary)
+                Text(unit)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .homeSocialCard(cornerRadius: 12)
+    }
+
+    @ViewBuilder
+    private var bigChart: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("LAST 7 DAYS")
+                .font(.system(size: 10, weight: .bold))
+                .tracking(0.8)
+                .foregroundColor(GQColors.textTertiary)
+            Chart {
+                ForEach(totals) { entry in
+                    if entry.hasMacros {
+                        BarMark(x: .value("Day", entry.date, unit: .day),
+                                y: .value("Cal", entry.protein * 4))
+                        .foregroundStyle(by: .value("Macro", "Protein"))
+                        .cornerRadius(3)
+                        BarMark(x: .value("Day", entry.date, unit: .day),
+                                y: .value("Cal", entry.carbs * 4))
+                        .foregroundStyle(by: .value("Macro", "Carbs"))
+                        .cornerRadius(3)
+                        BarMark(x: .value("Day", entry.date, unit: .day),
+                                y: .value("Cal", entry.fat * 9))
+                        .foregroundStyle(by: .value("Macro", "Fat"))
+                        .cornerRadius(3)
+                    } else if entry.calories > 0 {
+                        BarMark(x: .value("Day", entry.date, unit: .day),
+                                y: .value("Cal", entry.calories))
+                        .foregroundStyle(by: .value("Macro", "Calories"))
+                        .cornerRadius(3)
+                    }
+                }
+                if profile.dailyCalorieGoal > 0 {
+                    RuleMark(y: .value("Goal", profile.dailyCalorieGoal))
+                        .foregroundStyle(GQColors.textTertiary.opacity(0.6))
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                        .annotation(position: .topTrailing, alignment: .trailing) {
+                            Text("Goal")
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundColor(GQColors.textTertiary)
+                                .padding(.trailing, 2)
+                        }
+                }
+            }
+            .chartForegroundStyleScale([
+                "Protein": GQColors.cyanSpark,
+                "Carbs": GQColors.sunsetOrange,
+                "Fat": GQColors.vividPurple,
+                "Calories": GQColors.deepBlue
+            ])
+            .chartLegend(position: .bottom, alignment: .leading, spacing: 8)
+            .frame(height: 200)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .homeSocialCard(cornerRadius: 14)
+    }
+
+    @ViewBuilder
+    private var macroSplit: some View {
+        let total = weekTotal
+        let totalGrams = max(total.p + total.c + total.f, 1)
+        let pPct = Double(total.p) / Double(totalGrams)
+        let cPct = Double(total.c) / Double(totalGrams)
+        let fPct = Double(total.f) / Double(totalGrams)
+        VStack(alignment: .leading, spacing: 10) {
+            Text("MACRO SPLIT")
+                .font(.system(size: 10, weight: .bold))
+                .tracking(0.8)
+                .foregroundColor(GQColors.textTertiary)
+
+            GeometryReader { geo in
+                HStack(spacing: 2) {
+                    Rectangle()
+                        .fill(GQColors.cyanSpark)
+                        .frame(width: geo.size.width * pPct)
+                    Rectangle()
+                        .fill(GQColors.sunsetOrange)
+                        .frame(width: geo.size.width * cPct)
+                    Rectangle()
+                        .fill(GQColors.vividPurple)
+                        .frame(width: geo.size.width * fPct)
+                }
+            }
+            .frame(height: 10)
+            .clipShape(Capsule())
+
+            HStack(spacing: 14) {
+                splitRow(color: GQColors.cyanSpark, label: "Protein", grams: total.p, pct: pPct)
+                splitRow(color: GQColors.sunsetOrange, label: "Carbs", grams: total.c, pct: cPct)
+                splitRow(color: GQColors.vividPurple, label: "Fat", grams: total.f, pct: fPct)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .homeSocialCard(cornerRadius: 14)
+    }
+
+    private func splitRow(color: Color, label: String, grams: Int, pct: Double) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 5) {
+                Circle().fill(color).frame(width: 7, height: 7)
+                Text(label)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(GQColors.textSecondary)
+            }
+            Text("\(grams)g")
+                .font(.system(size: 14, weight: .bold, design: .rounded))
+                .foregroundColor(GQColors.textPrimary)
+            Text("\(Int(pct * 100))%")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundColor(GQColors.textTertiary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private var dailyBreakdown: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("BY DAY")
+                .font(.system(size: 10, weight: .bold))
+                .tracking(0.8)
+                .foregroundColor(GQColors.textTertiary)
+                .padding(.bottom, 10)
+
+            ForEach(Array(totals.reversed().enumerated()), id: \.element.id) { idx, entry in
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(entry.date.formatted(.dateTime.weekday(.wide)))
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(GQColors.textPrimary)
+                        Text(entry.date.formatted(.dateTime.month(.abbreviated).day()))
+                            .font(.system(size: 10))
+                            .foregroundColor(GQColors.textTertiary)
+                    }
+                    Spacer()
+                    if entry.calories > 0 {
+                        HStack(spacing: 8) {
+                            if entry.hasMacros {
+                                Text("P\(entry.protein) C\(entry.carbs) F\(entry.fat)")
+                                    .font(.system(size: 10, weight: .medium))
+                                    .foregroundColor(GQColors.textTertiary)
+                            }
+                            Text("\(entry.calories) cal")
+                                .font(.system(size: 13, weight: .bold, design: .rounded))
+                                .foregroundColor(GQColors.textPrimary)
+                        }
+                    } else {
+                        Text("—")
+                            .font(.system(size: 13))
+                            .foregroundColor(GQColors.textTertiary)
+                    }
+                }
+                .padding(.vertical, 8)
+                if idx < totals.count - 1 {
+                    Divider().overlay(GQColors.adaptiveOverlay(0.04))
+                }
+            }
+        }
+        .padding(14)
+        .homeSocialCard(cornerRadius: 14)
+    }
+
+    @ViewBuilder
+    private var logButton: some View {
+        Button {
+            showingLog = true
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 16, weight: .semibold))
+                Text("Log a Meal")
+                    .font(.system(size: 15, weight: .semibold))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+        }
+        .buttonStyle(PrimaryButtonStyle())
     }
 }

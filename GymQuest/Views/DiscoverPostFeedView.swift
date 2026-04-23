@@ -65,7 +65,8 @@ struct DiscoverPostFeedView: View {
                             post: post,
                             currentUserId: profile.id,
                             currentUserName: profile.name,
-                            profile: profile
+                            profile: profile,
+                            audioScope: .discover
                         )
                         .id(post.id)
 

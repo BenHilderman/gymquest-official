@@ -146,7 +146,8 @@ struct DiscoverSearchView: View {
                     post: post,
                     currentUserId: profile.id,
                     currentUserName: profile.name,
-                    profile: profile
+                    profile: profile,
+                    audioScope: .discover
                 )
             }
             .scrollContentBackground(.hidden)

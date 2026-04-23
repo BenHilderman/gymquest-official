@@ -1343,7 +1343,7 @@ struct ClubFeedView: View {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 5) {
                     Text(club.name)
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.system(size: 15, weight: .semibold))
                         .foregroundColor(GQColors.textPrimary)
                         .lineLimit(1)
                     if club.isVerified {
@@ -1364,7 +1364,7 @@ struct ClubFeedView: View {
 
             yourClubTrailing(club, live: live, eventToday: eventToday)
         }
-        .padding(.vertical, 10)
+        .padding(.vertical, 12)
         .contentShape(Rectangle())
     }
 
@@ -1405,26 +1405,30 @@ struct ClubFeedView: View {
         }
     }
 
-    /// Trailing badge: live pill (green), today pill (amber), or chevron.
+    /// Trailing: optional live/today badge followed by the chevron.
+    /// Chevron is always present so every row reads as tappable; the
+    /// count stays out of the pill because the row subtitle already
+    /// says "N training now" — "3 LIVE · 3 training now" was redundant.
     @ViewBuilder
     private func yourClubTrailing(_ club: Club, live: Int, eventToday: Bool) -> some View {
-        if live > 0 {
-            Text("\(live) LIVE")
-                .font(.system(size: 10, weight: .bold))
-                .tracking(0.4)
-                .foregroundColor(.white)
-                .padding(.horizontal, 7)
-                .padding(.vertical, 3)
-                .background(Capsule().fill(GQColors.success))
-        } else if eventToday {
-            Text("TODAY")
-                .font(.system(size: 10, weight: .bold))
-                .tracking(0.4)
-                .foregroundColor(.white)
-                .padding(.horizontal, 7)
-                .padding(.vertical, 3)
-                .background(Capsule().fill(Color.orange))
-        } else {
+        HStack(spacing: 6) {
+            if live > 0 {
+                Text("LIVE")
+                    .font(.system(size: 10, weight: .bold))
+                    .tracking(0.4)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(GQColors.success))
+            } else if eventToday {
+                Text("TODAY")
+                    .font(.system(size: 10, weight: .bold))
+                    .tracking(0.4)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(Color.orange))
+            }
             Image(systemName: "chevron.right")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundColor(GQColors.textTertiary)
@@ -1627,7 +1631,7 @@ struct ClubFeedView: View {
                 .foregroundColor(GQColors.textTertiary)
             }
         }
-        .padding(.vertical, 10)
+        .padding(.vertical, 12)
         .contentShape(Rectangle())
     }
 
