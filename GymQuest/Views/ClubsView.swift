@@ -961,7 +961,7 @@ struct ClubFeedView: View {
         trailing: String? = nil,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .firstTextBaseline) {
                 if let icon {
                     Image(systemName: icon)
@@ -978,6 +978,15 @@ struct ClubFeedView: View {
                         .foregroundColor(GQColors.textTertiary)
                 }
             }
+            .padding(.bottom, 10)
+
+            // Hairline separating the section title from its content
+            // so each section reads as a header + body, not a floating
+            // label above a column.
+            Rectangle()
+                .fill(GQColors.borderDefault.opacity(0.6))
+                .frame(height: 0.5)
+                .padding(.bottom, 10)
 
             content()
         }
