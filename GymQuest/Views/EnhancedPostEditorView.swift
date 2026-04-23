@@ -568,30 +568,17 @@ struct EnhancedPostEditorView: View {
     private var postCustomizationPhase: some View {
         ScrollView {
             VStack(spacing: 12) {
-                // Live-updating preview: renders PostCardV2 against a
-                // previewPost built from current editor state so the
-                // user sees the exact final post (widgets, music,
-                // challenge, location, stats toggle, tags) update as
-                // they edit.
-                PostCardV2(
-                    post: previewPost,
-                    currentUserId: profile.id,
-                    currentUserName: profile.name,
-                    profile: profile
-                )
-                .allowsHitTesting(false)
-                .frame(maxWidth: .infinity)
-                .background(GQColors.surfaceBase)
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(GQColors.borderDefault, lineWidth: 0.5)
-                )
-                .padding(.horizontal, 16)
+                // Post preview card — shows the media and the
+                // editable caption bubble inline so the user types
+                // directly into the caption that will appear on the
+                // final post.
+                postPreviewCard
+                    .padding(.horizontal, 16)
 
-                // Caption editor lives outside the preview — the
-                // preview reflects what you type here.
-                captionEditorRow
+                // Live attachments summary — reflects music, widget,
+                // challenge, location, squads so every add-on
+                // toggle visibly updates alongside the preview above.
+                attachmentsSummary
                     .padding(.horizontal, 16)
 
                 // Add-ons row (music, extras) — horizontal compact pills
@@ -644,38 +631,88 @@ struct EnhancedPostEditorView: View {
         .instagramBack()
     }
 
-    /// Inline caption field pulled out of the old preview card.
-    /// Lives above the add-ons row; PostCardV2 preview above it
-    /// reflects what's typed here immediately.
+    /// Live summary of everything currently attached to the post —
+    /// music, widget, challenge, location, tagged squads. Renders
+    /// nothing when none are set, so the preview card can sit flush
+    /// against the add-ons row.
     @ViewBuilder
-    private var captionEditorRow: some View {
-        HStack(alignment: .top, spacing: 8) {
-            ZStack(alignment: .topLeading) {
-                TextEditor(text: $caption)
-                    .scrollContentBackground(.hidden)
-                    .foregroundColor(GQColors.textPrimary)
-                    .font(.system(size: 15))
-                    .lineSpacing(2)
-                    .frame(minHeight: 44)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
+    private var attachmentsSummary: some View {
+        let hasAny = selectedSong != nil
+            || attachedWidget != nil
+            || attachedChallenge != nil
+            || selectedLocation != nil
+            || !taggedSquads.isEmpty
 
-                if caption.isEmpty {
-                    Text("What's the highlight?")
-                        .font(.system(size: 15))
-                        .foregroundColor(GQColors.textTertiary)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 18)
-                        .allowsHitTesting(false)
+        if hasAny {
+            VStack(spacing: 6) {
+                if let song = selectedSong {
+                    summaryChip(icon: "music.note", label: "\(song.title) — \(song.artist)")
+                }
+                if let widget = attachedWidget {
+                    summaryChip(icon: widgetSummaryIcon(widget), label: widgetSummaryLabel(widget))
+                }
+                if let challenge = attachedChallenge {
+                    summaryChip(icon: "flag.checkered", label: challenge.title)
+                }
+                if let location = selectedLocation {
+                    summaryChip(icon: "mappin", label: location.name)
+                }
+                if !taggedSquads.isEmpty {
+                    summaryChip(icon: "person.3.fill", label: taggedSquads.map(\.name).joined(separator: ", "))
                 }
             }
-            .background(GQColors.surfaceBase)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(GQColors.borderDefault, lineWidth: 0.5)
-            )
+        }
+    }
+
+    @ViewBuilder
+    private func summaryChip(icon: String, label: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(GQGradients.primary)
+                .frame(width: 20)
+            Text(label)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(GQColors.textPrimary)
+                .lineLimit(1)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .background(GQColors.surfaceBase)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(GQColors.borderDefault.opacity(0.7), lineWidth: 0.5)
+        )
+    }
+
+    private func widgetSummaryIcon(_ widget: PostWidget) -> String {
+        switch widget.type {
+        case .goal: return "target"
+        case .pr: return "trophy.fill"
+        case .macros: return "chart.pie.fill"
+        case .body: return "scalemass.fill"
+        case .streak: return "flame.fill"
+        case .cardio: return "figure.run"
+        }
+    }
+
+    private func widgetSummaryLabel(_ widget: PostWidget) -> String {
+        switch widget.type {
+        case .goal:
+            let pct = Int(min(1.0, (widget.goalCurrent ?? 0) / max(widget.goalTarget ?? 1, 1)) * 100)
+            return "\(widget.goalExercise ?? "Goal") · \(pct)% of goal"
+        case .pr:
+            return "\(widget.prExercise ?? "") PR \(widget.prValue ?? "")"
+        case .macros:
+            return "\(widget.calories ?? 0) cal · P\(widget.protein ?? 0) C\(widget.carbs ?? 0) F\(widget.fat ?? 0)"
+        case .body:
+            return String(format: "%.1f lbs", widget.bodyWeight ?? 0)
+        case .streak:
+            return "\(widget.streakDays ?? 0) day streak"
+        case .cardio:
+            return String(format: "%.1f km · %@", widget.distance ?? 0, widget.pace ?? "0:00")
         }
     }
 
