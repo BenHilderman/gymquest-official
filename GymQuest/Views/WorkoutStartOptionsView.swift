@@ -22,67 +22,67 @@ struct WorkoutStartOptionsView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                header
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 24) {
+                    heroSubtitle
+                        .padding(.top, 8)
 
-                ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 24) {
-                        heroSection
-                            .padding(.top, 8)
+                    sectionLabel("CHOOSE YOUR PATH")
 
-                        sectionLabel("CHOOSE YOUR PATH")
-
-                        VStack(spacing: 14) {
-                            routeCard(
-                                icon: "figure.strengthtraining.traditional",
-                                title: "Custom Workout",
-                                subtitle: "Choose your split and go",
-                                accent: GQColors.deepBlue,
-                                useGradient: true
-                            ) {
-                                WorkoutTypeSelectionView(profile: profile)
-                            }
-
-                            routeCard(
-                                icon: "clock.arrow.circlepath",
-                                title: "Follow Previous",
-                                subtitle: previousWorkoutSubtitle,
-                                accent: GQColors.deepBlue,
-                                useGradient: true
-                            ) {
-                                PreviousWorkoutsListView(profile: profile, workouts: nonRestWorkouts)
-                            }
-
-                            routeCard(
-                                icon: "bookmark.fill",
-                                title: "Saved Workouts",
-                                subtitle: savedWorkoutsSubtitle,
-                                accent: GQColors.deepBlue,
-                                useGradient: true
-                            ) {
-                                SavedWorkoutsListView(profile: profile, templates: savedTemplates)
-                            }
-
-                            routeCard(
-                                icon: "brain.head.profile",
-                                title: "AI Generated",
-                                subtitle: "Smart recommendation",
-                                accent: GQColors.deepBlue,
-                                useGradient: true
-                            ) {
-                                AIGeneratedPlaceholderView(profile: profile)
-                            }
+                    VStack(spacing: 14) {
+                        routeCard(
+                            icon: "figure.strengthtraining.traditional",
+                            title: "Custom Workout",
+                            subtitle: "Choose your split and go",
+                            accent: GQColors.deepBlue,
+                            useGradient: true
+                        ) {
+                            WorkoutTypeSelectionView(profile: profile)
                         }
 
-                        motivationalStats
+                        routeCard(
+                            icon: "clock.arrow.circlepath",
+                            title: "Follow Previous",
+                            subtitle: previousWorkoutSubtitle,
+                            accent: GQColors.deepBlue,
+                            useGradient: true
+                        ) {
+                            PreviousWorkoutsListView(profile: profile, workouts: nonRestWorkouts)
+                        }
 
-                        Spacer(minLength: 34)
+                        routeCard(
+                            icon: "bookmark.fill",
+                            title: "Saved Workouts",
+                            subtitle: savedWorkoutsSubtitle,
+                            accent: GQColors.deepBlue,
+                            useGradient: true
+                        ) {
+                            SavedWorkoutsListView(profile: profile, templates: savedTemplates)
+                        }
+
+                        routeCard(
+                            icon: "brain.head.profile",
+                            title: "AI Generated",
+                            subtitle: "Smart recommendation",
+                            accent: GQColors.deepBlue,
+                            useGradient: true
+                        ) {
+                            AIGeneratedPlaceholderView(profile: profile)
+                        }
                     }
-                    .padding(.horizontal, 16)
+
+                    motivationalStats
+
+                    Spacer(minLength: 34)
                 }
+                .padding(.horizontal, 16)
             }
             .gqPageBackground()
+            .navigationTitle("Start Workout")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarBackground(GQColors.background, for: .navigationBar)
+            .instagramBack()
         }
         .tint(GQColors.textPrimary)
     }
@@ -110,19 +110,18 @@ struct WorkoutStartOptionsView: View {
 
     // MARK: - Hero
 
-    private var heroSection: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Start Workout")
-                .font(.system(size: 22, weight: .bold, design: .rounded))
-                .foregroundStyle(GQGradients.primary)
-
-            Text(profile.showUpFor.trimmingCharacters(in: .whitespaces).isEmpty
-                 ? "Pick how you want to train today."
-                 : "Showing up for \(profile.showUpFor).")
-                .font(.system(size: 13, weight: .medium))
-                .foregroundColor(GQColors.textSecondary)
-        }
+    /// Big "Start Workout" title moved to the nav bar, so the body
+    /// hero only needs the motivation subline.
+    private var heroSubtitle: some View {
+        Text(profile.showUpFor.trimmingCharacters(in: .whitespaces).isEmpty
+             ? "Pick how you want to train today."
+             : "Showing up for \(profile.showUpFor).")
+            .font(.system(size: 13, weight: .medium))
+            .foregroundColor(GQColors.textSecondary)
     }
+
+    /// Legacy hero alias kept only in case any other caller referenced it.
+    private var heroSection: some View { heroSubtitle }
 
     // MARK: - Section Label
 
