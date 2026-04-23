@@ -173,28 +173,28 @@ struct ProgressAnalyticsView: View {
     // MARK: - Hero Summary
 
     private var heroSummary: some View {
-        HStack(spacing: 16) {
-            VStack(alignment: .leading, spacing: 4) {
+        HStack(spacing: 14) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text("\(totalWorkouts)")
-                    .font(.system(size: 34, weight: .bold, design: .rounded))
+                    .font(.system(size: 26, weight: .bold, design: .rounded))
                     .foregroundStyle(GQGradients.primary)
                 Text("total workouts")
-                    .font(.system(size: 13))
+                    .font(.system(size: 11))
                     .foregroundColor(GQColors.textTertiary)
             }
 
             Spacer()
 
-            VStack(alignment: .trailing, spacing: 4) {
-                HStack(spacing: 6) {
+            VStack(alignment: .trailing, spacing: 2) {
+                HStack(spacing: 4) {
                     Image(systemName: abs(volumeTrend) < 1 ? "minus" : (volumeTrend > 0 ? "arrow.up.right" : "arrow.down.right"))
-                        .font(.system(size: 14, weight: .bold))
+                        .font(.system(size: 11, weight: .bold))
                     Text(String(format: "%.0f%%", abs(volumeTrend)))
-                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                        .font(.system(size: 16, weight: .bold, design: .rounded))
                 }
                 .foregroundColor(abs(volumeTrend) < 1 ? GQColors.textSecondary : (volumeTrend > 0 ? GQColors.success : GQColors.textSecondary))
                 Text("volume trend")
-                    .font(.system(size: 13))
+                    .font(.system(size: 11))
                     .foregroundColor(GQColors.textTertiary)
             }
         }
@@ -228,74 +228,63 @@ struct ProgressAnalyticsView: View {
 
             volumeRingColumn
         }
-        .padding(.vertical, 20)
+        .padding(.vertical, 14)
         .padding(.horizontal, 8)
-        .homeSocialCard(cornerRadius: 16)
+        .homeSocialCard(cornerRadius: 14)
     }
 
     private func ringColumn(value: Int, target: Int, centerText: String, label: String, gradient: LinearGradient) -> some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 7) {
             ZStack {
-                // Soft glow behind ring
                 Circle()
-                    .fill(gradient.opacity(0.08))
-                    .frame(width: 70, height: 70)
-                    .blur(radius: 8)
-
-                Circle()
-                    .stroke(GQColors.adaptiveOverlay(0.04), lineWidth: 7)
-                    .frame(width: 62, height: 62)
+                    .stroke(GQColors.adaptiveOverlay(0.04), lineWidth: 5)
+                    .frame(width: 48, height: 48)
                 Circle()
                     .trim(from: 0, to: (target > 0 ? min(CGFloat(value) / CGFloat(target), 1.0) : 0) * animateRings)
-                    .stroke(gradient, style: StrokeStyle(lineWidth: 7, lineCap: .round))
+                    .stroke(gradient, style: StrokeStyle(lineWidth: 5, lineCap: .round))
                     .rotationEffect(.degrees(-90))
-                    .frame(width: 62, height: 62)
+                    .frame(width: 48, height: 48)
 
                 Text(centerText)
-                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
                     .foregroundColor(GQColors.textPrimary)
             }
 
             Text(label)
-                .font(.system(size: 12, weight: .medium))
+                .font(.system(size: 10, weight: .medium))
                 .foregroundColor(GQColors.textSecondary)
         }
         .frame(maxWidth: .infinity)
     }
 
     private var volumeRingColumn: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 7) {
             ZStack {
                 Circle()
-                    .fill(GQGradients.primary.opacity(0.08))
-                    .frame(width: 70, height: 70)
-                    .blur(radius: 8)
-
-                Circle()
-                    .stroke(GQColors.adaptiveOverlay(0.04), lineWidth: 7)
-                    .frame(width: 62, height: 62)
+                    .stroke(GQColors.adaptiveOverlay(0.04), lineWidth: 5)
+                    .frame(width: 48, height: 48)
                 Circle()
                     .trim(from: 0, to: min(abs(volumeTrend) / 100, 1.0) * animateRings)
                     .stroke(
                         abs(volumeTrend) < 1
                             ? LinearGradient(colors: [GQColors.textSecondary, GQColors.textTertiary], startPoint: .topLeading, endPoint: .bottomTrailing)
                             : (volumeTrend > 0 ? GQGradients.primary : LinearGradient(colors: [GQColors.textSecondary, GQColors.textTertiary], startPoint: .topLeading, endPoint: .bottomTrailing)),
-                        style: StrokeStyle(lineWidth: 7, lineCap: .round)
+                        style: StrokeStyle(lineWidth: 5, lineCap: .round)
                     )
                     .rotationEffect(.degrees(-90))
-                    .frame(width: 62, height: 62)
+                    .frame(width: 48, height: 48)
 
                 HStack(spacing: 1) {
                     Image(systemName: abs(volumeTrend) < 1 ? "minus" : (volumeTrend > 0 ? "arrow.up" : "arrow.down"))
-                        .font(.system(size: 9, weight: .bold))
+                        .font(.system(size: 8, weight: .bold))
                     Text(String(format: "%.0f%%", abs(volumeTrend)))
-                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                        .font(.system(size: 10, weight: .bold, design: .rounded))
                 }
                 .foregroundColor(GQColors.textPrimary)
             }
 
             Text("Volume")
-                .font(.system(size: 12, weight: .medium))
+                .font(.system(size: 10, weight: .medium))
                 .foregroundColor(GQColors.textSecondary)
         }
         .frame(maxWidth: .infinity)
@@ -333,7 +322,7 @@ struct ProgressAnalyticsView: View {
             }
         }
         .padding(16)
-        .homeSocialCard(cornerRadius: 16)
+        .homeSocialCard(cornerRadius: 14)
     }
 
     @ViewBuilder
@@ -405,7 +394,7 @@ struct ProgressAnalyticsView: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity)
-        .homeSocialCard(cornerRadius: 16)
+        .homeSocialCard(cornerRadius: 14)
     }
 
     @ViewBuilder
@@ -511,7 +500,7 @@ struct ProgressAnalyticsView: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity)
-        .homeSocialCard(cornerRadius: 16)
+        .homeSocialCard(cornerRadius: 14)
     }
 
     @ViewBuilder
@@ -646,7 +635,7 @@ struct ProgressAnalyticsView: View {
             }
         }
         .padding(16)
-        .homeSocialCard(cornerRadius: 16)
+        .homeSocialCard(cornerRadius: 14)
     }
 
     // MARK: - Nutrition (7-day calories bar chart)
@@ -672,7 +661,7 @@ struct ProgressAnalyticsView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .homeSocialCard(cornerRadius: 16)
+        .homeSocialCard(cornerRadius: 14)
     }
 
     private var nutritionWeeklyTotals: [(date: Date, cal: Int)] {
@@ -744,7 +733,7 @@ struct ProgressAnalyticsView: View {
             }
         }
         .padding(16)
-        .homeSocialCard(cornerRadius: 16)
+        .homeSocialCard(cornerRadius: 14)
     }
 
     @ViewBuilder
@@ -835,7 +824,7 @@ struct ProgressAnalyticsView: View {
             }
         }
         .padding(16)
-        .homeSocialCard(cornerRadius: 16)
+        .homeSocialCard(cornerRadius: 14)
     }
 
     private func goalRow(goal: UserGoal) -> some View {
