@@ -119,6 +119,7 @@ struct CoachDashboardView: View {
             }
         }
         .navigationTitle("Coach Dashboard")
+        .instagramBack()
         .sheet(item: $selectedMember) { membership in
             NavigationStack {
                 MemberDetailView(

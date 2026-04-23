@@ -84,6 +84,7 @@ struct SquadView: View {
             .navigationTitle("Squads")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            .instagramBack()
             #endif
             .sheet(isPresented: $showingCreateSquad) {
                 CreateSquadSheet(profile: profile)

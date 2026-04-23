@@ -51,6 +51,7 @@ struct SquadLeaderboardView: View {
             .padding()
         }
         .navigationTitle("Squad Leaderboard")
+        .instagramBack()
         .onAppear { loadLeaderboard() }
         .sheet(isPresented: $showingCreateChallenge) {
             createChallengeSheet
