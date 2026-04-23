@@ -1009,12 +1009,19 @@ struct PostCardV2: View {
             }
             .onAppear { widgetAnimated = true }
         case .pr:
+            // PR == 100% — show a complete brand-gradient ring around
+            // the trophy so the visual language matches the other
+            // progress widgets (goal ring, macros donut) while
+            // signaling "this is a completed achievement."
             ZStack {
                 Circle()
-                    .fill(GQGradients.primary.opacity(0.12))
+                    .fill(GQGradients.primary.opacity(0.10))
+                    .frame(width: 26, height: 26)
+                Circle()
+                    .stroke(GQGradients.primary, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
                     .frame(width: 26, height: 26)
                 Image(systemName: "trophy.fill")
-                    .font(.system(size: 12))
+                    .font(.system(size: 11))
                     .foregroundStyle(GQGradients.primary)
             }
         case .macros:
@@ -3619,10 +3626,19 @@ struct PostWidgetInlineBubble: View {
                     .foregroundStyle(GQGradients.primary)
             }
         case .pr:
-            Image(systemName: "trophy.fill")
-                .font(.system(size: 18))
-                .foregroundStyle(GQGradients.primary)
-                .frame(width: 32)
+            // PR = 100% — full ring around the trophy, matching goal
+            // and macros widget visual language.
+            ZStack {
+                Circle()
+                    .stroke(GQColors.borderDefault, lineWidth: 2.5)
+                    .frame(width: 32, height: 32)
+                Circle()
+                    .stroke(GQGradients.primary, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                    .frame(width: 32, height: 32)
+                Image(systemName: "trophy.fill")
+                    .font(.system(size: 14))
+                    .foregroundStyle(GQGradients.primary)
+            }
         case .macros:
             ZStack {
                 Circle().stroke(GQColors.borderDefault, lineWidth: 2.5).frame(width: 32, height: 32)
@@ -3765,9 +3781,18 @@ struct PhotoWidgetOverlay: View {
                     .lineLimit(1)
 
             case .pr:
-                Image(systemName: "trophy.fill")
-                    .font(.system(size: 12))
-                    .foregroundColor(.white)
+                // PR == 100% — complete ring around the trophy.
+                ZStack {
+                    Circle()
+                        .stroke(Color.white.opacity(0.3), lineWidth: 2)
+                        .frame(width: 22, height: 22)
+                    Circle()
+                        .stroke(Color.white, style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                        .frame(width: 22, height: 22)
+                    Image(systemName: "trophy.fill")
+                        .font(.system(size: 10))
+                        .foregroundColor(.white)
+                }
                 Text("\(widget.prExercise ?? "") \(widget.prValue ?? "") \(widget.prImprovement ?? "")")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(.white)
@@ -3889,10 +3914,20 @@ struct PostWidgetCard: View {
 
     // PR
     private var prCard: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "trophy.fill")
-                .font(.system(size: 18))
-                .foregroundStyle(GQGradients.primary)
+        HStack(spacing: 12) {
+            // PR == 100% — complete brand-gradient ring around the
+            // trophy, matching goal + macros widget language.
+            ZStack {
+                Circle()
+                    .stroke(GQColors.borderDefault, lineWidth: 3)
+                    .frame(width: 40, height: 40)
+                Circle()
+                    .stroke(GQGradients.primary, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                    .frame(width: 40, height: 40)
+                Image(systemName: "trophy.fill")
+                    .font(.system(size: 16))
+                    .foregroundStyle(GQGradients.primary)
+            }
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("\(widget.prExercise ?? "") \(widget.prType ?? "PR")")
