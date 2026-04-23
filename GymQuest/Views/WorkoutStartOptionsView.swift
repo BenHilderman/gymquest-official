@@ -62,17 +62,11 @@ struct WorkoutStartOptionsView: View {
                     .foregroundStyle(GQGradients.primary)
             }
 
-            VStack(spacing: 4) {
-                Text(profile.showUpFor.trimmingCharacters(in: .whitespaces).isEmpty
-                     ? "Let's train"
-                     : "Showing up for \(profile.showUpFor)")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundColor(GQColors.textPrimary)
-
-                Text("Pick how you want to train today.")
-                    .font(.system(size: 13))
-                    .foregroundColor(GQColors.textSecondary)
-            }
+            Text(profile.showUpFor.trimmingCharacters(in: .whitespaces).isEmpty
+                 ? "Let's train"
+                 : "Showing up for \(profile.showUpFor)")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundColor(GQColors.textPrimary)
         }
         .frame(maxWidth: .infinity)
     }
@@ -81,7 +75,7 @@ struct WorkoutStartOptionsView: View {
 
     private var pathSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("CHOOSE YOUR PATH")
+            Text("PICK HOW YOU WANT TO TRAIN")
                 .font(.system(size: 11, weight: .semibold))
                 .tracking(0.8)
                 .foregroundColor(GQColors.textTertiary)
@@ -185,8 +179,6 @@ struct WorkoutStartOptionsView: View {
                 momentumCol(value: "\(streakDays)", label: "Streak", valueColor: streakDays > 0 ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQColors.textPrimary))
                 momentumDivider
                 momentumCol(value: "\(workoutsThisWeek)", label: "This Week")
-                momentumDivider
-                momentumCol(value: "Lv \(profile.level)", label: UserProfile.levelTitle(for: profile.level))
             }
             .padding(.vertical, 16)
             .frame(maxWidth: .infinity)
