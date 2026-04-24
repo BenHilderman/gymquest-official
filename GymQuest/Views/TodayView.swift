@@ -112,13 +112,21 @@ struct TodayView: View {
         return nonRestWorkouts.filter { $0.date >= startOfWeek }.map(\.date)
     }
 
+    /// Keyed by the start-of-day for each completed workout this week.
+    /// If multiple workouts fall on the same day, the most recent wins.
     private var thisWeekWorkoutIcons: [Date: String] {
         let calendar = Calendar.current
         let now = Date()
         guard let startOfWeek = calendar.dateInterval(of: .weekOfYear, for: now)?.start else { return [:] }
         var icons: [Date: String] = [:]
+        // nonRestWorkouts is sorted by date desc (see @Query above), so
+        // walking forward and skipping days we've already filled gives us
+        // the most recent workout per day.
         for w in nonRestWorkouts where w.date >= startOfWeek {
-            icons[w.date] = w.type.icon
+            let dayStart = calendar.startOfDay(for: w.date)
+            if icons[dayStart] == nil {
+                icons[dayStart] = w.type.icon
+            }
         }
         return icons
     }
@@ -135,6 +143,21 @@ struct TodayView: View {
                 todayContent
             }
             .scrollContentBackground(.hidden)
+            // Glass lighting: colorless white lift across the page —
+            // stronger at the top, fading to a faint baseline. Never
+            // darkens. Sits on the ScrollView (not inside it) so it
+            // stays fixed while content scrolls past it.
+            .background {
+                LinearGradient(
+                    colors: [
+                        Color.white.opacity(0.07),
+                        Color.white.opacity(0.02)
+                    ],
+                    startPoint: .top, endPoint: .bottom
+                )
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
+            }
             .gqPageBackground()
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -1204,26 +1227,48 @@ struct TodayView: View {
         let todayIdx = Calendar.current.component(.weekday, from: Date()) - 1
         let today = Calendar.current.startOfDay(for: Date())
         let weekStart = Calendar.current.date(byAdding: .day, value: -todayIdx, to: today)!
+        let iconsByDay = thisWeekWorkoutIcons
         HStack(spacing: 0) {
             ForEach(0..<7, id: \.self) { i in
                 let isToday = i == todayIdx
                 let dayDate = Calendar.current.date(byAdding: .day, value: i, to: weekStart)!
                 let dayNum = Calendar.current.component(.day, from: dayDate)
+                let completedIcon = iconsByDay[dayDate]
                 VStack(spacing: 5) {
                     Text(labels[i])
                         .font(.system(size: 10, weight: .semibold, design: .rounded))
                         .tracking(1.2)
-                        .foregroundColor(isToday ? GQColors.textPrimary : GQColors.textTertiary)
+                        .foregroundColor(
+                            isToday || completedIcon != nil
+                                ? GQColors.textPrimary
+                                : GQColors.textTertiary
+                        )
                     ZStack {
-                        if isToday {
+                        if let icon = completedIcon {
+                            // Completed day: soft tinted fill + gradient
+                            // border. The icon carries the brand color so
+                            // the circle itself stays calm — reads as
+                            // "filled and fulfilled," not a neon badge.
+                            Circle().fill(GQGradients.primary.opacity(0.14))
+                            Circle().strokeBorder(
+                                GQGradients.primary.opacity(isToday ? 0.85 : 0.45),
+                                lineWidth: isToday ? 1.5 : 1
+                            )
+                            Image(systemName: icon)
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(GQGradients.primary)
+                        } else if isToday {
                             Circle().fill(GQGradients.primary.opacity(0.06))
                             Circle().strokeBorder(GQGradients.primary.opacity(0.85), lineWidth: 1.5)
+                            Text("\(dayNum)")
+                                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                                .foregroundColor(GQColors.textPrimary)
                         } else {
                             Circle().fill(GQColors.adaptiveOverlay(0.045))
+                            Text("\(dayNum)")
+                                .font(.system(size: 15, weight: .medium, design: .rounded))
+                                .foregroundColor(GQColors.textTertiary)
                         }
-                        Text("\(dayNum)")
-                            .font(.system(size: 15, weight: isToday ? .semibold : .medium, design: .rounded))
-                            .foregroundColor(isToday ? GQColors.textPrimary : GQColors.textTertiary)
                     }
                     .frame(width: 36, height: 36)
                 }
@@ -3820,23 +3865,26 @@ struct StreakFlame: View {
             .scaleEffect(flicker ? 1.15 : 0.92)
     }
 
-    // Five staggered rising sparks — feels organic, not mechanical.
+    // Five small flame particles drifting upward behind the main flame.
+    // Staggered phases so the stream feels continuous rather than pulsed.
     @ViewBuilder private var sparks: some View {
-        spark(size: 2.6, xOffset: -3, delay: 0)
-        spark(size: 2.0, xOffset: 3, delay: 0.4)
-        spark(size: 1.8, xOffset: 0, delay: 0.8)
-        spark(size: 1.4, xOffset: -5, delay: 1.2)
-        spark(size: 1.4, xOffset: 1.5, delay: 1.5)
+        risingFlame(size: 6,   xOffset: -4,  delay: 0.00, cycle: 1.6)
+        risingFlame(size: 5,   xOffset:  4,  delay: 0.35, cycle: 1.8)
+        risingFlame(size: 4,   xOffset: -1,  delay: 0.70, cycle: 1.5)
+        risingFlame(size: 5,   xOffset:  2,  delay: 1.05, cycle: 1.7)
+        risingFlame(size: 3.5, xOffset:  5,  delay: 1.40, cycle: 1.4)
     }
 
-    // Blurred flame-shaped halo sitting behind the main icon.
+    // Blurred flame-shaped halo sitting behind the main icon. Tight
+    // amplitude so the outline stays crisp — reads as heat, not smear.
     @ViewBuilder private var halo: some View {
         Image(systemName: "flame.fill")
             .font(.system(size: 17))
             .foregroundStyle(haloGrad)
-            .blur(radius: 2.2)
-            .scaleEffect(flicker ? 1.18 : 1.02)
-            .rotationEffect(.degrees(flicker ? -3 : 3))
+            .blur(radius: 1.8)
+            .scaleEffect(flicker ? 1.10 : 1.02)
+            .rotationEffect(.degrees(flicker ? -2 : 2))
+            .opacity(0.85)
     }
 
     // Bright yellow-white core riding on top — the "hot" center of the fire.
@@ -3850,24 +3898,32 @@ struct StreakFlame: View {
             .blendMode(.plusLighter)
     }
 
-    /// A single upward-drifting spark. Scales from 1 to 0 and rises
-    /// ~14pt over 1.6s, staggered by `delay`. Loops forever.
+    /// A single small flame rising, fading in from the base and fading
+    /// out as it reaches the tip. `sin(πt)` gives smooth in/out opacity
+    /// so particles don't pop; a low-frequency sine on x adds a subtle
+    /// wobble. Loops forever, staggered by `delay`.
     @ViewBuilder
-    private func spark(size: CGFloat, xOffset: CGFloat, delay: Double) -> some View {
+    private func risingFlame(size: CGFloat, xOffset: CGFloat, delay: Double, cycle: Double) -> some View {
         TimelineView(.animation) { context in
             let elapsed = context.date.timeIntervalSinceReferenceDate
-            // One cycle per 1.6s, offset by delay for stagger.
-            let cycle = 1.6
-            let localPhase = ((elapsed - delay).truncatingRemainder(dividingBy: cycle)) / cycle
-            let clamped = max(0, localPhase)
-            let rise = CGFloat(clamped) * 14.0
-            let opacity = (1 - clamped) * 0.85
-            Circle()
-                .fill(Color.orange)
-                .frame(width: size, height: size)
-                .offset(x: xOffset, y: -rise)
-                .opacity(opacity)
-                .blur(radius: 0.4)
+            let phase = max(0, ((elapsed - delay).truncatingRemainder(dividingBy: cycle))) / cycle
+            let rise = CGFloat(phase) * 20.0
+            let fade = sin(phase * .pi)                 // 0 → 1 → 0
+            let wobble = CGFloat(sin(phase * .pi * 2.5)) * 1.2
+            let scale = 0.7 + fade * 0.5                 // grows slightly as it rises
+
+            Image(systemName: "flame.fill")
+                .font(.system(size: size))
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [Color.yellow.opacity(0.95), Color.orange.opacity(0.85)],
+                        startPoint: .bottom, endPoint: .top
+                    )
+                )
+                .scaleEffect(scale)
+                .offset(x: xOffset + wobble, y: -rise)
+                .opacity(fade * 0.75)
+                .blur(radius: 0.3)
         }
         .frame(width: 1, height: 1, alignment: .center)
     }

@@ -99,6 +99,12 @@ struct EnhancedPostEditorView: View {
     // Audience scope — defaults to friends. Public is an explicit opt-in.
     @State private var selectedAudience: PostAudience = .friends
 
+    // Cached Post instance used to drive PostCardV2 in the preview.
+    // Fields are mutated in place as editor state changes so SwiftData
+    // object identity (and PostCardV2's internal @State) stay stable
+    // across keystrokes.
+    @State private var cachedPreviewPost: Post? = nil
+
     @StateObject private var musicService = MusicService.shared
 
     private var hasVideo: Bool {
@@ -629,6 +635,42 @@ struct EnhancedPostEditorView: View {
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbarBackground(GQColors.background, for: .navigationBar)
         .instagramBack()
+        .onAppear {
+            if cachedPreviewPost == nil {
+                cachedPreviewPost = buildPreviewPost()
+            } else {
+                syncPreview()
+            }
+        }
+        .onChange(of: previewInputFingerprint) { _, _ in syncPreview() }
+    }
+
+    /// Single stringified signature over every editor input that feeds
+    /// into `previewPost`. Collapses 17 separate `.onChange` modifiers
+    /// into one so the customize-phase body doesn't blow the SwiftUI
+    /// type-checker budget.
+    private var previewInputFingerprint: String {
+        var parts: [String] = []
+        parts.append(caption)
+        parts.append(String(mediaItems.count))
+        parts.append(mediaItems.map { "\($0.id):\($0.data?.count ?? 0)" }.joined(separator: ","))
+        parts.append(String(includeStats))
+        parts.append(taggedUsernames.joined(separator: ","))
+        parts.append(selectedLocation?.name ?? "")
+        parts.append(selectedLocation?.clubId?.uuidString ?? "")
+        parts.append(taggedSquads.map { $0.id.uuidString }.joined(separator: ","))
+        parts.append(selectedSong?.id ?? "")
+        parts.append(selectedSong?.previewURL ?? "")
+        parts.append(spotifyPlaylistURL)
+        parts.append(appleMusicPlaylistURL)
+        parts.append(String(snippetStartTime))
+        parts.append(String(voiceNoteData?.count ?? 0))
+        parts.append(String(voiceNoteDuration))
+        parts.append(selectedEmotion?.rawValue ?? "")
+        parts.append(attachedWidget.flatMap { String(data: (try? JSONEncoder().encode($0)) ?? Data(), encoding: .utf8) } ?? "")
+        parts.append(attachedChallenge?.challengeId.uuidString ?? "")
+        parts.append(selectedAudience.rawValue)
+        return parts.joined(separator: "|")
     }
 
     /// Live summary of everything currently attached to the post —
@@ -718,90 +760,90 @@ struct EnhancedPostEditorView: View {
 
     // MARK: - Post Preview Card
 
+    /// Renders the post exactly as it will appear in the feed — widget
+    /// overlays, music pills, challenge badges, workout GIFs, location
+    /// chips, tagged squads, etc. — by reusing `PostCardV2` in preview
+    /// mode. Everything updates live via `.onChange` → `syncPreview()`
+    /// handlers on the customize phase. The caption editor below the
+    /// card is the user's input; the caption rendered inside the card
+    /// is the live rendering of what they've typed.
     @ViewBuilder
     private var postPreviewCard: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Header
-            HStack(spacing: 12) {
-                Circle()
-                    .fill(GQGradients.primary)
-                    .frame(width: 38, height: 38)
+        VStack(alignment: .leading, spacing: 10) {
+            if let preview = cachedPreviewPost {
+                PostCardV2(
+                    post: preview,
+                    currentUserId: profile.id,
+                    currentUserName: profile.name,
+                    profile: profile,
+                    isPreview: true
+                )
+                .allowsHitTesting(false)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(GQColors.borderDefault, lineWidth: 1)
+                )
+                .gqShadow(.card)
+            } else {
+                // Placeholder shown for the single frame before onAppear
+                // runs and the cached preview instance is built.
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(GQColors.surfaceBase)
+                    .frame(height: 300)
                     .overlay(
-                        Text(String(profile.name.prefix(1)).uppercased())
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(.white)
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(GQColors.borderDefault, lineWidth: 1)
                     )
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(profile.name)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(GQColors.textPrimary)
-                    // Stats line is gated by the Include Stats toggle
-                    // in the options card — toggling it off removes
-                    // the meta from the preview (and from the final
-                    // post body that createPost() writes).
-                    if includeStats, let workout = workout {
-                        Text("\(workout.type.rawValue) \u{00B7} \(duration)m \u{00B7} \(workout.totalSets) sets")
-                            .font(.system(size: 12))
-                            .foregroundColor(GQColors.textSecondary)
-                    }
-                }
-                Spacer()
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
 
-            // Photo carousel
-            mediaPreview
-
-            // Reorderable thumbnail strip + per-clip caption (multi-media only)
+            // Per-clip caption field for multi-media carousels.
             if mediaItems.count > 1 {
                 mediaReorderStrip
-                    .padding(.top, 6)
                 perClipCaptionField
-                    .padding(.top, 6)
-                    .padding(.horizontal, 14)
+                    .padding(.horizontal, 2)
             }
 
-            // Caption bubble
-            HStack {
-                ZStack(alignment: .topLeading) {
-                    TextEditor(text: $caption)
-                        .scrollContentBackground(.hidden)
-                        .foregroundColor(.white)
-                        .font(.system(size: 15))
-                        .lineSpacing(2)
-                        .frame(minHeight: 38)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
-
-                    if caption.isEmpty {
-                        Text("What's the highlight?")
-                            .font(.system(size: 15))
-                            .foregroundColor(.white.opacity(0.5))
-                            .padding(.horizontal, 18)
-                            .padding(.vertical, 18)
-                            .allowsHitTesting(false)
-                    }
-                }
-                .background(
-                    ChatBubbleShape(isFromCurrentUser: true)
-                        .fill(GQGradients.primary)
-                        .shadow(color: GQColors.deepBlue.opacity(0.25), radius: 6, y: 3)
-                )
-                Spacer(minLength: 40)
-            }
-            .padding(.horizontal, 14)
-            .padding(.top, 8)
-            .padding(.bottom, 12)
+            // Caption input — dedicated editor below the preview so the
+            // live-rendered caption inside the PostCardV2 above reflects
+            // exactly how the final post will read.
+            captionEditorBubble
         }
-        .background(GQColors.surfaceBase)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(GQColors.borderDefault, lineWidth: 1)
-        )
-        .gqShadow(.card)
+    }
+
+    /// Chat-bubble caption input. Kept visually distinct from the
+    /// in-preview caption rendering so the user understands this
+    /// bubble is the input surface.
+    @ViewBuilder
+    private var captionEditorBubble: some View {
+        HStack {
+            ZStack(alignment: .topLeading) {
+                TextEditor(text: $caption)
+                    .scrollContentBackground(.hidden)
+                    .foregroundColor(.white)
+                    .font(.system(size: 15))
+                    .lineSpacing(2)
+                    .frame(minHeight: 38)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+
+                if caption.isEmpty {
+                    Text("What's the highlight?")
+                        .font(.system(size: 15))
+                        .foregroundColor(.white.opacity(0.5))
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 18)
+                        .allowsHitTesting(false)
+                }
+            }
+            .background(
+                ChatBubbleShape(isFromCurrentUser: true)
+                    .fill(GQGradients.primary)
+                    .shadow(color: GQColors.deepBlue.opacity(0.25), radius: 6, y: 3)
+            )
+            Spacer(minLength: 40)
+        }
     }
 
     // MARK: - Music Add-on Pill
@@ -1074,18 +1116,20 @@ struct EnhancedPostEditorView: View {
         if item.mediaType == .photo, let data = item.data, let img = UIImage(data: data) {
             Image(uiImage: img)
                 .resizable()
-                .aspectRatio(contentMode: .fill)
+                .aspectRatio(contentMode: .fit)
+                .frame(maxWidth: .infinity)
                 .frame(height: 300)
-                .clipped()
+                .background(GQColors.surfaceBase)
         } else if item.mediaType == .video {
             // Show thumbnail with play icon
             ZStack {
                 if let thumbData = item.thumbnailData, let thumb = UIImage(data: thumbData) {
                     Image(uiImage: thumb)
                         .resizable()
-                        .aspectRatio(contentMode: .fill)
+                        .aspectRatio(contentMode: .fit)
+                        .frame(maxWidth: .infinity)
                         .frame(height: 300)
-                        .clipped()
+                        .background(GQColors.surfaceBase)
                 } else {
                     Rectangle()
                         .fill(GQColors.overlayMedium)
@@ -1269,12 +1313,27 @@ struct EnhancedPostEditorView: View {
         }
     }
 
-    /// Preview Post built from current editor state — reactively
-    /// rebuilds on every dependent @State change so the PostCardV2
-    /// preview lives-updates as the user toggles music, widgets,
-    /// challenges, location, stats, caption, tags, and squads.
+    /// Build a fresh Post from the current editor state — used once,
+    /// when the preview cache is initialized. Subsequent edits mutate
+    /// the cached instance in place via `syncPreviewPostFromState()`
+    /// so SwiftData id and PostCardV2's internal @State survive
+    /// keystroke-by-keystroke updates.
     /// Never inserted into modelContext (ephemeral).
-    private var previewPost: Post {
+    private func buildPreviewPost() -> Post {
+        let post = Post(
+            authorId: profile.id,
+            authorName: profile.name,
+            authorUsername: profile.username,
+            caption: caption
+        )
+        syncPreviewPostFromState(post)
+        return post
+    }
+
+    /// Mirror every editor field into the given Post so the PostCardV2
+    /// preview reflects the current state. Called on initial build and
+    /// from every `.onChange` handler in the customize phase.
+    private func syncPreviewPostFromState(_ post: Post) {
         let firstPhoto = mediaItems.first(where: { $0.mediaType == .photo })
         let firstVideo = mediaItems.first(where: { $0.mediaType == .video })
 
@@ -1284,48 +1343,49 @@ struct EnhancedPostEditorView: View {
             return try? JSONEncoder().encode(shared)
         }()
 
-        let post = Post(
-            authorId: profile.id,
-            authorName: profile.name,
-            authorUsername: profile.username,
-            caption: caption,
-            photoData: firstPhoto?.data ?? mediaItems.first?.data,
-            videoData: firstVideo?.data,
-            workoutType: includeStats ? workout?.type.rawValue : nil,
-            duration: includeStats ? duration : nil,
-            setCount: includeStats ? workout?.totalSets : nil,
-            exerciseHighlight: exercises.first?.name,
-            songTitle: selectedSong?.title,
-            artistName: selectedSong?.artist,
-            songPreviewURL: selectedSong?.previewURL,
-            musicSource: selectedSong?.source.rawValue,
-            playlistId: selectedSong?.playlistId,
-            sharedWorkoutData: sharedWorkoutPayload,
-            taggedUsernames: taggedUsernames,
-            mediaItemsData: try? JSONEncoder().encode(mediaItems),
-            locationName: selectedLocation?.name,
-            locationId: selectedLocation?.clubId,
-            taggedSquadIds: taggedSquads.map { $0.id },
-            taggedSquadNames: taggedSquads.map { $0.name },
-            spotifyPlaylistURL: spotifyPlaylistURL.isEmpty ? nil : spotifyPlaylistURL,
-            appleMusicPlaylistURL: appleMusicPlaylistURL.isEmpty ? nil : appleMusicPlaylistURL,
-            workoutEmotion: selectedEmotion?.rawValue,
-            voiceNoteData: voiceNoteData,
-            voiceNoteDuration: voiceNoteDuration > 0 ? voiceNoteDuration : nil,
-            musicSnippetStart: selectedSong?.previewURL != nil ? snippetStartTime : nil
-        )
+        post.caption = caption
+        post.photoData = firstPhoto?.data ?? mediaItems.first?.data
+        post.videoData = firstVideo?.data
+        post.workoutType = includeStats ? workout?.type.rawValue : nil
+        post.duration = includeStats ? duration : nil
+        post.setCount = includeStats ? workout?.totalSets : nil
+        post.exerciseHighlight = exercises.first?.name
+        post.songTitle = selectedSong?.title
+        post.artistName = selectedSong?.artist
+        post.songPreviewURL = selectedSong?.previewURL
+        post.musicSource = selectedSong?.source.rawValue
+        post.playlistId = selectedSong?.playlistId
+        post.sharedWorkoutData = sharedWorkoutPayload
+        post.taggedUsernames = taggedUsernames
+        post.mediaItemsData = try? JSONEncoder().encode(mediaItems)
+        post.locationName = selectedLocation?.name
+        post.locationId = selectedLocation?.clubId
+        post.taggedSquadIds = taggedSquads.map { $0.id }
+        post.taggedSquadNames = taggedSquads.map { $0.name }
+        post.spotifyPlaylistURL = spotifyPlaylistURL.isEmpty ? nil : spotifyPlaylistURL
+        post.appleMusicPlaylistURL = appleMusicPlaylistURL.isEmpty ? nil : appleMusicPlaylistURL
+        post.workoutEmotion = selectedEmotion?.rawValue
+        post.voiceNoteData = voiceNoteData
+        post.voiceNoteDuration = voiceNoteDuration > 0 ? voiceNoteDuration : nil
+        post.musicSnippetStart = selectedSong?.previewURL != nil ? snippetStartTime : nil
 
-        if let widget = attachedWidget {
-            post.postWidgetData = try? JSONEncoder().encode(widget)
-        }
+        post.postWidgetData = attachedWidget.flatMap { try? JSONEncoder().encode($0) }
 
         if let challenge = attachedChallenge {
             post.challengeId = challenge.challengeId
             post.challengeData = try? JSONEncoder().encode(challenge)
+        } else {
+            post.challengeId = nil
+            post.challengeData = nil
         }
 
         post.audience = selectedAudience.rawValue
-        return post
+    }
+
+    /// Convenience wrapper used by onChange handlers.
+    private func syncPreview() {
+        guard let cached = cachedPreviewPost else { return }
+        syncPreviewPostFromState(cached)
     }
 
     private func createPost() {

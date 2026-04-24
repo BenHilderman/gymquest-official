@@ -2193,6 +2193,7 @@
 				C2F29B990440CADC975AA6A2 /* AlbumArt */,
 				32EC81CE3DF849670B06E945 /* DemoVideos */,
 				A1B06CE17DD2E80C9C667464 /* ExerciseGifs */,
+
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -2964,6 +2965,7 @@
 				EE150CF5ACA84A0BDD610572 /* starboy.jpg in Resources */,
 				6C63DF85AFA02356E6A87061 /* stronger.jpg in Resources */,
 				03273A6F1514BEE216C7ACEE /* till_i_collapse.jpg in Resources */,
+
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -730,8 +730,12 @@ struct ActiveWorkoutView: View {
                     showingCancelConfirmation = true
                 } label: {
                     Text("End")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: 12, weight: .semibold))
                         .foregroundColor(GQColors.textSecondary)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Capsule().fill(GQColors.surfaceBase))
+                        .overlay(Capsule().stroke(GQColors.borderDefault, lineWidth: 1))
                 }
                 .buttonStyle(.plain)
             }
@@ -1013,7 +1017,11 @@ struct ActiveWorkoutView: View {
                 }
 
                 Button {
-                    finishWorkout()
+                    if canFinishWorkout {
+                        finishWorkout()
+                    } else {
+                        showingCancelConfirmation = true
+                    }
                 } label: {
                     Image(systemName: "stop.fill")
                         .font(.system(size: 24))
@@ -1083,13 +1091,25 @@ struct ActiveWorkoutView: View {
         return String(format: "%02d:%02d", m, s)
     }
 
+    private var canFinishWorkout: Bool {
+        completedSetsCount > 0
+    }
+
+    private var finishHintText: String {
+        if exercises.isEmpty {
+            return "Add an exercise to finish"
+        }
+        if completedSetsCount == 0 {
+            return "Complete a set to finish"
+        }
+        return "\(completedSetsCount) sets. \(formatElapsedTime(elapsedTime))."
+    }
+
     private var bottomBar: some View {
         VStack(spacing: 8) {
-            if completedSetsCount > 0 {
-                Text("\(completedSetsCount) sets. \(formatElapsedTime(elapsedTime)).")
-                    .font(.system(size: 12))
-                    .foregroundStyle(GQColors.textTertiary)
-            }
+            Text(finishHintText)
+                .font(.system(size: 12))
+                .foregroundStyle(GQColors.textTertiary)
             Button { finishWorkout() } label: {
                 Text("Finish Workout")
                     .font(.system(size: 16, weight: .semibold))
@@ -1097,8 +1117,10 @@ struct ActiveWorkoutView: View {
                     .frame(maxWidth: .infinity)
                     .frame(height: 50)
                     .background(Capsule().fill(GQGradients.primary))
+                    .opacity(canFinishWorkout ? 1.0 : 0.4)
             }
             .buttonStyle(GQInteractiveStyle())
+            .disabled(!canFinishWorkout)
         }
         .padding(.horizontal, 32)
         .padding(.bottom, 80)
@@ -1151,6 +1173,7 @@ struct ActiveWorkoutView: View {
     }
 
     private func finishWorkout() {
+        guard canFinishWorkout else { return }
         timer?.invalidate()
 
         // Save workout immediately and go straight to post editor

@@ -120,6 +120,19 @@ struct ProgressAnalyticsView: View {
         } else {
             ScrollViewReader { proxy in
                 ScrollView { analyticsContent }
+                    // Glass lighting, matches Home. Colorless white lift
+                    // that stays fixed while content scrolls.
+                    .background {
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.07),
+                                Color.white.opacity(0.02)
+                            ],
+                            startPoint: .top, endPoint: .bottom
+                        )
+                        .ignoresSafeArea()
+                        .allowsHitTesting(false)
+                    }
                     .gqPageBackground()
                     .navigationTitle("Progress")
                     .navigationBarTitleDisplayMode(.inline)

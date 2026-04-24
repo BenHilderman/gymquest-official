@@ -29,6 +29,11 @@ struct PostCardV2: View {
     /// Which feed surface this card belongs to. Drives the session-scoped
     /// mute preference so Friends and Discover keep independent intent.
     var audioScope: FeedAudioScope = .friends
+    /// When true, the card is being rendered in an ephemeral preview
+    /// surface (e.g. post editor). Suppresses telemetry, auto music
+    /// playback, and interactive sheets that would pollute state or
+    /// confuse the user before the post is actually published.
+    var isPreview: Bool = false
 
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject var appState: AppState
@@ -116,7 +121,10 @@ struct PostCardV2: View {
             }
         }
         .background(GQColors.surfaceBase)
-        .sheet(isPresented: $showActionDialog) {
+        .sheet(isPresented: Binding(
+            get: { showActionDialog && !isPreview },
+            set: { showActionDialog = $0 }
+        )) {
             PostActionSheet(
                 username: post.authorUsername,
                 onReport: {
@@ -155,20 +163,24 @@ struct PostCardV2: View {
         .onAppear {
             hasAppeared = true
             fetchTopComment()
-            EngagementTrackingService.shared.trackPostAppeared(postId: post.id, userId: currentUserId)
-            if post.songTitle != nil, let previewURL = post.songPreviewURL,
-               !FeedAudioPreference.shared.isMuted(scope: audioScope) {
-                MusicPreviewService.shared.playURL(
-                    postId: post.id,
-                    previewURL: previewURL,
-                    snippetStart: post.musicSnippetStart ?? 0
-                )
+            if !isPreview {
+                EngagementTrackingService.shared.trackPostAppeared(postId: post.id, userId: currentUserId)
+                if post.songTitle != nil, let previewURL = post.songPreviewURL,
+                   !FeedAudioPreference.shared.isMuted(scope: audioScope) {
+                    MusicPreviewService.shared.playURL(
+                        postId: post.id,
+                        previewURL: previewURL,
+                        snippetStart: post.musicSnippetStart ?? 0
+                    )
+                }
             }
         }
         .onDisappear {
-            EngagementTrackingService.shared.trackPostDisappeared(postId: post.id, userId: currentUserId)
-            if post.songTitle != nil && !showWorkoutDetail && !showComments {
-                MusicPreviewService.shared.stop()
+            if !isPreview {
+                EngagementTrackingService.shared.trackPostDisappeared(postId: post.id, userId: currentUserId)
+                if post.songTitle != nil && !showWorkoutDetail && !showComments {
+                    MusicPreviewService.shared.stop()
+                }
             }
         }
         .fullScreenCover(isPresented: $showVideoPlayer) {
@@ -176,7 +188,10 @@ struct PostCardV2: View {
                 VideoPlayerView(videoData: videoData, isPresented: $showVideoPlayer)
             }
         }
-        .sheet(isPresented: $showComments) {
+        .sheet(isPresented: Binding(
+            get: { showComments && !isPreview },
+            set: { showComments = $0 }
+        )) {
             CommentsSheet(
                 post: post,
                 currentUserId: currentUserId,
@@ -184,7 +199,10 @@ struct PostCardV2: View {
             )
             .presentationDetents([.medium, .large])
         }
-        .sheet(isPresented: $showWorkoutDetail) {
+        .sheet(isPresented: Binding(
+            get: { showWorkoutDetail && !isPreview },
+            set: { showWorkoutDetail = $0 }
+        )) {
             if let workout = sharedWorkout {
                 WorkoutDetailSheet(
                     workoutData: workout,
@@ -245,7 +263,10 @@ struct PostCardV2: View {
                 ProfileView(profile: target, isPushed: true, isOtherUser: target.id != currentUserId)
             }
         }
-        .sheet(isPresented: $showStealSetSheet) {
+        .sheet(isPresented: Binding(
+            get: { showStealSetSheet && !isPreview },
+            set: { showStealSetSheet = $0 }
+        )) {
             if let shared = sharedWorkout {
                 StealSetSheet(
                     sharedWorkout: shared,
@@ -335,7 +356,7 @@ struct PostCardV2: View {
                 }
             )
 
-            if post.authorId == currentUserId {
+            if post.authorId == currentUserId && !isPreview {
                 PostDeleteButton {
                     deletePost()
                 }
