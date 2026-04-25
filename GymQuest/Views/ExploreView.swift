@@ -120,22 +120,16 @@ struct ExploreView: View {
                     // filter chip strip can pin at the top of the
                     // scroll view as the user scrolls past the hero.
                     Section {
-                        if let hero = cachedHeroPick {
-                            ExploreHeroCard(
-                                post: hero,
-                                rationale: heroRationale(for: hero),
-                                isSaved: isSaved(hero, in: .train),
-                                picksCount: heroPicks.count,
-                                currentIndex: heroIndex,
-                                onStart: { startWorkout(from: hero) },
-                                onOpen: { recommendedOpenPostId = hero.id },
-                                onToggleSave: { toggleSave(hero, collection: .train) },
-                                onAdvance: { advanceHero() },
-                                onRewind: { rewindHero() },
-                                onJumpTo: { idx in jumpHero(to: idx) },
-                                onLongPressSave: { sheetPostForCollection = hero }
+                        if !heroPicks.isEmpty {
+                            TrendingNowRail(
+                                picks: heroPicks,
+                                currentIndex: $heroIndex,
+                                onTapPost: { post in recommendedOpenPostId = post.id },
+                                onLongPressSave: { post in sheetPostForCollection = post },
+                                onShuffle: { advanceHero() },
+                                onAdvance: { advanceHero() }
                             )
-                            .padding(.horizontal, 12)
+                            .padding(.vertical, 4)
                         } else if workoutChipFilter(discoverFilter) != nil {
                             heroEmptyForFilter
                         }
