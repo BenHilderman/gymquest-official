@@ -197,12 +197,10 @@ struct FriendsFeedView: View {
             #endif
             presentingActivity = true
         } label: {
-            // Compact single-line pill instead of a full card with
-            // icon + two lines + chevron. Less chrome above the feed.
             HStack(spacing: 8) {
-                Image(systemName: "bell.fill")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(GQGradients.primary)
+                Circle()
+                    .fill(GQGradients.primary)
+                    .frame(width: 6, height: 6)
                 Text(bannerHeadline)
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(GQColors.textPrimary)
@@ -222,9 +220,9 @@ struct FriendsFeedView: View {
 
     private var bannerHeadline: String {
         let n = unreadActivityCount
-        if n == 1 { return "1 new like or comment" }
-        if n > 9 { return "9+ new likes and comments" }
-        return "\(n) new likes and comments"
+        if n == 1 { return "1 new activity" }
+        if n > 9 { return "9+ new" }
+        return "\(n) new"
     }
 
     private var activityBellButton: some View {
@@ -235,19 +233,19 @@ struct FriendsFeedView: View {
             presentingActivity = true
         } label: {
             ZStack(alignment: .topTrailing) {
-                Image(systemName: "bell")
+                Image(systemName: unreadActivityCount > 0 ? "heart.fill" : "heart")
                     .font(.system(size: 17, weight: .medium))
                     .foregroundColor(GQColors.textPrimary)
                     .frame(width: 32, height: 32)
 
                 if unreadActivityCount > 0 {
-                    Text(unreadActivityCount > 9 ? "9+" : "\(unreadActivityCount)")
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 4)
-                        .frame(minWidth: 14, minHeight: 14)
-                        .background(Circle().fill(GQGradients.primary))
-                        .offset(x: 2, y: -2)
+                    Circle()
+                        .fill(GQGradients.primary)
+                        .frame(width: 7, height: 7)
+                        .overlay(
+                            Circle().stroke(GQColors.background, lineWidth: 1.5)
+                        )
+                        .offset(x: 1, y: -1)
                 }
             }
         }
