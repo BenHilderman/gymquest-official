@@ -78,7 +78,7 @@ In the new worktree's session, **first action** is to add a row to the table bel
 
 | Worktree / branch | Owner focus | Primary files | Do NOT edit | Status | Updated |
 |---|---|---|---|---|---|
-| _(none)_ | | | | | |
+| home-feed-mix / feat/home-feed-mix | Friends feed: inject recommended posts to combat staleness with small networks | GymQuest/Views/FriendsFeedView.swift, GymQuest/Views/FeedView.swift, possibly new GymQuest/Services/FeedRecommendationService.swift | GymQuest/Views/ClubsView.swift, GymQuest/Views/TodayView.swift (user actively editing on main) | planning | 2026-04-25 |
 
 **Status values**: `planning` · `in-progress` · `ready-for-review` · `merged`
 
