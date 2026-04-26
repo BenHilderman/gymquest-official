@@ -5376,4 +5376,124 @@ struct BeginnerSupportProfile {
     var confidenceLevel: Int = 1
 }
 
+// MARK: - Alive — Live Reactions
+
+/// One row per reaction sent during a friend's workout window. Distinct
+/// from `Reaction` (post reactions). Strangers never write LiveReactions
+/// to non-friends; the reaction palette is gated to friend avatars only.
+@Model
+final class LiveReaction {
+    var id: UUID
+    var fromUserId: UUID
+    var toUserId: UUID
+    /// Stamp of the recipient's workout that this reaction is tied to. Used
+    /// by ReactionInbox to group reactions per session window.
+    var sessionStartedAt: Date
+    /// "fire" / "flex" / "watch" / "voice" / "photo" / "stat" / "joining" / "quickReply"
+    var kind: String
+    var emoji: String?
+    var voiceData: Data?
+    var photoData: Data?
+    var statText: String?
+    var quickReplyText: String?
+    var timestamp: Date
+    var seenByRecipient: Bool
+
+    init(
+        id: UUID = UUID(),
+        fromUserId: UUID,
+        toUserId: UUID,
+        sessionStartedAt: Date,
+        kind: String,
+        emoji: String? = nil,
+        voiceData: Data? = nil,
+        photoData: Data? = nil,
+        statText: String? = nil,
+        quickReplyText: String? = nil,
+        timestamp: Date = Date(),
+        seenByRecipient: Bool = false
+    ) {
+        self.id = id
+        self.fromUserId = fromUserId
+        self.toUserId = toUserId
+        self.sessionStartedAt = sessionStartedAt
+        self.kind = kind
+        self.emoji = emoji
+        self.voiceData = voiceData
+        self.photoData = photoData
+        self.statText = statText
+        self.quickReplyText = quickReplyText
+        self.timestamp = timestamp
+        self.seenByRecipient = seenByRecipient
+    }
+}
+
+// MARK: - Alive — Saved Gyms (Phase 3 location privacy)
+
+@Model
+final class SavedGym {
+    var id: UUID
+    var userId: UUID
+    var name: String
+    var latitude: Double
+    var longitude: Double
+    var radiusMeters: Double
+    var nickname: String?
+    var createdAt: Date
+
+    init(
+        id: UUID = UUID(),
+        userId: UUID,
+        name: String,
+        latitude: Double,
+        longitude: Double,
+        radiusMeters: Double = 80,
+        nickname: String? = nil,
+        createdAt: Date = Date()
+    ) {
+        self.id = id
+        self.userId = userId
+        self.name = name
+        self.latitude = latitude
+        self.longitude = longitude
+        self.radiusMeters = radiusMeters
+        self.nickname = nickname
+        self.createdAt = createdAt
+    }
+}
+
+// MARK: - Alive — Co-presence log
+
+@Model
+final class CoPresenceLog {
+    var id: UUID
+    var userIdA: UUID
+    var userIdB: UUID
+    var gymId: UUID?
+    var gymName: String?
+    var overlapStart: Date
+    var overlapEnd: Date
+    var createdAt: Date
+
+    init(
+        id: UUID = UUID(),
+        userIdA: UUID,
+        userIdB: UUID,
+        gymId: UUID? = nil,
+        gymName: String? = nil,
+        overlapStart: Date,
+        overlapEnd: Date,
+        createdAt: Date = Date()
+    ) {
+        self.id = id
+        self.userIdA = userIdA
+        self.userIdB = userIdB
+        self.gymId = gymId
+        self.gymName = gymName
+        self.overlapStart = overlapStart
+        self.overlapEnd = overlapEnd
+        self.createdAt = createdAt
+    }
+}
+
 // ExtendedExerciseDatabase and ExerciseMetadata are now in ExerciseDatabase.swift

@@ -1287,6 +1287,8 @@
 		FFFD96368EB6D12E828E9DE9 /* FeedContentService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C9136B4B361513F6595C6F5 /* FeedContentService.swift */; };
 		A11FE10000000000000000FB /* AliveComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11FE10000000000000000FA /* AliveComponents.swift */; };
 		A11FE10000000000000000FC /* AliveComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11FE10000000000000000FA /* AliveComponents.swift */; };
+		A11FE10000000000000000FE /* AliveReactions.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11FE10000000000000000FD /* AliveReactions.swift */; };
+		A11FE10000000000000000FF /* AliveReactions.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11FE10000000000000000FD /* AliveReactions.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -1837,6 +1839,7 @@
 		FF2918CAD2D9C9C6C39736F1 /* FeedBlenderService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedBlenderService.swift; sourceTree = "<group>"; };
 		FF9DCE2F92D36971BA5E7DB1 /* ActiveWorkoutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveWorkoutView.swift; sourceTree = "<group>"; };
 		A11FE10000000000000000FA /* AliveComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AliveComponents.swift; sourceTree = "<group>"; };
+		A11FE10000000000000000FD /* AliveReactions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AliveReactions.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1957,6 +1960,7 @@
 			isa = PBXGroup;
 			children = (
 				A11FE10000000000000000FA /* AliveComponents.swift */,
+				A11FE10000000000000000FD /* AliveReactions.swift */,
 				CA27357A8F5E83A6D21E7A7E /* CategoryBrowseRow.swift */,
 				8CF220F17909E8D0E0BAEB50 /* CheckInTile.swift */,
 				DB041BC1A2CEFB51F7042814 /* ClubsShelf.swift */,
@@ -3770,6 +3774,7 @@
 				5188766DF8998A77C2696089 /* CalendarHistoryView.swift in Sources */,
 				5D4441DFD02C0FCFD874F577 /* CameraView.swift in Sources */,
 				A11FE10000000000000000FB /* AliveComponents.swift in Sources */,
+				A11FE10000000000000000FE /* AliveReactions.swift in Sources */,
 				D7209202F753EB3E666C6155 /* CategoryBrowseRow.swift in Sources */,
 				FB87944E8F8D1274327C630D /* ChallengeService.swift in Sources */,
 				56B80BDE635859BDE391EAEE /* CheckInPromptSheet.swift in Sources */,
@@ -4066,6 +4071,7 @@
 				7B80F0A7C540168EC9176EE7 /* CalendarHistoryView.swift in Sources */,
 				01FE80F0CBBD3BC0CEEBF24C /* CameraView.swift in Sources */,
 				A11FE10000000000000000FC /* AliveComponents.swift in Sources */,
+				A11FE10000000000000000FF /* AliveReactions.swift in Sources */,
 				B1877C6C98953422FF42F5B1 /* CategoryBrowseRow.swift in Sources */,
 				C6EC53893031B22F3CDA63A1 /* ChallengeService.swift in Sources */,
 				4F904DFE56A7BB93FA148CA6 /* CheckInPromptSheet.swift in Sources */,

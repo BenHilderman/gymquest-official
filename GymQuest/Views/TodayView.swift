@@ -46,6 +46,7 @@ struct TodayView: View {
     // Live presence rows — drives the AmbientHeaderStrip "N friends ·
     // M clubmates lifting now" pinned to the top of Today.
     @Query private var allPresenceStates: [UserPresenceState]
+    @Query private var allReactions: [LiveReaction]
 
     @State private var showDraftBanner = false
     @State private var draftWorkoutType: String = ""
@@ -1570,6 +1571,24 @@ struct TodayView: View {
 
             ambientLiveStrip
 
+            if let inboxReactions = recentReactionsForSelf, !inboxReactions.isEmpty {
+                ReactionInboxCard(
+                    reactions: inboxReactions,
+                    nameLookup: { id in nameForUserId(id) },
+                    onClear: { markReactionsSeen(inboxReactions) }
+                )
+            }
+
+            ForEach(justFinishedFriends, id: \.userId) { state in
+                JustFinishedCard(
+                    userId: state.userId,
+                    userName: nameForUserId(state.userId),
+                    workoutType: state.workoutTypeRaw,
+                    finishedAt: state.endedAt ?? state.updatedAt,
+                    fromUserId: profile.id
+                )
+            }
+
             if showDraftBanner {
                 resumeDraftBanner
             }
@@ -2347,6 +2366,50 @@ struct TodayView: View {
             return state.userId
         }
     }
+
+    // MARK: - Alive Phase 2 — reactions inbox + just-finished
+
+    /// Reactions sent to me, tied to my most recent workout (last 60 min).
+    /// Hides on Sundays' weekly recap if there's nothing relevant.
+    private var recentReactionsForSelf: [LiveReaction]? {
+        let cutoff = Date().addingTimeInterval(-60 * 60)
+        let mine = allReactions
+            .filter { $0.toUserId == profile.id && $0.timestamp >= cutoff && !$0.seenByRecipient }
+            .sorted { $0.timestamp > $1.timestamp }
+        return mine.isEmpty ? nil : mine
+    }
+
+    private func markReactionsSeen(_ reactions: [LiveReaction]) {
+        for r in reactions { r.seenByRecipient = true }
+        try? modelContext.save()
+    }
+
+    private func nameForUserId(_ id: UUID) -> String {
+        if id == profile.id { return profile.name.isEmpty ? "You" : profile.name }
+        if let p = allUserProfiles.first(where: { $0.id == id }), !p.name.isEmpty {
+            return p.name
+        }
+        if let seed = SocialSeeder.fakeUsers.first(where: { $0.id == id }) {
+            return seed.name
+        }
+        return "Friend"
+    }
+
+    /// Followed friends whose presence is `.finishedRecently` and within
+    /// the 10-minute "tap-to-react" window.
+    private var justFinishedFriends: [UserPresenceState] {
+        let followedIds = Set(allFollows.filter { $0.userId == profile.id }.map(\.odId))
+        let window: TimeInterval = 10 * 60
+        let now = Date()
+        return allPresenceStates.filter { state in
+            guard followedIds.contains(state.userId) else { return false }
+            guard state.status == .finishedRecently else { return false }
+            let stamp = state.endedAt ?? state.updatedAt
+            return now.timeIntervalSince(stamp) <= window
+        }
+    }
+
+    // MARK: - Ambient strip
 
     @ViewBuilder
     private var ambientLiveStrip: some View {
