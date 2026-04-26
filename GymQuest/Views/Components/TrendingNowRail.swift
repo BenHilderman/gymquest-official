@@ -4,6 +4,65 @@ import AVKit
 import UIKit
 #endif
 
+// MARK: - TodaysMixWatchedStore
+
+/// Per-day record of which rail picks the user has actually opened.
+/// Resets at local midnight by being keyed on the day-string — yesterday's
+/// list is dropped automatically the first time we read a new day.
+///
+/// Used by:
+/// - The rail page dots, to mark watched picks distinctly.
+/// - The Today's Mix sequence player, to show the "X of N" completion
+///   line on the end-of-mix card.
+enum TodaysMixWatchedStore {
+    private static let key = "gq_todays_mix_watched_v1"
+    private static let dayFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        return f
+    }()
+
+    private static var todayKey: String {
+        dayFormatter.string(from: Date())
+    }
+
+    /// All post ids the user has opened from the rail today.
+    static func watchedToday() -> Set<UUID> {
+        let stored = UserDefaults.standard.dictionary(forKey: key) as? [String: [String]] ?? [:]
+        let raw = stored[todayKey] ?? []
+        return Set(raw.compactMap { UUID(uuidString: $0) })
+    }
+
+    static func markWatched(_ postId: UUID) {
+        var stored = UserDefaults.standard.dictionary(forKey: key) as? [String: [String]] ?? [:]
+        // Drop yesterday's keys so the dictionary doesn't grow forever.
+        stored = stored.filter { $0.key == todayKey }
+        var todays = Set(stored[todayKey] ?? [])
+        todays.insert(postId.uuidString)
+        stored[todayKey] = Array(todays)
+        UserDefaults.standard.set(stored, forKey: key)
+    }
+
+    static func isWatched(_ postId: UUID) -> Bool {
+        watchedToday().contains(postId)
+    }
+
+    /// "Resets in 8h" / "Resets in 47m" — short label for the rail
+    /// header pill. Always rounds up to the nearest minute so the user
+    /// never sees "Resets in 0m" when there's still time left.
+    static func resetCountdown(now: Date = Date()) -> String {
+        let cal = Calendar.current
+        let tomorrow = cal.startOfDay(for: cal.date(byAdding: .day, value: 1, to: now) ?? now)
+        let interval = max(0, tomorrow.timeIntervalSince(now))
+        let totalMinutes = Int(ceil(interval / 60))
+        if totalMinutes >= 60 {
+            let hours = totalMinutes / 60
+            return "Resets in \(hours)h"
+        }
+        return "Resets in \(totalMinutes)m"
+    }
+}
+
 /// Phase 1 of the For You rail redesign. A horizontal carousel of 9:16
 /// portrait hero cards, one focused at a time with a peek of the next.
 /// Replaces the compact `ExploreHeroCard` row so the For You surface
@@ -35,6 +94,14 @@ struct TrendingNowRail: View {
     private let fillDuration: Double = 10
 
     @State private var scrollPosition: Int? = 0
+    /// Set of post IDs the user has opened from the rail today.
+    /// Refreshed via `.task` on appear and re-pulled when the rail
+    /// is shown again (cheap UserDefaults read).
+    @State private var watchedToday: Set<UUID> = []
+    /// Refreshed every minute by a 60s timer so the "resets in 8h"
+    /// pill counts down without the user having to leave the page.
+    @State private var resetLabel: String = TodaysMixWatchedStore.resetCountdown()
+    private let countdownTimer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -59,6 +126,14 @@ struct TrendingNowRail: View {
         }
         .onAppear {
             scrollPosition = currentIndex
+            watchedToday = TodaysMixWatchedStore.watchedToday()
+            resetLabel = TodaysMixWatchedStore.resetCountdown()
+        }
+        .onReceive(countdownTimer) { _ in
+            resetLabel = TodaysMixWatchedStore.resetCountdown()
+            // Re-pull watched in case the user's been in the mix view
+            // and their list grew since the last appear.
+            watchedToday = TodaysMixWatchedStore.watchedToday()
         }
         .onChange(of: currentIndex) { _, new in
             // Sync the scroll position when the parent advances the
@@ -84,9 +159,15 @@ struct TrendingNowRail: View {
             Image(systemName: "sparkles")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(GQGradients.primary)
-            Text("FOR YOU")
+            Text("TODAY'S MIX")
                 .font(.system(size: 11, weight: .semibold))
                 .tracking(1.2)
+                .foregroundColor(GQColors.textTertiary)
+            Text("·")
+                .font(.system(size: 11))
+                .foregroundColor(GQColors.textTertiary)
+            Text(resetLabel)
+                .font(.system(size: 11, weight: .medium))
                 .foregroundColor(GQColors.textTertiary)
             Spacer()
             if onShuffle != nil {
@@ -123,6 +204,8 @@ struct TrendingNowRail: View {
                             #if canImport(UIKit)
                             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                             #endif
+                            TodaysMixWatchedStore.markWatched(post.id)
+                            watchedToday = TodaysMixWatchedStore.watchedToday()
                             onTapPost(post)
                         }
                         .onLongPressGesture(minimumDuration: 0.4) {
@@ -146,15 +229,28 @@ struct TrendingNowRail: View {
     private var pageDots: some View {
         HStack(spacing: 6) {
             ForEach(0..<picks.count, id: \.self) { i in
+                let watched = watchedToday.contains(picks[i].id)
                 Capsule()
-                    .fill(i == currentIndex
-                          ? AnyShapeStyle(GQGradients.primary)
-                          : AnyShapeStyle(GQColors.adaptiveOverlay(0.18)))
+                    .fill(dotFill(forIndex: i, watched: watched))
                     .frame(width: i == currentIndex ? 18 : 5, height: 5)
                     .animation(.spring(response: 0.3, dampingFraction: 0.85), value: currentIndex)
             }
             Spacer()
         }
+    }
+
+    /// Three states for each dot:
+    /// 1. Current (selected) → filled brand gradient, longer width
+    /// 2. Watched (already opened today) → solid mid-tone
+    /// 3. Unwatched → faint adaptive overlay (existing default)
+    private func dotFill(forIndex i: Int, watched: Bool) -> AnyShapeStyle {
+        if i == currentIndex {
+            return AnyShapeStyle(GQGradients.primary)
+        }
+        if watched {
+            return AnyShapeStyle(GQColors.textTertiary.opacity(0.6))
+        }
+        return AnyShapeStyle(GQColors.adaptiveOverlay(0.18))
     }
 }
 
