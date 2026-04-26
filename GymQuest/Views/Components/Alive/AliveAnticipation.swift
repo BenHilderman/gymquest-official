@@ -179,6 +179,165 @@ struct PreEventCountdownBanner: View {
     }
 }
 
+// MARK: - Sunday weekly crew recap
+
+struct SundayCrewRecap {
+    let crewSessions: Int
+    let withYouSessions: Int
+}
+
+@MainActor
+enum SundayCrewRecapResolver {
+    /// Returns the recap when today is Sunday and there's enough signal
+    /// to render it (>= 3 crew sessions in the last 7 days). Otherwise nil.
+    static func recap(
+        myUserId: UUID,
+        followedIds: Set<UUID>,
+        checkIns: [WorkoutCheckIn],
+        coPresence: [CoPresenceLog],
+        now: Date = Date()
+    ) -> SundayCrewRecap? {
+        let cal = Calendar.current
+        guard cal.component(.weekday, from: now) == 1 else { return nil }
+        let weekStart = cal.date(byAdding: .day, value: -7, to: cal.startOfDay(for: now))!
+        let crewSessions = checkIns.filter {
+            followedIds.contains($0.userId) && $0.timestamp >= weekStart
+        }.count
+        let withYouSessions = coPresence.filter {
+            ($0.userIdA == myUserId || $0.userIdB == myUserId)
+            && $0.overlapEnd >= weekStart
+        }.count
+        guard crewSessions >= 3 else { return nil }
+        return SundayCrewRecap(
+            crewSessions: crewSessions,
+            withYouSessions: withYouSessions
+        )
+    }
+}
+
+struct SundayCrewRecapCard: View {
+    let recap: SundayCrewRecap
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle().fill(GQColors.deepBlue.opacity(0.10)).frame(width: 44, height: 44)
+                Image(systemName: "person.3.fill")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(GQGradients.primary)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text("THIS WEEK · YOUR CREW")
+                    .font(.system(size: 10, weight: .bold))
+                    .tracking(0.6)
+                    .foregroundStyle(GQGradients.primary)
+                Text("\(recap.crewSessions) sessions · \(recap.withYouSessions) with you")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(GQColors.textPrimary)
+            }
+            Spacer()
+        }
+        .padding(14)
+        .homeSocialCard(cornerRadius: 14)
+    }
+}
+
+// MARK: - Streak alarm (friend's streak ending in <4h)
+
+struct StreakAlarmCandidate: Identifiable {
+    let id: UUID    // userId
+    let name: String
+    let hoursLeft: Int
+}
+
+@MainActor
+enum StreakAlarmResolver {
+    /// Returns at most one candidate per scan to keep the prompt small.
+    /// Approximation: looks for followed users whose last check-in was
+    /// 20–24h ago (their streak will lapse in <4h if they haven't trained
+    /// today). One per friend per day — gated by PushThrottle.
+    static func candidate(
+        followedIds: Set<UUID>,
+        userProfiles: [UserProfile],
+        checkIns: [WorkoutCheckIn],
+        now: Date = Date()
+    ) -> StreakAlarmCandidate? {
+        let dayAgo = now.addingTimeInterval(-20 * 3600)
+        let cutoff = now.addingTimeInterval(-24 * 3600)
+        let lastByUser = Dictionary(grouping: checkIns.filter { followedIds.contains($0.userId) }, by: \.userId)
+            .compactMapValues { $0.max(by: { $0.timestamp < $1.timestamp }) }
+        let candidate = lastByUser.first(where: { _, last in
+            last.timestamp >= cutoff && last.timestamp < dayAgo
+        })
+        guard let (userId, last) = candidate else { return nil }
+        guard PushThrottle.canPush(forFriend: userId, on: now) else { return nil }
+        let name = userProfiles.first(where: { $0.id == userId })?.name
+            ?? SocialSeeder.fakeUsers.first(where: { $0.id == userId })?.name
+            ?? "Your friend"
+        let hoursLeft = max(1, 4 - Int((now.timeIntervalSince(last.timestamp) - 20 * 3600) / 3600))
+        return StreakAlarmCandidate(id: userId, name: name, hoursLeft: hoursLeft)
+    }
+}
+
+struct StreakAlarmCard: View {
+    let candidate: StreakAlarmCandidate
+    let fromUserId: UUID
+
+    @Environment(\.modelContext) private var modelContext
+    @State private var didNudge: Bool = false
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle().fill(AlivePresence.gold.opacity(0.18)).frame(width: 40, height: 40)
+                Image(systemName: "flame.fill")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(AlivePresence.gold)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text("\(candidate.name)'s streak ends in \(candidate.hoursLeft)h")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(GQColors.textPrimary)
+                Text("Send a nudge?")
+                    .font(.system(size: 11))
+                    .foregroundColor(GQColors.textSecondary)
+            }
+            Spacer()
+            Button {
+                nudge()
+            } label: {
+                Text(didNudge ? "Sent ✓" : "Nudge")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
+                    .background(Capsule().fill(didNudge ? AnyShapeStyle(AlivePresence.green) : AnyShapeStyle(GQGradients.primary)))
+            }
+            .buttonStyle(.plain)
+            .disabled(didNudge)
+        }
+        .padding(14)
+        .homeSocialCard(cornerRadius: 14)
+    }
+
+    private func nudge() {
+        let r = LiveReaction(
+            fromUserId: fromUserId,
+            toUserId: candidate.id,
+            sessionStartedAt: Date(),
+            kind: "stat",
+            statText: "Don't break it 🔥"
+        )
+        modelContext.insert(r)
+        try? modelContext.save()
+        PushThrottle.recordPush(forFriend: candidate.id)
+        #if canImport(UIKit)
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        #endif
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { didNudge = true }
+    }
+}
+
 @MainActor
 enum PreEventResolver {
     struct Match: Identifiable {

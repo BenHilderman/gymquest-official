@@ -3303,6 +3303,7 @@ struct SettingsView: View {
     @State private var ollamaModel: String = "llama3.2"
     @State private var ollamaHost: String = "localhost"
     @State private var showingLogoutAlert = false
+    @State private var showingSavedGyms = false
     @State private var isTestingConnection = false
     @State private var connectionStatus: String?
     @State private var showingConnectionAlert = false
@@ -3425,6 +3426,8 @@ struct SettingsView: View {
             settingsDivider
             preferencesSection
             settingsDivider
+            aliveSavedGymsRow
+            settingsDivider
             linksSection
             settingsDivider
             FounderDashboardSection()
@@ -3441,6 +3444,33 @@ struct SettingsView: View {
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 100)
+        .sheet(isPresented: $showingSavedGyms) {
+            SavedGymsManagementSheet(userId: profile.id)
+        }
+    }
+
+    @ViewBuilder
+    private var aliveSavedGymsRow: some View {
+        Button {
+            showingSavedGyms = true
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "mappin.and.ellipse")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(GQGradients.primary)
+                    .frame(width: 28, height: 28)
+                Text("Saved Gyms")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(GQColors.textPrimary)
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+            .padding(14)
+            .homeSocialCard(cornerRadius: 14)
+        }
+        .buttonStyle(.plain)
     }
 
     @ViewBuilder

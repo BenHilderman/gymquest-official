@@ -18,6 +18,7 @@
 import SwiftUI
 import SwiftData
 import CoreLocation
+import UserNotifications
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -92,9 +93,54 @@ final class AliveLocationService: NSObject, ObservableObject, CLLocationManagerD
             return distance <= gym.radiusMeters
         }
         if currentGym?.id != match?.id {
+            let prior = currentGym
             currentGym = match
+            // Fire arrival notification only on transition nil → matched.
+            if prior == nil, let arrived = match {
+                GeofenceArrivalNotifier.fire(for: arrived)
+            }
         }
     }
+}
+
+// MARK: - Geofence arrival notification
+
+@MainActor
+enum GeofenceArrivalNotifier {
+    /// Asked-for-but-not-required permission. Fail closed — if the user
+    /// declines, the silent rejection is fine; we just won't ping them.
+    static func ensurePermission() {
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
+    }
+
+    /// Posts a foreground-friendly notification on entry into a SavedGym.
+    /// Identifier uses the gym id so duplicates are de-duped automatically.
+    /// Action buttons are not included here — the user taps the notif and
+    /// lands in the app, where the per-session dialog at workout start
+    /// handles the rest.
+    static func fire(for gym: SavedGym) {
+        let center = UNUserNotificationCenter.current()
+        let content = UNMutableNotificationContent()
+        content.title = "Arrived at \(gym.name)"
+        content.body = "Start workout?"
+        content.sound = .default
+
+        // Set presence to .arriving (gold ring) so peers see the
+        // about-to-train signal until the user actually taps Start.
+        AliveLocationStateWriter.markArriving(userId: ownUserIdSnapshot, gymId: gym.id, gymName: gym.name)
+
+        let req = UNNotificationRequest(
+            identifier: "alive.arrived.\(gym.id.uuidString)",
+            content: content,
+            trigger: nil
+        )
+        center.add(req) { _ in }
+    }
+
+    /// User-id read from a singleton bridge that the app must populate
+    /// before the location service starts. Defaults to a sentinel UUID
+    /// when unset — all writes against it are no-ops.
+    nonisolated(unsafe) static var ownUserIdSnapshot: UUID = UUID()
 }
 
 // MARK: - Per-session opt-in dialog
@@ -289,6 +335,35 @@ enum AliveLocationStateWriter {
         try? modelContext.save()
     }
 
+    /// Sets status = .arriving (gold ring) on geofence entry, before the
+    /// user has actually started a workout. Cleared as soon as setTraining
+    /// fires (or setIdle on cancel).
+    @MainActor
+    static func markArriving(userId: UUID, gymId: UUID?, gymName: String?) {
+        guard let context = AliveLocationModelContextBridge.shared.modelContext else { return }
+        let descriptor = FetchDescriptor<UserPresenceState>(
+            predicate: #Predicate { $0.userId == userId }
+        )
+        if let state = try? context.fetch(descriptor).first {
+            state.status = .arriving
+            state.gymId = gymId
+            state.gymName = gymName
+            state.startedAt = nil
+            state.updatedAt = Date()
+        } else {
+            let fresh = UserPresenceState(
+                userId: userId,
+                status: .arriving,
+                workoutType: nil,
+                startedAt: nil,
+                gymId: gymId,
+                gymName: gymName
+            )
+            context.insert(fresh)
+        }
+        try? context.save()
+    }
+
     static func writeGhost(userId: UUID, in modelContext: ModelContext) {
         let descriptor = FetchDescriptor<UserPresenceState>(
             predicate: #Predicate { $0.userId == userId }
@@ -314,6 +389,18 @@ enum AliveLocationStateWriter {
         }
         try? modelContext.save()
     }
+}
+
+// MARK: - ModelContext bridge for non-View writers
+
+/// Lets non-View utilities (notification handler, scheduled scans) write
+/// SwiftData rows. TodayView populates this on appear so writes from a
+/// background CoreLocation callback have a route into the store.
+@MainActor
+final class AliveLocationModelContextBridge {
+    static let shared = AliveLocationModelContextBridge()
+    weak var modelContext: ModelContext?
+    private init() {}
 }
 
 // MARK: - Demo seed (one SavedGym per user) so AtMyGymBanner has data to resolve

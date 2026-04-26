@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -47,6 +48,14 @@ extension View {
 
 struct NavAvatarButton: View {
     let profile: UserProfile
+    /// Reads PresenceState to mark this avatar as ghosted when the user
+    /// is opting out of presence for the current session. Self-only — the
+    /// ring/strip queries elsewhere already hide ghost users from peers.
+    @Query private var navAvatarPresenceStates: [UserPresenceState]
+
+    private var isOwnSessionGhosted: Bool {
+        navAvatarPresenceStates.first(where: { $0.userId == profile.id })?.status == .ghost
+    }
 
     var body: some View {
         NavigationLink {
@@ -56,6 +65,7 @@ struct NavAvatarButton: View {
                 .frame(width: 28, height: 28)
                 .clipShape(Circle())
                 .overlay(Circle().stroke(GQColors.borderDefault, lineWidth: 1))
+                .ghostSelfOverlay(isOwnSessionGhosted)
         }
         .buttonStyle(.plain)
         .simultaneousGesture(TapGesture().onEnded {

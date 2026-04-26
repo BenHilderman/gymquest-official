@@ -1297,6 +1297,8 @@
 		A11FE40000000000000000FC /* AliveIntegrations.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11FE40000000000000000FA /* AliveIntegrations.swift */; };
 		A11FE50000000000000000FB /* AlivePolish.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11FE50000000000000000FA /* AlivePolish.swift */; };
 		A11FE50000000000000000FC /* AlivePolish.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11FE50000000000000000FA /* AlivePolish.swift */; };
+		A11FE60000000000000000FB /* AliveSavedGyms.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11FE60000000000000000FA /* AliveSavedGyms.swift */; };
+		A11FE60000000000000000FC /* AliveSavedGyms.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11FE60000000000000000FA /* AliveSavedGyms.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -1852,6 +1854,7 @@
 		A11FE30000000000000000FA /* AliveAnticipation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Alive/AliveAnticipation.swift; sourceTree = "<group>"; };
 		A11FE40000000000000000FA /* AliveIntegrations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Alive/AliveIntegrations.swift; sourceTree = "<group>"; };
 		A11FE50000000000000000FA /* AlivePolish.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Alive/AlivePolish.swift; sourceTree = "<group>"; };
+		A11FE60000000000000000FA /* AliveSavedGyms.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Alive/AliveSavedGyms.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1977,6 +1980,7 @@
 				A11FE20000000000000000FA /* AliveLocation.swift */,
 				A11FE50000000000000000FA /* AlivePolish.swift */,
 				A11FE10000000000000000FD /* AliveReactions.swift */,
+				A11FE60000000000000000FA /* AliveSavedGyms.swift */,
 				CA27357A8F5E83A6D21E7A7E /* CategoryBrowseRow.swift */,
 				8CF220F17909E8D0E0BAEB50 /* CheckInTile.swift */,
 				DB041BC1A2CEFB51F7042814 /* ClubsShelf.swift */,
@@ -3795,6 +3799,7 @@
 				A11FE20000000000000000FB /* AliveLocation.swift in Sources */,
 				A11FE50000000000000000FB /* AlivePolish.swift in Sources */,
 				A11FE10000000000000000FE /* AliveReactions.swift in Sources */,
+				A11FE60000000000000000FB /* AliveSavedGyms.swift in Sources */,
 				D7209202F753EB3E666C6155 /* CategoryBrowseRow.swift in Sources */,
 				FB87944E8F8D1274327C630D /* ChallengeService.swift in Sources */,
 				56B80BDE635859BDE391EAEE /* CheckInPromptSheet.swift in Sources */,
@@ -4096,6 +4101,7 @@
 				A11FE20000000000000000FC /* AliveLocation.swift in Sources */,
 				A11FE50000000000000000FC /* AlivePolish.swift in Sources */,
 				A11FE10000000000000000FF /* AliveReactions.swift in Sources */,
+				A11FE60000000000000000FC /* AliveSavedGyms.swift in Sources */,
 				B1877C6C98953422FF42F5B1 /* CategoryBrowseRow.swift in Sources */,
 				C6EC53893031B22F3CDA63A1 /* ChallengeService.swift in Sources */,
 				4F904DFE56A7BB93FA148CA6 /* CheckInPromptSheet.swift in Sources */,

@@ -252,6 +252,10 @@ struct TodayView: View {
             SavedGymSeeder.seedIfNeeded(userId: profile.id, in: modelContext)
             let gymsForUser = allSavedGyms.filter { $0.userId == profile.id }
             locationService.refresh(savedGyms: gymsForUser)
+            // Bridge for non-View writers (CoreLocation callback path).
+            AliveLocationModelContextBridge.shared.modelContext = modelContext
+            GeofenceArrivalNotifier.ownUserIdSnapshot = profile.id
+            GeofenceArrivalNotifier.ensurePermission()
             if LocationOptInStore.enabled {
                 locationService.requestPermission()
                 locationService.startMonitoring()
@@ -1643,6 +1647,14 @@ struct TodayView: View {
                 }
             }
 
+            if let recap = sundayCrewRecap {
+                SundayCrewRecapCard(recap: recap)
+            }
+
+            if let candidate = streakAlarmCandidate {
+                StreakAlarmCard(candidate: candidate, fromUserId: profile.id)
+            }
+
             ForEach(recentCoAttendedLogs) { log in
                 CoAttendedCard(
                     log: log,
@@ -2460,6 +2472,25 @@ struct TodayView: View {
         }
     }
 
+    private var sundayCrewRecap: SundayCrewRecap? {
+        let followedIds = Set(allFollows.filter { $0.userId == profile.id }.map(\.odId))
+        return SundayCrewRecapResolver.recap(
+            myUserId: profile.id,
+            followedIds: followedIds,
+            checkIns: allCheckIns,
+            coPresence: allCoPresenceLogs
+        )
+    }
+
+    private var streakAlarmCandidate: StreakAlarmCandidate? {
+        let followedIds = Set(allFollows.filter { $0.userId == profile.id }.map(\.odId))
+        return StreakAlarmResolver.candidate(
+            followedIds: followedIds,
+            userProfiles: allUserProfiles,
+            checkIns: allCheckIns
+        )
+    }
+
     // MARK: - Alive Phase 4 — anticipation + memory
 
     private var upcomingPreEvents: [PreEventResolver.Match] {
@@ -2505,10 +2536,18 @@ struct TodayView: View {
 
     /// Reactions sent to me, tied to my most recent workout (last 60 min).
     /// Hides on Sundays' weekly recap if there's nothing relevant.
+    /// Spec: "Surfaces only after own workout ends + has at least one
+    /// reaction." Gate on a recent Workout row of mine (not just wall-clock).
     private var recentReactionsForSelf: [LiveReaction]? {
         let cutoff = Date().addingTimeInterval(-60 * 60)
+        guard let lastWorkout = allWorkouts.first, lastWorkout.date >= cutoff else { return nil }
+        let sessionWindowStart = lastWorkout.date.addingTimeInterval(-3 * 3600)
         let mine = allReactions
-            .filter { $0.toUserId == profile.id && $0.timestamp >= cutoff && !$0.seenByRecipient }
+            .filter {
+                $0.toUserId == profile.id
+                && $0.timestamp >= sessionWindowStart
+                && !$0.seenByRecipient
+            }
             .sorted { $0.timestamp > $1.timestamp }
         return mine.isEmpty ? nil : mine
     }

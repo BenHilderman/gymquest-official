@@ -136,6 +136,30 @@ struct SocialActivityView: View {
     // MARK: - Activity List
 
     @ViewBuilder
+    /// Alive Phase 1 — ambient header strip pinned at the top of Activity.
+    private var aliveAmbientStrip: some View {
+        let now = Date()
+        let followedIds = Set(friends.filter { $0.userId == profile.id }.map(\.odId))
+        let liveFriendIds = presenceStates
+            .filter { followedIds.contains($0.userId) && Self.isLiveForAlive($0, now: now) }
+            .map(\.userId)
+        return AmbientHeaderStrip(
+            friendCount: liveFriendIds.count,
+            clubmateCount: 0,
+            avatarPeek: Array(liveFriendIds.prefix(3))
+        )
+    }
+
+    private static func isLiveForAlive(_ s: UserPresenceState, now: Date) -> Bool {
+        switch s.status {
+        case .arriving, .training, .resting: break
+        default: return false
+        }
+        if let started = s.startedAt, now.timeIntervalSince(started) > 3 * 3600 { return false }
+        return true
+    }
+
+    @ViewBuilder
     private var activityList: some View {
         if activityItems.isEmpty {
             VStack(spacing: 12) {
@@ -154,6 +178,10 @@ struct SocialActivityView: View {
         } else {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
+                    aliveAmbientStrip
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+                        .padding(.bottom, 4)
                     let grouped = groupedActivity
                     ForEach(grouped, id: \.title) { section in
                         sectionHeader(section.title)
@@ -166,7 +194,8 @@ struct SocialActivityView: View {
                                 },
                                 onFollowBack: {
                                     followUser(item.userId, name: item.userName, username: item.username)
-                                }
+                                },
+                                currentUserId: profile.id
                             )
                         }
                     }
@@ -358,13 +387,15 @@ struct ActivityRow: View {
     var isFollowingBack: Bool = false
     var onTap: () -> Void
     var onFollowBack: (() -> Void)? = nil
+    /// Self-id for the reaction palette long-press hook.
+    var currentUserId: UUID = UUID()
 
     @State private var didFollowBack = false
 
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 12) {
-                // Avatar
+                // Avatar — Alive presence ring + long-press reaction palette.
                 Circle()
                     .fill(GQGradients.primary)
                     .frame(width: 40, height: 40)
@@ -373,6 +404,8 @@ struct ActivityRow: View {
                             .font(.system(size: 15, weight: .semibold))
                             .foregroundColor(.white)
                     )
+                    .presenceRing(item.userId, size: 40)
+                    .reactionTarget(to: item.userId, name: item.userName, from: currentUserId)
 
                 // Content
                 VStack(alignment: .leading, spacing: 2) {
