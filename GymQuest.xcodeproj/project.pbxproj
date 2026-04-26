@@ -1193,6 +1193,7 @@
 		FF7ABA7EAFB7AE65FB54AE55 /* SiWCcTN.gif in Resources */ = {isa = PBXBuildFile; fileRef = B2DA95815D7658DA63C4ADF8 /* SiWCcTN.gif */; };
 		FFF9D166DA8452A7802036C0 /* 0658.gif in Resources */ = {isa = PBXBuildFile; fileRef = A9454FF1974F15CE5F31A227 /* 0658.gif */; };
 		FFFD96368EB6D12E828E9DE9 /* FeedContentService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C9136B4B361513F6595C6F5 /* FeedContentService.swift */; };
+		7261D6EAF89A470B8A77388E /* StockMedia in Resources */ = {isa = PBXBuildFile; fileRef = D7403EF037484158A24B894F /* StockMedia */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -1696,6 +1697,7 @@
 		FEF7B0CC04C0D2A62EFAFBC0 /* testLoginView_defaultState.LoginView-default-iPhone15.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "testLoginView_defaultState.LoginView-default-iPhone15.png"; sourceTree = "<group>"; };
 		FF2918CAD2D9C9C6C39736F1 /* FeedBlenderService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedBlenderService.swift; sourceTree = "<group>"; };
 		FF9DCE2F92D36971BA5E7DB1 /* ActiveWorkoutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveWorkoutView.swift; sourceTree = "<group>"; };
+		D7403EF037484158A24B894F /* StockMedia */ = {isa = PBXFileReference; lastKnownFileType = folder; path = StockMedia; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -2160,6 +2162,7 @@
 				C2F29B990440CADC975AA6A2 /* AlbumArt */,
 				32EC81CE3DF849670B06E945 /* DemoVideos */,
 				A1B06CE17DD2E80C9C667464 /* ExerciseGifs */,
+				D7403EF037484158A24B894F /* StockMedia */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -2758,6 +2761,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7261D6EAF89A470B8A77388E /* StockMedia in Resources */,
 				5DE4E7680CD3529820B0C32B /* 0024.gif in Resources */,
 				0A71449DCAB629212472EEE2 /* 0025.gif in Resources */,
 				6BC0793CEF0DC0F3A8447E75 /* 0027.gif in Resources */,
