@@ -1,4 +1,5 @@
 import SwiftUI
+import AVKit
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -116,7 +117,7 @@ struct TrendingNowRail: View {
         ScrollView(.horizontal, showsIndicators: false) {
             LazyHStack(spacing: 12) {
                 ForEach(Array(picks.enumerated()), id: \.element.id) { idx, post in
-                    TrendingHeroCard(post: post)
+                    TrendingHeroCard(post: post, isFocused: idx == currentIndex)
                         .id(idx)
                         .onTapGesture {
                             #if canImport(UIKit)
@@ -164,6 +165,20 @@ struct TrendingNowRail: View {
 /// caption + author chip + workout-type pill.
 private struct TrendingHeroCard: View {
     let post: Post
+    /// True only for the card currently centered in the rail. Drives
+    /// autoplay so we have at most one decoded video alive at a time.
+    var isFocused: Bool = false
+
+    /// AVPlayer for the focused card's preview. Created in `.task` when
+    /// the card becomes focused and the post has video data; torn down
+    /// when focus moves elsewhere (or the card disappears) so memory
+    /// returns to the next card immediately.
+    @State private var player: AVPlayer?
+    /// Notification observer token for the loop callback — held so we
+    /// can remove it on teardown to avoid leaking observers.
+    @State private var loopObserver: NSObjectProtocol?
+
+    private var hasVideo: Bool { post.videoData != nil }
 
     private var title: String {
         if let data = post.sharedWorkoutData,
@@ -193,7 +208,21 @@ private struct TrendingHeroCard: View {
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
+            // Focused card with video → autoplay; everything else uses
+            // the static cover. Cover stays as the visible layer until
+            // the player is ready so there's no empty-frame flash on
+            // focus change.
             cover
+
+            #if canImport(UIKit)
+            if isFocused, hasVideo, let player {
+                RawVideoView(player: player)
+                    .frame(width: 260, height: 360)
+                    .clipped()
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
+            }
+            #endif
 
             // Bottom gradient so caption text is legible regardless of
             // cover photo brightness.
@@ -265,7 +294,68 @@ private struct TrendingHeroCard: View {
                 .stroke(GQColors.borderDefault.opacity(0.6), lineWidth: 0.5)
         )
         .gqShadow(.card)
+        .task(id: focusKey) {
+            #if canImport(UIKit)
+            if isFocused, hasVideo {
+                setupPlayer()
+            } else {
+                teardownPlayer()
+            }
+            #endif
+        }
+        .onDisappear {
+            #if canImport(UIKit)
+            teardownPlayer()
+            #endif
+        }
     }
+
+    /// Stable key for `.task(id:)` — re-runs the player setup whenever
+    /// either the focused state OR the post id changes (LazyHStack can
+    /// recycle a card view onto a different post during fast scroll).
+    private var focusKey: String { "\(post.id):\(isFocused)" }
+
+    #if canImport(UIKit)
+    private func setupPlayer() {
+        guard let data = post.videoData else { return }
+        // Tear down any previous player before allocating a new one
+        // (covers fast-scroll edge cases where the same card binds to a
+        // new post without a teardown in between).
+        teardownPlayer()
+
+        let tempURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("\(post.id.uuidString).rail.mp4")
+        if !FileManager.default.fileExists(atPath: tempURL.path) {
+            try? data.write(to: tempURL)
+        }
+
+        let avPlayer = AVPlayer(url: tempURL)
+        avPlayer.isMuted = true
+        avPlayer.actionAtItemEnd = .none
+        avPlayer.play()
+
+        // Loop on end-of-playback so the preview keeps moving.
+        loopObserver = NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemDidPlayToEndTime,
+            object: avPlayer.currentItem,
+            queue: .main
+        ) { _ in
+            avPlayer.seek(to: .zero)
+            avPlayer.play()
+        }
+
+        player = avPlayer
+    }
+
+    private func teardownPlayer() {
+        if let observer = loopObserver {
+            NotificationCenter.default.removeObserver(observer)
+            loopObserver = nil
+        }
+        player?.pause()
+        player = nil
+    }
+    #endif
 
     @ViewBuilder
     private var cover: some View {
