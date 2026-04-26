@@ -303,10 +303,20 @@ struct FloatingTabBar: View {
     @Query private var presenceStates: [UserPresenceState]
     @Query private var tabBarClubs: [Club]
     @Query private var tabBarFollows: [Friend]
+    @Query private var tabBarLiveReactions: [LiveReaction]
+    @Query private var tabBarSavedGyms: [SavedGym]
+    @StateObject private var tabBarLocationService = AliveLocationService.shared
     @State private var workoutSeconds: Int = 0
     @State private var workoutTimer: Timer?
 
-    /// Spec rule: Friends tab pulses green when ANY followed user is in
+    /// Alive: gold "+" tab dot when the user is geofenced inside a SavedGym
+    /// AND has no active workout. Spec rule: gold = self-action suggested.
+    private var geofenceSelfHint: LiveTabSignal {
+        guard let _ = tabBarLocationService.currentGym else { return .none }
+        return appState.isWorkoutActive ? .none : .selfHint
+    }
+
+    /// Friends tab pulses green when ANY followed user is in
     /// `arriving / training / resting` (the "active or about to be" set).
     private var anyFriendLive: Bool {
         guard let profile = authenticatedProfiles.first else { return false }
@@ -449,6 +459,7 @@ struct FloatingTabBar: View {
                         }
                     }
                     .buttonStyle(.plain)
+                    .liveTabPulse(geofenceSelfHint)
                     .frame(maxWidth: .infinity)
                     .offset(y: -6)
                     .accessibilityLabel("Start workout")

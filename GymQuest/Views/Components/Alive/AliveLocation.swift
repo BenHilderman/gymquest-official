@@ -265,6 +265,57 @@ struct AtMyGymBanner: View {
     }
 }
 
+// MARK: - Presence-state writer for per-session location decisions
+
+/// Helpers that mutate a user's existing `UserPresenceState` to encode the
+/// per-session privacy choice. Called from the workout-start dialog.
+@MainActor
+enum AliveLocationStateWriter {
+    static func writeGym(
+        userId: UUID,
+        gymId: UUID?,
+        gymName: String?,
+        sessionTags: [String],
+        in modelContext: ModelContext
+    ) {
+        let descriptor = FetchDescriptor<UserPresenceState>(
+            predicate: #Predicate { $0.userId == userId }
+        )
+        guard let state = try? modelContext.fetch(descriptor).first else { return }
+        state.gymId = gymId
+        state.gymName = gymName
+        state.sessionTags = sessionTags
+        state.updatedAt = Date()
+        try? modelContext.save()
+    }
+
+    static func writeGhost(userId: UUID, in modelContext: ModelContext) {
+        let descriptor = FetchDescriptor<UserPresenceState>(
+            predicate: #Predicate { $0.userId == userId }
+        )
+        if let state = try? modelContext.fetch(descriptor).first {
+            state.status = .ghost
+            state.gymId = nil
+            state.gymName = nil
+            state.sessionTags = ["ghost"]
+            state.startedAt = Date()
+            state.updatedAt = Date()
+        } else {
+            let fresh = UserPresenceState(
+                userId: userId,
+                status: .ghost,
+                workoutType: nil,
+                startedAt: Date(),
+                gymId: nil,
+                gymName: nil,
+                sessionTags: ["ghost"]
+            )
+            modelContext.insert(fresh)
+        }
+        try? modelContext.save()
+    }
+}
+
 // MARK: - Demo seed (one SavedGym per user) so AtMyGymBanner has data to resolve
 
 @MainActor

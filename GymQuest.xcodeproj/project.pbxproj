@@ -1846,12 +1846,12 @@
 		FEF7B0CC04C0D2A62EFAFBC0 /* testLoginView_defaultState.LoginView-default-iPhone15.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "testLoginView_defaultState.LoginView-default-iPhone15.png"; sourceTree = "<group>"; };
 		FF2918CAD2D9C9C6C39736F1 /* FeedBlenderService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedBlenderService.swift; sourceTree = "<group>"; };
 		FF9DCE2F92D36971BA5E7DB1 /* ActiveWorkoutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveWorkoutView.swift; sourceTree = "<group>"; };
-		A11FE10000000000000000FA /* AliveComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AliveComponents.swift; sourceTree = "<group>"; };
-		A11FE10000000000000000FD /* AliveReactions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AliveReactions.swift; sourceTree = "<group>"; };
-		A11FE20000000000000000FA /* AliveLocation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AliveLocation.swift; sourceTree = "<group>"; };
-		A11FE30000000000000000FA /* AliveAnticipation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AliveAnticipation.swift; sourceTree = "<group>"; };
-		A11FE40000000000000000FA /* AliveIntegrations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AliveIntegrations.swift; sourceTree = "<group>"; };
-		A11FE50000000000000000FA /* AlivePolish.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlivePolish.swift; sourceTree = "<group>"; };
+		A11FE10000000000000000FA /* AliveComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Alive/AliveComponents.swift; sourceTree = "<group>"; };
+		A11FE10000000000000000FD /* AliveReactions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Alive/AliveReactions.swift; sourceTree = "<group>"; };
+		A11FE20000000000000000FA /* AliveLocation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Alive/AliveLocation.swift; sourceTree = "<group>"; };
+		A11FE30000000000000000FA /* AliveAnticipation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Alive/AliveAnticipation.swift; sourceTree = "<group>"; };
+		A11FE40000000000000000FA /* AliveIntegrations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Alive/AliveIntegrations.swift; sourceTree = "<group>"; };
+		A11FE50000000000000000FA /* AlivePolish.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Alive/AlivePolish.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */

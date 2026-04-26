@@ -673,6 +673,7 @@ struct ClubFeedView: View {
     @Query private var allChallenges: [ClubChallenge]
     @Query private var allEvents: [ClubEvent]
     @Query private var presenceStates: [UserPresenceState]
+    @Query private var allFollowsForAlive: [Friend]
 
     let profile: UserProfile
 
@@ -1070,12 +1071,48 @@ struct ClubFeedView: View {
 
     /// Original list body, refactored out so map mode can swap in. The
     /// scroll view + LazyVStack with the pinned filter strip lives here.
+    /// Alive Phase 1 — ambient header strip pinned at the top of the Clubs
+    /// list. "N friends · M clubmates lifting now" + tiny avatar peek.
+    private var aliveAmbientStrip: some View {
+        let now = Date()
+        let followedIds = Set(allFollowsForAlive.filter { $0.userId == profile.id }.map(\.odId))
+        let myClubIds = Set(allClubs.filter { $0.memberIds.contains(profile.id) }.map(\.id))
+        let clubmateIds = Set(allClubs
+            .filter { myClubIds.contains($0.id) }
+            .flatMap { $0.memberIds })
+            .subtracting([profile.id])
+        let liveFriendIds = presenceStates
+            .filter { followedIds.contains($0.userId) && Self.isLiveForAlive($0, now: now) }
+            .map(\.userId)
+        let liveClubmateIds = presenceStates
+            .filter { clubmateIds.contains($0.userId) && Self.isLiveForAlive($0, now: now) }
+            .map(\.userId)
+        return AmbientHeaderStrip(
+            friendCount: liveFriendIds.count,
+            clubmateCount: liveClubmateIds.count,
+            avatarPeek: Array((liveFriendIds + liveClubmateIds).prefix(3))
+        )
+    }
+
+    private static func isLiveForAlive(_ s: UserPresenceState, now: Date) -> Bool {
+        switch s.status {
+        case .arriving, .training, .resting: break
+        default: return false
+        }
+        if let started = s.startedAt, now.timeIntervalSince(started) > 3 * 3600 { return false }
+        return true
+    }
+
     private var listModeBody: some View {
         ScrollView {
             // pinnedViews: [.sectionHeaders] makes the filter strip
             // stick to the top of the scroll view as the user scrolls
             // past it — same pattern Discover uses.
             LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
+                aliveAmbientStrip
+                    .padding(.horizontal, 16)
+                    .padding(.top, 12)
+
                 // R4 — NOW ticker + co-presence banner. Auto-rotating
                 // strip of recent training presence + posts from your
                 // clubs. Co-presence banner appears when a friend is
@@ -6926,9 +6963,6 @@ struct ClubDetailView: View {
         VStack(spacing: 5) {
             ZStack {
                 Circle()
-                    .stroke(GQColors.success, lineWidth: 1.5)
-                    .frame(width: 44, height: 44)
-                Circle()
                     .fill(GQGradients.primary)
                     .frame(width: 38, height: 38)
                     .overlay(
@@ -6936,11 +6970,7 @@ struct ClubDetailView: View {
                             .font(.system(size: 14, weight: .semibold, design: .rounded))
                             .foregroundColor(.white)
                     )
-                Circle()
-                    .fill(GQColors.success)
-                    .frame(width: 9, height: 9)
-                    .overlay(Circle().stroke(GQColors.background, lineWidth: 1.5))
-                    .frame(width: 44, height: 44, alignment: .bottomTrailing)
+                    .presenceRing(m.userId, size: 38)
             }
             Text(m.name.components(separatedBy: " ").first ?? m.name)
                 .font(.system(size: 10, weight: .semibold))
@@ -6952,6 +6982,7 @@ struct ClubDetailView: View {
                 .lineLimit(1)
         }
         .frame(width: 58)
+        .reactionTarget(to: m.userId, name: m.name, from: profile.id)
     }
 
     // MARK: - R4: Live stream cards + drop-in reactions
@@ -7089,6 +7120,7 @@ struct ClubDetailView: View {
             }
             .padding(.top, 8)
         }
+        .reactionTarget(to: m.userId, name: m.name, from: profile.id)
     }
 
     @ViewBuilder
@@ -7966,6 +7998,8 @@ struct ClubDetailView: View {
                 .lineLimit(1)
         }
         .frame(width: 70)
+        .presenceRing(story.author.id, size: 64)
+        .reactionTarget(to: story.author.id, name: story.author.name, from: profile.id)
     }
 
     // MARK: - R7+: Featured 3×3 photo wall

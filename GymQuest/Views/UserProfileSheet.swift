@@ -13,6 +13,9 @@ struct UserProfileSheet: View {
     @Query private var allFriends: [Friend]
 
     @State private var isFollowing = false
+    /// Forces a re-render after toggling AutoReactStore (UserDefaults isn't observable).
+    @State private var autoReactTick: Int = 0
+    @Query private var profileSheetReactions: [LiveReaction]
 
     private var userProfile: UserProfile? {
         allProfiles.first { $0.id == userId }
@@ -44,6 +47,9 @@ struct UserProfileSheet: View {
                     profileHeader
                     statsRow
                     followButton
+                    if userId != currentProfile.id {
+                        aliveFriendActions
+                    }
                     postsGrid
                 }
                 .padding(.top, 20)
@@ -67,20 +73,23 @@ struct UserProfileSheet: View {
     @ViewBuilder
     private var profileHeader: some View {
         VStack(spacing: 8) {
-            // Avatar
-            #if canImport(UIKit)
-            if let data = userProfile?.profilePhotoData, let image = UIImage(data: data) {
-                Image(uiImage: image)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: 80, height: 80)
-                    .clipShape(Circle())
-            } else {
+            // Avatar with universal presence ring (Alive Phase 1).
+            Group {
+                #if canImport(UIKit)
+                if let data = userProfile?.profilePhotoData, let image = UIImage(data: data) {
+                    Image(uiImage: image)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: 80, height: 80)
+                        .clipShape(Circle())
+                } else {
+                    avatarCircle
+                }
+                #else
                 avatarCircle
+                #endif
             }
-            #else
-            avatarCircle
-            #endif
+            .presenceRing(userId, size: 80)
 
             Text(userProfile?.name ?? "Unknown")
                 .font(.system(size: 20, weight: .bold))
@@ -182,6 +191,90 @@ struct UserProfileSheet: View {
             .padding(.horizontal, 2)
         }
     }
+
+    // MARK: - Alive friend actions (auto-react / quick replies / streak badge)
+
+    @ViewBuilder
+    private var aliveFriendActions: some View {
+        VStack(spacing: 10) {
+            // Reaction streak — visible only when ≥5 of last 6 of THEIR
+            // workouts received a reaction from me.
+            if reactionStreakHit {
+                HStack(spacing: 6) {
+                    Image(systemName: "flame.fill")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(GQGradients.primary)
+                    Text("Reaction streak — \(reactionsToThemRecent)/6")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(GQColors.textPrimary)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(Capsule().fill(GQColors.surfaceBase))
+                .overlay(Capsule().stroke(GQColors.borderDefault, lineWidth: 0.5))
+            }
+
+            // Quick replies — three structured replies the user can fire.
+            QuickReplyButtons(toUserId: userId, fromUserId: currentProfile.id)
+
+            // Auto-react 🔥 toggle.
+            Button {
+                AutoReactStore.toggle(userId)
+                #if canImport(UIKit)
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                #endif
+                autoReactTick &+= 1
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: autoReactOn ? "checkmark.circle.fill" : "flame.fill")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(autoReactOn ? AnyShapeStyle(AlivePresence.green) : AnyShapeStyle(GQGradients.primary))
+                    Text(autoReactOn
+                         ? "Auto 🔥 when \(firstName) starts — On"
+                         : "Send 🔥 automatically when \(firstName) starts")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(GQColors.textPrimary)
+                        .lineLimit(1)
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(Capsule().fill(GQColors.surfaceBase))
+                .overlay(Capsule().stroke(GQColors.borderDefault, lineWidth: 0.5))
+            }
+            .buttonStyle(.plain)
+            .id(autoReactTick) // recompute autoReactOn after toggle
+        }
+        .padding(.horizontal, 16)
+    }
+
+    private var firstName: String {
+        (userProfile?.name ?? "them").split(separator: " ").first.map(String.init) ?? (userProfile?.name ?? "them")
+    }
+
+    private var autoReactOn: Bool {
+        _ = autoReactTick
+        return AutoReactStore.contains(userId)
+    }
+
+    /// Distinct workout sessions of the target user that received a reaction
+    /// from the current user in the last 30 days. Approximated via the
+    /// `sessionStartedAt` field on LiveReaction (no cross-user Workout
+    /// records exist locally — the device only holds the current user's
+    /// own Workout history).
+    private var reactionsToThemRecent: Int {
+        let myId = currentProfile.id
+        let cutoff = Date().addingTimeInterval(-30 * 86_400)
+        let mineToThem = profileSheetReactions
+            .filter { $0.fromUserId == myId && $0.toUserId == userId && $0.sessionStartedAt >= cutoff }
+        // Bucket by sessionStartedAt rounded to the hour so multiple
+        // reactions to the same session don't double-count.
+        let buckets = Set(mineToThem.map { Int($0.sessionStartedAt.timeIntervalSince1970 / 3600) })
+        return min(6, buckets.count)
+    }
+
+    /// Streak fires when ≥5 of the last 6 sessions received a reaction.
+    private var reactionStreakHit: Bool { reactionsToThemRecent >= 5 }
 
     // MARK: - Follow Logic
 

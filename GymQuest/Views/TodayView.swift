@@ -49,6 +49,9 @@ struct TodayView: View {
     @Query private var allReactions: [LiveReaction]
     @Query private var allSavedGyms: [SavedGym]
     @StateObject private var locationService = AliveLocationService.shared
+    /// Watch bridge stamp — count of own-incoming reactions on last appear.
+    /// Bumped when count grows, triggering a haptic ping to paired Watch.
+    @State private var watchBridgeLastCount: Int = -1
     @Query private var allCoPresenceLogs: [CoPresenceLog]
     @Query private var allClubEvents: [ClubEvent]
 
@@ -200,6 +203,23 @@ struct TodayView: View {
             .toolbarBackground(GQColors.background, for: .navigationBar)
         }
         .tint(GQColors.textPrimary)
+        .onChange(of: allReactions.filter { $0.toUserId == profile.id }.count) { _, newCount in
+            #if canImport(WatchConnectivity)
+            // Haptic-ping the paired Watch on each new received reaction.
+            // Only emits when we observe an increase; replay-safe.
+            if newCount > watchBridgeLastCount,
+               let latest = allReactions
+                    .filter({ $0.toUserId == profile.id })
+                    .sorted(by: { $0.timestamp > $1.timestamp })
+                    .first {
+                AliveWatchBridge.shared.notifyReactionReceived(
+                    emoji: latest.emoji ?? "🔥",
+                    fromName: nameForUserId(latest.fromUserId)
+                )
+            }
+            #endif
+            watchBridgeLastCount = newCount
+        }
         .sheet(isPresented: $showWeeklyScheduleEditor) {
             WeeklyScheduleEditorSheet(profile: profile)
                 .presentationDetents([.large])
@@ -235,6 +255,34 @@ struct TodayView: View {
             if LocationOptInStore.enabled {
                 locationService.requestPermission()
                 locationService.startMonitoring()
+            }
+
+            // Alive Phase 2/4 wire-ups: drive the dead-code services from the
+            // single Today appearance hook. Each is idempotent + cheap.
+            AutoReactService.processIfNeeded(
+                states: allPresenceStates,
+                selfId: profile.id,
+                in: modelContext
+            )
+            CoPresenceDetector.detectAndLog(
+                states: allPresenceStates,
+                in: modelContext
+            )
+
+            // Alive Phase 5 wire-up: Siri Shortcut may have set a pending
+            // start-workout flag; consume it now and route to the picker.
+            if PendingIntentRouter.consumePendingStart() {
+                appState.showingWorkoutStartOptions = true
+            }
+
+            #if canImport(WatchConnectivity)
+            AliveWatchBridge.shared.activate()
+            #endif
+
+            // Seed watch-bridge stamp so the first appear doesn't fire a
+            // burst for already-seen reactions.
+            if watchBridgeLastCount < 0 {
+                watchBridgeLastCount = allReactions.filter { $0.toUserId == profile.id }.count
             }
 
             // Give @Query time to pick up new enrollments from autoEnroll
@@ -1746,6 +1794,7 @@ struct TodayView: View {
                     ForEach(Array(visible.enumerated()), id: \.element.id) { _, c in
                         liveFriendAvatar(initial: avatarInitial(c.userName))
                             .presenceRing(c.userId, size: 28)
+                            .reactionTarget(to: c.userId, name: c.userName, from: profile.id)
                     }
                     if extra > 0 {
                         Text("+\(extra)")

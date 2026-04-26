@@ -67,6 +67,7 @@ private struct CompactWorkoutTypeCard: View {
 
 struct WorkoutTypeSelectionView: View {
     @EnvironmentObject var appState: AppState
+    @Environment(\.modelContext) private var modelContext
 
     let profile: UserProfile
 
@@ -74,6 +75,15 @@ struct WorkoutTypeSelectionView: View {
     @State private var customName: String = ""
     @State private var tapScale: WorkoutType?
     @State private var showCardioSubTypePicker = false
+    /// Alive Phase 3 — per-session location opt-in. Dialog presents at the
+    /// moment the user picks a workout type, then auto-expires.
+    @State private var pendingStart: PendingStart? = nil
+
+    private struct PendingStart: Identifiable {
+        let id = UUID()
+        let type: WorkoutType
+        let customTitle: String?
+    }
 
     private let splitTypes: [WorkoutTypeOption] = [
         .init(type: .push, description: "Chest, shoulders, triceps"),
@@ -162,6 +172,13 @@ struct WorkoutTypeSelectionView: View {
             }
             .presentationDetents([.medium, .large])
         }
+        .sheet(item: $pendingStart) { pending in
+            LocationShareDialog(gymName: AliveLocationService.shared.currentGym?.name) { choice in
+                applyLocationChoice(choice, for: pending)
+                pendingStart = nil
+            }
+            .presentationDetents([.height(380)])
+        }
     }
 
     // MARK: - Section Label
@@ -203,17 +220,71 @@ struct WorkoutTypeSelectionView: View {
     private func startWorkout() {
         guard let selectedType else { return }
         HapticManager.shared.impact(.medium)
-        if selectedType == .custom {
-            let trimmed = customName.trimmingCharacters(in: .whitespacesAndNewlines)
-            appState.startWorkout(type: selectedType, customTitle: trimmed.isEmpty ? nil : trimmed)
-        } else {
-            appState.startWorkout(type: selectedType)
-        }
+        let title: String? = {
+            if selectedType == .custom {
+                let trimmed = customName.trimmingCharacters(in: .whitespacesAndNewlines)
+                return trimmed.isEmpty ? nil : trimmed
+            }
+            return nil
+        }()
+        // Per-session privacy gate: always ask, never buried in settings.
+        pendingStart = PendingStart(type: selectedType, customTitle: title)
     }
 
     private func startCardioWorkout(subType: CardioSubType) {
         HapticManager.shared.impact(.medium)
-        appState.startWorkout(type: .cardio, customTitle: subType.rawValue)
+        pendingStart = PendingStart(type: .cardio, customTitle: subType.rawValue)
+    }
+
+    /// Resolve the per-session privacy choice, write the right shape onto
+    /// PresenceState, then start the actual workout. Choice auto-expires
+    /// when the workout ends — see PresenceService.setDone.
+    private func applyLocationChoice(_ choice: LocationShareChoice, for pending: PendingStart) {
+        let workoutTypeRaw = pending.type.rawValue
+        switch choice {
+        case .yes:
+            // User chose to share gym detail with friends. Enable the master
+            // toggle (so location service can run) and stamp gymId+gymName.
+            LocationOptInStore.enabled = true
+            AliveLocationService.shared.requestPermission()
+            AliveLocationService.shared.startMonitoring()
+            let gym = AliveLocationService.shared.currentGym
+            PresenceService.setTraining(
+                userId: profile.id,
+                workoutType: workoutTypeRaw,
+                in: modelContext
+            )
+            if let gym {
+                AliveLocationStateWriter.writeGym(
+                    userId: profile.id,
+                    gymId: gym.id,
+                    gymName: gym.name,
+                    sessionTags: ["location-shared"],
+                    in: modelContext
+                )
+            }
+        case .justActive:
+            // status = .training but gymId stays nil. Strangers and friends
+            // see "active", nobody sees "where".
+            PresenceService.setTraining(
+                userId: profile.id,
+                workoutType: workoutTypeRaw,
+                in: modelContext
+            )
+            AliveLocationStateWriter.writeGym(
+                userId: profile.id,
+                gymId: nil,
+                gymName: nil,
+                sessionTags: ["just-active"],
+                in: modelContext
+            )
+        case .ghost:
+            // Full opt-out. Set status = .ghost — the ring/strip queries skip
+            // ghost users, so nothing surfaces anywhere this session.
+            AliveLocationStateWriter.writeGhost(userId: profile.id, in: modelContext)
+            GhostSessionStore.mark(sessionId: pending.id.uuidString)
+        }
+        appState.startWorkout(type: pending.type, customTitle: pending.customTitle)
     }
 }
 

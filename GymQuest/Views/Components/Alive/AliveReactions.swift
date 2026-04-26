@@ -382,12 +382,19 @@ struct ReactionLongPressModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .onLongPressGesture(minimumDuration: 0.4) {
-                #if canImport(UIKit)
-                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                #endif
-                showSheet = true
-            }
+            // simultaneousGesture so long-press fires even when an enclosing
+            // Button (e.g. Today's friendsNowStrip wraps every avatar in one
+            // outer Button for the tap-to-Friends behavior) would otherwise
+            // consume the gesture.
+            .simultaneousGesture(
+                LongPressGesture(minimumDuration: 0.4)
+                    .onEnded { _ in
+                        #if canImport(UIKit)
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                        #endif
+                        showSheet = true
+                    }
+            )
             .sheet(isPresented: $showSheet) {
                 ReactionPaletteSheet(
                     toUserId: toUserId,
