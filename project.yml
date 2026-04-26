@@ -75,6 +75,9 @@ targets:
         NSHealthUpdateUsageDescription: "GymQuest saves your workout data to Apple Health."
         NSSpeechRecognitionUsageDescription: "Lift AI uses speech recognition so you can search for workouts hands-free at the gym."
         NSMicrophoneUsageDescription: "Lift AI uses the microphone for voice search and to record audio notes on your workouts."
+        NSCameraUsageDescription: "Lift AI uses the camera so you can capture photos and videos of your workouts to share to your feed."
+        NSPhotoLibraryUsageDescription: "Lift AI lets you pick photos and videos from your library to attach to workout posts."
+        NSPhotoLibraryAddUsageDescription: "Lift AI saves shared workout posts back to your photo library when you choose to keep a copy."
 
   GymQuestWatch:
     type: application
