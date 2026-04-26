@@ -1293,6 +1293,8 @@
 		A11FE20000000000000000FC /* AliveLocation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11FE20000000000000000FA /* AliveLocation.swift */; };
 		A11FE30000000000000000FB /* AliveAnticipation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11FE30000000000000000FA /* AliveAnticipation.swift */; };
 		A11FE30000000000000000FC /* AliveAnticipation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11FE30000000000000000FA /* AliveAnticipation.swift */; };
+		A11FE40000000000000000FB /* AliveIntegrations.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11FE40000000000000000FA /* AliveIntegrations.swift */; };
+		A11FE40000000000000000FC /* AliveIntegrations.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11FE40000000000000000FA /* AliveIntegrations.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -1846,6 +1848,7 @@
 		A11FE10000000000000000FD /* AliveReactions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AliveReactions.swift; sourceTree = "<group>"; };
 		A11FE20000000000000000FA /* AliveLocation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AliveLocation.swift; sourceTree = "<group>"; };
 		A11FE30000000000000000FA /* AliveAnticipation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AliveAnticipation.swift; sourceTree = "<group>"; };
+		A11FE40000000000000000FA /* AliveIntegrations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AliveIntegrations.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1967,6 +1970,7 @@
 			children = (
 				A11FE30000000000000000FA /* AliveAnticipation.swift */,
 				A11FE10000000000000000FA /* AliveComponents.swift */,
+				A11FE40000000000000000FA /* AliveIntegrations.swift */,
 				A11FE20000000000000000FA /* AliveLocation.swift */,
 				A11FE10000000000000000FD /* AliveReactions.swift */,
 				CA27357A8F5E83A6D21E7A7E /* CategoryBrowseRow.swift */,
@@ -3783,6 +3787,7 @@
 				5D4441DFD02C0FCFD874F577 /* CameraView.swift in Sources */,
 				A11FE30000000000000000FB /* AliveAnticipation.swift in Sources */,
 				A11FE10000000000000000FB /* AliveComponents.swift in Sources */,
+				A11FE40000000000000000FB /* AliveIntegrations.swift in Sources */,
 				A11FE20000000000000000FB /* AliveLocation.swift in Sources */,
 				A11FE10000000000000000FE /* AliveReactions.swift in Sources */,
 				D7209202F753EB3E666C6155 /* CategoryBrowseRow.swift in Sources */,
@@ -4082,6 +4087,7 @@
 				01FE80F0CBBD3BC0CEEBF24C /* CameraView.swift in Sources */,
 				A11FE30000000000000000FC /* AliveAnticipation.swift in Sources */,
 				A11FE10000000000000000FC /* AliveComponents.swift in Sources */,
+				A11FE40000000000000000FC /* AliveIntegrations.swift in Sources */,
 				A11FE20000000000000000FC /* AliveLocation.swift in Sources */,
 				A11FE10000000000000000FF /* AliveReactions.swift in Sources */,
 				B1877C6C98953422FF42F5B1 /* CategoryBrowseRow.swift in Sources */,
