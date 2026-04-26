@@ -43,6 +43,7 @@ struct PostCardV2: View {
     /// lightweight UserProfileSheet.
     @Query private var allProfiles: [UserProfile]
     @Query private var allTemplates: [WorkoutTemplate]
+    @Query private var allPlanDays: [ScheduledPlanDay]
     @State private var isLiked = false
     @State private var showVideoPlayer = false
     @State private var showComments = false
@@ -315,6 +316,13 @@ struct PostCardV2: View {
             } label: {
                 Label("Schedule for tomorrow", systemImage: "calendar.badge.plus")
             }
+            if let nextDay = nextMatchingPlanDay {
+                Button {
+                    fillPlanDay(nextDay)
+                } label: {
+                    Label("Add to next \(post.workoutType ?? "") day", systemImage: "calendar")
+                }
+            }
         }
 
         // Show the Try button on any post we can launch from — the full
@@ -367,6 +375,46 @@ struct PostCardV2: View {
             template.scheduledFor = tomorrow
             modelContext.insert(template)
         }
+        try? modelContext.save()
+    }
+
+    private var nextMatchingPlanDay: ScheduledPlanDay? {
+        let typeRaw = post.workoutType ?? ""
+        guard !typeRaw.isEmpty else { return nil }
+        let today = Calendar.current.startOfDay(for: Date())
+        return allPlanDays
+            .filter { day in
+                day.workoutType == typeRaw
+                    && day.scheduledDate >= today
+                    && !day.isRestDay
+                    && (day.dayStatus == .planned || day.dayStatus == .rebalanced)
+            }
+            .sorted { $0.scheduledDate < $1.scheduledDate }
+            .first
+    }
+
+    private func fillPlanDay(_ day: ScheduledPlanDay) {
+        #if canImport(UIKit)
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        #endif
+        let template = savedTemplate ?? {
+            let new = buildTemplateFromPost()
+            modelContext.insert(new)
+            return new
+        }()
+        day.exercises = template.exercises.map { tmpl in
+            let setCount = max(1, tmpl.suggestedSets)
+            let firstRepToken = tmpl.suggestedReps.split(separator: "-").first.map(String.init) ?? "10"
+            let reps = Int(firstRepToken.trimmingCharacters(in: .whitespaces)) ?? 10
+            return TrainingPlanExercise(
+                name: tmpl.name,
+                sets: setCount,
+                reps: reps,
+                weight: tmpl.suggestedWeight,
+                notes: tmpl.notes
+            )
+        }
+        template.scheduledFor = day.scheduledDate
         try? modelContext.save()
     }
 
@@ -2921,6 +2969,7 @@ struct PostActionsRowCompact: View {
 
     @Environment(\.modelContext) private var modelContext
     @Query private var allTemplates: [WorkoutTemplate]
+    @Query private var allPlanDays: [ScheduledPlanDay]
     @State private var heartScale: CGFloat = 1.0
     @State private var showParticles = false
     @State private var displayedLikeCount: Int = 0
@@ -2963,6 +3012,13 @@ struct PostActionsRowCompact: View {
                             scheduleForTomorrow()
                         } label: {
                             Label("Schedule for tomorrow", systemImage: "calendar.badge.plus")
+                        }
+                        if let nextDay = nextMatchingPlanDay {
+                            Button {
+                                fillPlanDay(nextDay)
+                            } label: {
+                                Label("Add to next \(post.workoutType ?? "") day", systemImage: "calendar")
+                            }
                         }
                     }
                     if hasWorkout, let onFollow = onFollowWorkout {
@@ -3288,6 +3344,46 @@ struct PostActionsRowCompact: View {
             template.scheduledFor = tomorrow
             modelContext.insert(template)
         }
+        try? modelContext.save()
+    }
+
+    private var nextMatchingPlanDay: ScheduledPlanDay? {
+        let typeRaw = post.workoutType ?? ""
+        guard !typeRaw.isEmpty else { return nil }
+        let today = Calendar.current.startOfDay(for: Date())
+        return allPlanDays
+            .filter { day in
+                day.workoutType == typeRaw
+                    && day.scheduledDate >= today
+                    && !day.isRestDay
+                    && (day.dayStatus == .planned || day.dayStatus == .rebalanced)
+            }
+            .sorted { $0.scheduledDate < $1.scheduledDate }
+            .first
+    }
+
+    private func fillPlanDay(_ day: ScheduledPlanDay) {
+        #if canImport(UIKit)
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        #endif
+        let template = savedTemplate ?? {
+            let new = buildTemplateFromPost()
+            modelContext.insert(new)
+            return new
+        }()
+        day.exercises = template.exercises.map { tmpl in
+            let setCount = max(1, tmpl.suggestedSets)
+            let firstRepToken = tmpl.suggestedReps.split(separator: "-").first.map(String.init) ?? "10"
+            let reps = Int(firstRepToken.trimmingCharacters(in: .whitespaces)) ?? 10
+            return TrainingPlanExercise(
+                name: tmpl.name,
+                sets: setCount,
+                reps: reps,
+                weight: tmpl.suggestedWeight,
+                notes: tmpl.notes
+            )
+        }
+        template.scheduledFor = day.scheduledDate
         try? modelContext.save()
     }
 

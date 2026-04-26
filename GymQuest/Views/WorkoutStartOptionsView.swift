@@ -601,22 +601,8 @@ struct SavedWorkoutsListView: View {
     }
 
     private func startFromTemplate(_ template: WorkoutTemplate) {
-        var activeExercises: [ActiveExercise] = []
-        if let data = template.exerciseData,
-           let decoded = try? JSONDecoder().decode([SharedWorkoutData.SharedExercise].self, from: data) {
-            activeExercises = decoded.map { shared in
-                ActiveExercise(
-                    name: shared.name,
-                    muscleGroup: MuscleGroup(rawValue: shared.muscleGroup) ?? .chest,
-                    sets: shared.sets.map { s in
-                        ActiveSet(reps: s.reps, weight: s.weight)
-                    }
-                )
-            }
-        }
-
+        let activeExercises = WorkoutTemplate.toActiveExercises(template.exercises)
         appState.startWorkout(type: template.workoutType, exercises: activeExercises)
-
         template.useCount += 1
         template.lastUsedAt = Date()
         template.scheduledFor = nil

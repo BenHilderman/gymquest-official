@@ -4445,6 +4445,24 @@ final class WorkoutTemplate {
         }
     }
 
+    /// Convert template exercises into in-memory ActiveExercise structs the
+    /// active-workout flow expects. The template stores suggested sets +
+    /// rep ranges; we expand into N empty sets seeded with the first rep
+    /// in the range and the suggested weight (if any).
+    static func toActiveExercises(_ templates: [TemplateExercise]) -> [ActiveExercise] {
+        templates.map { tmpl in
+            let setCount = max(1, tmpl.suggestedSets)
+            let firstRepToken = tmpl.suggestedReps.split(separator: "-").first.map(String.init) ?? "10"
+            let reps = Int(firstRepToken.trimmingCharacters(in: .whitespaces)) ?? 10
+            let weight = tmpl.suggestedWeight ?? 0
+            return ActiveExercise(
+                name: tmpl.name,
+                muscleGroup: MuscleGroup(rawValue: tmpl.muscleGroup) ?? .chest,
+                sets: (0..<setCount).map { _ in ActiveSet(reps: reps, weight: weight) }
+            )
+        }
+    }
+
     static func fromSharedWorkout(_ workout: SharedWorkoutData, userId: UUID, postId: UUID? = nil) -> WorkoutTemplate {
         let templateExercises = workout.exercises.enumerated().map { index, exercise in
             TemplateExercise(

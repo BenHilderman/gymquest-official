@@ -39,6 +39,10 @@ struct TodayView: View {
     @Query(sort: \ChallengeEnrollment.enrolledAt, order: .reverse) private var allChallengeEnrollments: [ChallengeEnrollment]
     @Query(sort: \Challenge.startDate, order: .reverse) private var allChallenges: [Challenge]
 
+    // Saved-workout templates — used to surface "Up next" templates the
+    // user pinned to today via long-press → Schedule for tomorrow.
+    @Query private var allTemplates: [WorkoutTemplate]
+
     @State private var showDraftBanner = false
     @State private var draftWorkoutType: String = ""
     @State private var draftStartTime: Date = Date()
@@ -1564,6 +1568,10 @@ struct TodayView: View {
                 resumeDraftBanner
             }
 
+            if let scheduledTemplate = templateScheduledForToday {
+                scheduledTemplateBanner(scheduledTemplate)
+            }
+
             Button { showWeeklyScheduleEditor = true } label: {
                 weeklyCalendarCard
             }
@@ -2292,6 +2300,70 @@ struct TodayView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
+    }
+
+    // MARK: - Saved-template "scheduled for today" banner
+
+    private var templateScheduledForToday: WorkoutTemplate? {
+        let today = Calendar.current.startOfDay(for: Date())
+        return allTemplates.first { template in
+            guard let scheduled = template.scheduledFor else { return false }
+            return Calendar.current.isDate(scheduled, inSameDayAs: today)
+        }
+    }
+
+    @ViewBuilder
+    private func scheduledTemplateBanner(_ template: WorkoutTemplate) -> some View {
+        Button {
+            startScheduledTemplate(template)
+        } label: {
+            HStack(spacing: 12) {
+                Circle()
+                    .fill(GQColors.deepBlue.opacity(0.10))
+                    .frame(width: 44, height: 44)
+                    .overlay(
+                        Image(systemName: template.workoutType.icon)
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(GQGradients.primary)
+                    )
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text("TODAY · SAVED")
+                            .font(.system(size: 10, weight: .bold))
+                            .tracking(0.6)
+                            .foregroundStyle(GQGradients.primary)
+                    }
+                    Text(template.name)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(GQColors.textPrimary)
+                        .lineLimit(1)
+                    Text("\(template.estimatedDuration)m · \(template.exercises.count) exercises")
+                        .font(.system(size: 11))
+                        .foregroundColor(GQColors.textSecondary)
+                }
+                Spacer()
+                Text("Start")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(Capsule().fill(GQGradients.primary))
+            }
+            .padding(14)
+            .homeSocialCard(cornerRadius: 14)
+        }
+        .buttonStyle(GQInteractiveStyle())
+    }
+
+    private func startScheduledTemplate(_ template: WorkoutTemplate) {
+        #if canImport(UIKit)
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        #endif
+        let exercises = WorkoutTemplate.toActiveExercises(template.exercises)
+        appState.startWorkout(type: template.workoutType, exercises: exercises)
+        template.useCount += 1
+        template.lastUsedAt = Date()
+        template.scheduledFor = nil
     }
 
 }
