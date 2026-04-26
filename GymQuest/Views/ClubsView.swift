@@ -1359,6 +1359,7 @@ struct ClubFeedView: View {
         let club: Club
         let companion: String
         let companionInitial: String
+        let companionUserId: UUID
         let workoutType: String
     }
 
@@ -1378,6 +1379,7 @@ struct ClubFeedView: View {
                 club: club,
                 companion: firstName,
                 companionInitial: String(firstName.first ?? "?").uppercased(),
+                companionUserId: user.id,
                 workoutType: ps.workoutTypeRaw ?? "training"
             ))
         }
@@ -1390,24 +1392,16 @@ struct ClubFeedView: View {
             selectedClub = match.club
         } label: {
             HStack(spacing: 12) {
-                ZStack {
-                    Circle()
-                        .fill(GQGradients.primary)
-                        .frame(width: 32, height: 32)
-                    Text(match.companionInitial)
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundColor(.white)
-                    // Pulsing live ring
-                    TimelineView(.animation) { ctx in
-                        let phase = (ctx.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 1.6)) / 1.6
-                        Circle()
-                            .stroke(GQColors.success, lineWidth: 2)
-                            .frame(width: 32, height: 32)
-                            .scaleEffect(1 + CGFloat(phase) * 0.4)
-                            .opacity((1 - phase) * 0.7)
-                    }
-                }
-                .frame(width: 38, height: 38)
+                Circle()
+                    .fill(GQGradients.primary)
+                    .frame(width: 32, height: 32)
+                    .overlay(
+                        Text(match.companionInitial)
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(.white)
+                    )
+                    .presenceRing(match.companionUserId, size: 32)
+                    .reactionTarget(to: match.companionUserId, name: match.companion, from: profile.id)
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text("AT \(match.club.name.uppercased())")
@@ -1496,7 +1490,7 @@ struct ClubFeedView: View {
 
                 if going > 0 {
                     HStack(spacing: 8) {
-                        avatarStack(count: min(going, 4))
+                        avatarStack(count: min(going, 4), userIds: Array(event.attendeeIds.prefix(4)))
                         Text(goingFooter(going: going, friends: friendsGoing))
                             .font(.system(size: 12, weight: .medium))
                             .foregroundColor(.white.opacity(0.85))
@@ -1530,6 +1524,15 @@ struct ClubFeedView: View {
                         .padding(.vertical, 10)
                         .background(Capsule().stroke(Color.white.opacity(0.35), lineWidth: 1))
                 }
+
+                // Alive Phase 4: "Who's going tonight" inline RSVP poll —
+                // surfaces only for events on the current day. Three quick
+                // taps; choice persists by toggling membership in
+                // event.attendeeIds (Going) or a per-event UserDefaults
+                // key for Maybe/Pass.
+                if Calendar.current.isDateInToday(event.date) {
+                    rsvpPollRow(event: event, isGoing: isGoing)
+                }
             }
             .padding(18)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -1552,6 +1555,64 @@ struct ClubFeedView: View {
             .shadow(color: GQColors.vividPurple.opacity(0.22), radius: 18, x: 0, y: 8)
         }
         .buttonStyle(.plain)
+    }
+
+    /// Alive Phase 4 — quick "Who's going tonight" RSVP for today's events.
+    /// Three tap-targets; choice persists. Going flips event.attendeeIds,
+    /// Maybe/Pass write a per-event UserDefaults flag. The card polls the
+    /// flag on render so the user's choice sticks across sessions.
+    @ViewBuilder
+    private func rsvpPollRow(event: ClubEvent, isGoing: Bool) -> some View {
+        HStack(spacing: 6) {
+            rsvpButton(label: "Going", systemImage: "checkmark.circle.fill", active: isGoing) {
+                rsvp(event: event, choice: "going")
+            }
+            rsvpButton(label: "Maybe", systemImage: "circle.dashed", active: rsvpChoice(eventId: event.id) == "maybe") {
+                rsvp(event: event, choice: "maybe")
+            }
+            rsvpButton(label: "Pass", systemImage: "xmark.circle", active: rsvpChoice(eventId: event.id) == "pass") {
+                rsvp(event: event, choice: "pass")
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.top, 4)
+    }
+
+    @ViewBuilder
+    private func rsvpButton(label: String, systemImage: String, active: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 11, weight: .bold))
+                Text(label)
+                    .font(.system(size: 11, weight: .semibold))
+            }
+            .foregroundColor(active ? GQColors.deepBlue : .white)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(Capsule().fill(active ? Color.white.opacity(0.95) : Color.white.opacity(0.18)))
+            .overlay(Capsule().stroke(Color.white.opacity(0.35), lineWidth: 0.5))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func rsvpChoice(eventId: UUID) -> String? {
+        UserDefaults.standard.string(forKey: "alive.rsvp.\(eventId.uuidString)")
+    }
+
+    private func rsvp(event: ClubEvent, choice: String) {
+        #if canImport(UIKit)
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        #endif
+        UserDefaults.standard.set(choice, forKey: "alive.rsvp.\(event.id.uuidString)")
+        if choice == "going" && !event.attendeeIds.contains(profile.id) {
+            event.attendeeIds.append(profile.id)
+            try? modelContext.save()
+        }
+        if choice != "going" && event.attendeeIds.contains(profile.id) {
+            event.attendeeIds.removeAll { $0 == profile.id }
+            try? modelContext.save()
+        }
     }
 
     /// White ring on the right of the hero showing time-until-start.
@@ -1587,19 +1648,46 @@ struct ClubFeedView: View {
     /// since we don't reliably have profile lookups for every attendee
     /// on this surface — looks intentional rather than missing.
     @ViewBuilder
-    private func avatarStack(count: Int) -> some View {
+    /// Renders a stack of avatars for a known set of attendee user IDs.
+    /// Each carries a `.presenceRing(...)` so any of them mid-session
+    /// shows the universal Alive ring even at 22pt. Falls back to the
+    /// legacy letter placeholder when fewer real IDs than the count.
+    private func avatarStack(count: Int, userIds: [UUID] = []) -> some View {
         HStack(spacing: -6) {
             ForEach(0..<count, id: \.self) { i in
                 let letters = ["O", "P", "K", "J"]
+                let attendeeId = i < userIds.count ? userIds[i] : nil
+                let initial: String = {
+                    if let id = attendeeId,
+                       let user = SocialSeeder.fakeUsers.first(where: { $0.id == id }) {
+                        return String(user.name.prefix(1)).uppercased()
+                    }
+                    return letters[i % letters.count]
+                }()
                 Circle()
                     .fill(GQGradients.primary)
                     .frame(width: 22, height: 22)
                     .overlay(
-                        Text(letters[i % letters.count])
+                        Text(initial)
                             .font(.system(size: 10, weight: .bold))
                             .foregroundColor(.white)
                     )
                     .overlay(Circle().stroke(Color.white.opacity(0.35), lineWidth: 1))
+                    .modifier(OptionalPresenceRing(userId: attendeeId, size: 22))
+            }
+        }
+    }
+
+    /// Conditional ring application. PresenceRingModifier needs a non-nil
+    /// UUID; this skips the modifier entirely when no ID is available.
+    private struct OptionalPresenceRing: ViewModifier {
+        let userId: UUID?
+        let size: CGFloat
+        func body(content: Content) -> some View {
+            if let userId {
+                content.presenceRing(userId, size: size)
+            } else {
+                content
             }
         }
     }
@@ -6633,6 +6721,7 @@ struct ClubDetailView: View {
     @Query private var allEvents: [ClubEvent]
     @Query private var allClubMemberships: [ClubMembership]
     @Query private var presenceStates: [UserPresenceState]
+    @Query private var allFriends: [Friend]
 
     let club: Club
     let profile: UserProfile
@@ -6703,6 +6792,8 @@ struct ClubDetailView: View {
         ScrollView {
             VStack(spacing: 10) {
                 coverBanner             // R7+ — wide cover photo
+                aliveAmbientStripForClub
+                    .padding(.horizontal, 16)
                 clubStoriesRail         // R7+ — 24h ephemeral bubbles
                 detailHeader
                 anonymousBrowsingPill   // R6.5 — guest access on non-joined clubs
@@ -7851,6 +7942,34 @@ struct ClubDetailView: View {
     /// page. Clubs without `imageData` fall back to a category-tinted
     /// gradient so the layout never collapses.
     @ViewBuilder
+    /// Alive ambient strip pinned at the top of club detail. Shows live
+    /// counts scoped to followed friends + this specific club's members.
+    private var aliveAmbientStripForClub: some View {
+        let now = Date()
+        let followedIds = Set(allFriends.filter { $0.userId == profile.id }.map(\.odId))
+        let clubmateIds = Set(club.memberIds).subtracting([profile.id])
+        let liveFriendIds = presenceStates
+            .filter { followedIds.contains($0.userId) && Self.isLiveForAlive($0, now: now) }
+            .map(\.userId)
+        let liveClubmateIds = presenceStates
+            .filter { clubmateIds.contains($0.userId) && Self.isLiveForAlive($0, now: now) }
+            .map(\.userId)
+        return AmbientHeaderStrip(
+            friendCount: liveFriendIds.count,
+            clubmateCount: liveClubmateIds.count,
+            avatarPeek: Array((liveFriendIds + liveClubmateIds).prefix(3))
+        )
+    }
+
+    private static func isLiveForAlive(_ s: UserPresenceState, now: Date) -> Bool {
+        switch s.status {
+        case .arriving, .training, .resting: break
+        default: return false
+        }
+        if let started = s.startedAt, now.timeIntervalSince(started) > 3 * 3600 { return false }
+        return true
+    }
+
     private var coverBanner: some View {
         ZStack(alignment: .bottomLeading) {
             #if canImport(UIKit)

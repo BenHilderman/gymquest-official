@@ -467,7 +467,8 @@ struct PostCardV2: View {
                 onTapLocation: { location in selectedLocationName = location },
                 onTapSong: { song, artist in
                     openMusicSearch(song: song, artist: artist, service: post.musicSource == "Spotify" ? .spotify : .appleMusic)
-                }
+                },
+                currentUserId: currentUserId
             )
 
             if post.authorId == currentUserId && !isPreview {
@@ -3447,10 +3448,16 @@ struct PostHeaderEnhanced: View {
     var onTapUser: (() -> Void)? = nil
     var onTapLocation: ((String) -> Void)? = nil
     var onTapSong: ((String, String) -> Void)? = nil
+    /// Self-id passed in for the long-press reaction palette hook on the
+    /// post-author avatar. Defaults to a sentinel UUID — when unset, the
+    /// reactionTarget still attaches but reactions get a junk fromUserId.
+    var currentUserId: UUID = UUID()
 
     var body: some View {
         HStack(spacing: 12) {
-            // Simple avatar (tappable)
+            // Simple avatar (tappable) — Alive presence ring + long-press
+            // reaction palette hook so post authors anywhere in the app
+            // surface as live and become reactable.
             Button {
                 onTapUser?()
             } label: {
@@ -3462,8 +3469,10 @@ struct PostHeaderEnhanced: View {
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundColor(.white)
                     )
+                    .presenceRing(post.authorId, size: 42)
             }
             .buttonStyle(.plain)
+            .reactionTarget(to: post.authorId, name: post.authorName, from: currentUserId)
 
             VStack(alignment: .leading, spacing: 2) {
                 Button {

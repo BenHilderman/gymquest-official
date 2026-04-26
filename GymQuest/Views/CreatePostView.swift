@@ -43,6 +43,7 @@ struct CreatePostView: View {
     var workout: Workout?
 
     @State private var caption: String = ""
+    @State private var showCaptionField: Bool = false
     @State private var selectedItem: PhotosPickerItem?
     @State private var photoData: Data?
     @State private var videoData: Data?
@@ -99,22 +100,50 @@ struct CreatePostView: View {
                         mediaType: $mediaType
                     )
 
-                    // caption
+                    // Caption — Alive Phase 6: hidden by default, revealed
+                    // on tap so the no-caption path is the easy path.
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Caption")
-                            .font(.caption)
-                            .foregroundColor(GQColors.textTertiary)
+                        if showCaptionField || !caption.isEmpty {
+                            Text("Caption")
+                                .font(.caption)
+                                .foregroundColor(GQColors.textTertiary)
 
-                        TextEditor(text: $caption)
-                            .frame(minHeight: 80)
-                            .padding(12)
-                            .background(GQColors.surfaceBase)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .strokeBorder(GQColors.borderDefault, lineWidth: 1)
-                            )
-                            .scrollContentBackground(.hidden)
+                            TextEditor(text: $caption)
+                                .frame(minHeight: 80)
+                                .padding(12)
+                                .background(GQColors.surfaceBase)
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .strokeBorder(GQColors.borderDefault, lineWidth: 1)
+                                )
+                                .scrollContentBackground(.hidden)
+                        } else {
+                            Button {
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                    showCaptionField = true
+                                }
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "text.bubble")
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundColor(GQColors.textTertiary)
+                                    Text("Add caption")
+                                        .font(.system(size: 13, weight: .medium))
+                                        .foregroundColor(GQColors.textTertiary)
+                                    Spacer()
+                                }
+                                .padding(.vertical, 10)
+                                .padding(.horizontal, 12)
+                                .background(GQColors.surfaceBase)
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .strokeBorder(GQColors.borderDefault, lineWidth: 1)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
 
                     // Workout-specific options

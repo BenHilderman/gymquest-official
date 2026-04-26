@@ -1124,6 +1124,16 @@ struct ActiveWorkoutView: View {
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
             elapsedTime = Int(Date().timeIntervalSince(workoutStartTime))
         }
+        // Alive Phase 5: start a Live Activity for the workout. No-op if
+        // ActivityKit isn't available or no Widget Extension target is wired.
+        #if canImport(ActivityKit)
+        ColiftWorkoutLiveActivity.start(
+            workoutType: workoutType.rawValue,
+            customTitle: customTitle,
+            totalSets: totalSetsCount,
+            startedAt: workoutStartTime
+        )
+        #endif
     }
 
     private func loadOverloadSuggestions() {
@@ -1157,6 +1167,9 @@ struct ActiveWorkoutView: View {
     private func finishWorkout() {
         guard canFinishWorkout else { return }
         timer?.invalidate()
+        #if canImport(ActivityKit)
+        ColiftWorkoutLiveActivity.end()
+        #endif
 
         // Save workout immediately and go straight to post editor
         let workoutExercises = exercises.map { activeExercise -> Exercise in

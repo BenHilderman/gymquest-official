@@ -283,6 +283,19 @@ struct TodayView: View {
             AliveWatchBridge.shared.activate()
             #endif
 
+            // Alive Phase 5: write the active-friends snapshot to shared
+            // UserDefaults so a (future) lock-screen Widget Extension can
+            // render up to 4 live friend avatars.
+            #if canImport(ActivityKit)
+            let snapshot: [AliveActiveFriendsBridge.Entry] = liveFriendIds.compactMap { id in
+                let name = nameForUserId(id)
+                let initial = String(name.prefix(1)).uppercased()
+                let workoutType = allPresenceStates.first(where: { $0.userId == id })?.workoutTypeRaw
+                return AliveActiveFriendsBridge.Entry(id: id, name: name, initial: initial, workoutTypeRaw: workoutType)
+            }
+            AliveActiveFriendsBridge.write(snapshot)
+            #endif
+
             // Seed watch-bridge stamp so the first appear doesn't fire a
             // burst for already-seen reactions.
             if watchBridgeLastCount < 0 {

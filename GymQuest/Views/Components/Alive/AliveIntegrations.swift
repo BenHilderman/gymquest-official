@@ -24,11 +24,124 @@
 import Foundation
 import SwiftUI
 import AppIntents
+#if canImport(ActivityKit)
+import ActivityKit
+#endif
 #if canImport(WatchConnectivity)
 import WatchConnectivity
 #endif
 #if canImport(UIKit)
 import UIKit
+#endif
+
+// MARK: - Live Activity attributes (Phase 5)
+
+#if canImport(ActivityKit)
+
+/// Attributes for the own-workout Live Activity. Dynamic state (set count,
+/// elapsed time) lives in ContentState; static state (workout type, title)
+/// on the attributes itself.
+///
+/// IMPORTANT: rendering this Live Activity requires a Widget Extension
+/// target that imports this type and conforms to ActivityConfiguration.
+/// The data layer here is fully wired. Until the Widget Extension is
+/// added (Xcode UI: File → New → Target → Widget Extension, check "Include
+/// Live Activity"), Activity.request() throws and the driver no-ops
+/// gracefully.
+struct ColiftWorkoutAttributes: ActivityAttributes {
+    public struct ContentState: Codable, Hashable {
+        var setsCompleted: Int
+        var totalSets: Int
+        var startedAt: Date
+    }
+
+    var workoutTypeRaw: String
+    var customTitle: String?
+}
+
+@MainActor
+enum ColiftWorkoutLiveActivity {
+    private static var current: Activity<ColiftWorkoutAttributes>? = nil
+
+    static func start(workoutType: String, customTitle: String?, totalSets: Int, startedAt: Date) {
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+        guard current == nil else { return }
+        let attrs = ColiftWorkoutAttributes(workoutTypeRaw: workoutType, customTitle: customTitle)
+        let state = ColiftWorkoutAttributes.ContentState(
+            setsCompleted: 0,
+            totalSets: totalSets,
+            startedAt: startedAt
+        )
+        do {
+            current = try Activity.request(
+                attributes: attrs,
+                content: ActivityContent(state: state, staleDate: nil)
+            )
+        } catch {
+            // Most common reason: no Widget Extension target. Silent fail OK.
+            current = nil
+        }
+    }
+
+    static func update(setsCompleted: Int, totalSets: Int, startedAt: Date) {
+        Task {
+            guard let act = current else { return }
+            let state = ColiftWorkoutAttributes.ContentState(
+                setsCompleted: setsCompleted,
+                totalSets: totalSets,
+                startedAt: startedAt
+            )
+            await act.update(ActivityContent(state: state, staleDate: nil))
+        }
+    }
+
+    static func end() {
+        Task {
+            guard let act = current else { return }
+            await act.end(nil, dismissalPolicy: .immediate)
+            current = nil
+        }
+    }
+}
+
+// MARK: - Lock-screen widget data bridge
+
+/// App-Group-backed snapshot the lock-screen widget reads to render the
+/// "active friend avatars" tile. Updated whenever followed users'
+/// PresenceState rows change. Reads/writes via shared UserDefaults so the
+/// Widget Extension target (when added) can read without a SwiftData
+/// dependency.
+///
+/// The Widget Extension reads the encoded snapshot, renders the avatars
+/// with `Link(destination: liftai://reaction/<userId>)` so each one deep-
+/// links to the reaction palette pre-targeted to that friend.
+enum AliveActiveFriendsBridge {
+    private static let key = "alive.activeFriendsSnapshot"
+
+    struct Snapshot: Codable {
+        let friends: [Entry]
+        let updatedAt: Date
+    }
+    struct Entry: Codable, Identifiable {
+        let id: UUID
+        let name: String
+        let initial: String
+        let workoutTypeRaw: String?
+    }
+
+    static func write(_ entries: [Entry]) {
+        let snap = Snapshot(friends: Array(entries.prefix(4)), updatedAt: Date())
+        if let data = try? JSONEncoder().encode(snap) {
+            UserDefaults.standard.set(data, forKey: key)
+        }
+    }
+
+    static func read() -> Snapshot? {
+        guard let data = UserDefaults.standard.data(forKey: key) else { return nil }
+        return try? JSONDecoder().decode(Snapshot.self, from: data)
+    }
+}
+
 #endif
 
 // MARK: - App Intents / Siri Shortcuts
