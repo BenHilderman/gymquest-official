@@ -42,6 +42,7 @@ struct PostCardV2: View {
     /// design the viewer sees for their own profile) instead of the
     /// lightweight UserProfileSheet.
     @Query private var allProfiles: [UserProfile]
+    @Query private var allTemplates: [WorkoutTemplate]
     @State private var isLiked = false
     @State private var showVideoPlayer = false
     @State private var showComments = false
@@ -295,10 +296,12 @@ struct PostCardV2: View {
     @ViewBuilder
     private var workoutActionButtons: some View {
         Spacer()
-        Button {} label: {
-            Image(systemName: "bookmark")
+        Button {
+            toggleSaveTemplate()
+        } label: {
+            Image(systemName: savedTemplate != nil ? "bookmark.fill" : "bookmark")
                 .font(.system(size: 18))
-                .foregroundColor(GQColors.textTertiary)
+                .foregroundColor(savedTemplate != nil ? GQColors.textPrimary : GQColors.textTertiary)
         }
         .buttonStyle(.plain)
 
@@ -322,6 +325,41 @@ struct PostCardV2: View {
             appState: appState,
             modelContext: modelContext
         )
+    }
+
+    private var savedTemplate: WorkoutTemplate? {
+        allTemplates.first { $0.savedFromPostId == post.id }
+    }
+
+    private func toggleSaveTemplate() {
+        #if canImport(UIKit)
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        #endif
+        if let existing = savedTemplate {
+            modelContext.delete(existing)
+        } else {
+            let template: WorkoutTemplate
+            if let shared = post.getSharedWorkout() {
+                template = WorkoutTemplate.fromSharedWorkout(shared, userId: currentUserId, postId: post.id)
+            } else {
+                let inferredType = WorkoutType(rawValue: post.workoutType ?? "") ?? .custom
+                let fallbackName: String = {
+                    let trimmed = post.caption.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !trimmed.isEmpty { return String(trimmed.prefix(40)) }
+                    return "Saved \(inferredType.rawValue)"
+                }()
+                template = WorkoutTemplate(
+                    odId: currentUserId,
+                    name: fallbackName,
+                    workoutType: inferredType,
+                    savedFromAuthor: post.authorName,
+                    savedFromUsername: post.authorUsername,
+                    savedFromPostId: post.id
+                )
+            }
+            modelContext.insert(template)
+        }
+        try? modelContext.save()
     }
 
     /// Proof Card post layout — the signature ritual artifact, rendered as a dedicated
@@ -2854,6 +2892,7 @@ struct PostActionsRowCompact: View {
     var currentUserName: String = ""
 
     @Environment(\.modelContext) private var modelContext
+    @Query private var allTemplates: [WorkoutTemplate]
     @State private var heartScale: CGFloat = 1.0
     @State private var showParticles = false
     @State private var displayedLikeCount: Int = 0
@@ -2867,6 +2906,10 @@ struct PostActionsRowCompact: View {
     @State private var floatingEmojiOpacity: Double = 1
     @State private var reactionCounts: [(ReactionType, Int)] = []
 
+    private var savedTemplate: WorkoutTemplate? {
+        allTemplates.first { $0.savedFromPostId == post.id }
+    }
+
     var body: some View {
         ZStack(alignment: .top) {
             VStack(spacing: 0) {
@@ -2874,9 +2917,14 @@ struct PostActionsRowCompact: View {
                     reactionEmojiRow
                     compactCommentButton
                     Spacer()
-                    Image(systemName: "bookmark")
-                        .font(.system(size: 20))
-                        .foregroundColor(GQColors.textPrimary)
+                    Button {
+                        toggleSaveTemplate()
+                    } label: {
+                        Image(systemName: savedTemplate != nil ? "bookmark.fill" : "bookmark")
+                            .font(.system(size: 20))
+                            .foregroundColor(GQColors.textPrimary)
+                    }
+                    .buttonStyle(.plain)
                     if hasWorkout, let onFollow = onFollowWorkout {
                         Button(action: onFollow) {
                             Image(systemName: "arrow.right.circle")
@@ -3174,6 +3222,37 @@ struct PostActionsRowCompact: View {
             post.likeCount = count
             displayedLikeCount = count
         }
+    }
+
+    private func toggleSaveTemplate() {
+        #if canImport(UIKit)
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        #endif
+        if let existing = savedTemplate {
+            modelContext.delete(existing)
+        } else {
+            let template: WorkoutTemplate
+            if let shared = post.getSharedWorkout() {
+                template = WorkoutTemplate.fromSharedWorkout(shared, userId: currentUserId, postId: post.id)
+            } else {
+                let inferredType = WorkoutType(rawValue: post.workoutType ?? "") ?? .custom
+                let fallbackName: String = {
+                    let trimmed = post.caption.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !trimmed.isEmpty { return String(trimmed.prefix(40)) }
+                    return "Saved \(inferredType.rawValue)"
+                }()
+                template = WorkoutTemplate(
+                    odId: currentUserId,
+                    name: fallbackName,
+                    workoutType: inferredType,
+                    savedFromAuthor: post.authorName,
+                    savedFromUsername: post.authorUsername,
+                    savedFromPostId: post.id
+                )
+            }
+            modelContext.insert(template)
+        }
+        try? modelContext.save()
     }
 }
 

@@ -460,19 +460,45 @@ struct SavedWorkoutsListView: View {
     let profile: UserProfile
     let templates: [WorkoutTemplate]
 
+    private var groupedTemplates: [(type: WorkoutType, items: [WorkoutTemplate])] {
+        let grouped = Dictionary(grouping: templates, by: { $0.workoutType })
+        return WorkoutType.allCases.compactMap { type in
+            guard let items = grouped[type], !items.isEmpty else { return nil }
+            return (type, items.sorted { $0.createdAt > $1.createdAt })
+        }
+    }
+
     var body: some View {
         Group {
             if templates.isEmpty {
                 emptyStateView(
                     icon: "bookmark",
                     title: "No saved workouts",
-                    body: "Save workout templates from the feed to use them here."
+                    body: "Tap the bookmark on any workout post to save it here."
                 )
             } else {
                 ScrollView(showsIndicators: false) {
-                    VStack(spacing: 10) {
-                        ForEach(templates) { template in
-                            templateCard(template)
+                    VStack(alignment: .leading, spacing: 20) {
+                        ForEach(groupedTemplates, id: \.type) { group in
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack(spacing: 6) {
+                                    Image(systemName: group.type.icon)
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundStyle(GQGradients.primary)
+                                    Text(group.type.rawValue.uppercased())
+                                        .font(GQTypography.sectionHeader)
+                                        .foregroundColor(GQColors.textTertiary)
+                                        .tracking(0.5)
+                                    Text("\(group.items.count)")
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundColor(GQColors.textTertiary)
+                                }
+                                VStack(spacing: 10) {
+                                    ForEach(group.items) { template in
+                                        templateCard(template)
+                                    }
+                                }
+                            }
                         }
                     }
                     .padding(.horizontal, 16)

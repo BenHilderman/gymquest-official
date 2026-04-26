@@ -4400,6 +4400,7 @@ final class WorkoutTemplate {
     var lastUsedAt: Date?
     var savedFromAuthor: String?    // Display name of who created it
     var savedFromUsername: String?   // @username of creator
+    var savedFromPostId: UUID?       // Post this template was bookmarked from
 
     init(
         id: UUID = UUID(),
@@ -4413,7 +4414,8 @@ final class WorkoutTemplate {
         createdAt: Date = Date(),
         lastUsedAt: Date? = nil,
         savedFromAuthor: String? = nil,
-        savedFromUsername: String? = nil
+        savedFromUsername: String? = nil,
+        savedFromPostId: UUID? = nil
     ) {
         self.id = id
         self.odId = odId
@@ -4427,6 +4429,7 @@ final class WorkoutTemplate {
         self.lastUsedAt = lastUsedAt
         self.savedFromAuthor = savedFromAuthor
         self.savedFromUsername = savedFromUsername
+        self.savedFromPostId = savedFromPostId
     }
 
     var exercises: [TemplateExercise] {
@@ -4439,7 +4442,7 @@ final class WorkoutTemplate {
         }
     }
 
-    static func fromSharedWorkout(_ workout: SharedWorkoutData, userId: UUID) -> WorkoutTemplate {
+    static func fromSharedWorkout(_ workout: SharedWorkoutData, userId: UUID, postId: UUID? = nil) -> WorkoutTemplate {
         let templateExercises = workout.exercises.enumerated().map { index, exercise in
             TemplateExercise(
                 name: exercise.name,
@@ -4452,10 +4455,13 @@ final class WorkoutTemplate {
         }
         return WorkoutTemplate(
             odId: userId,
-            name: "\(workout.title) (from @\(workout.authorUsername))",
+            name: workout.title.isEmpty ? "Saved workout" : workout.title,
             workoutType: WorkoutType(rawValue: workout.workoutType) ?? .push,
             exercises: templateExercises,
-            estimatedDuration: workout.estimatedDuration
+            estimatedDuration: workout.estimatedDuration,
+            savedFromAuthor: workout.authorName,
+            savedFromUsername: workout.authorUsername,
+            savedFromPostId: postId
         )
     }
 }
