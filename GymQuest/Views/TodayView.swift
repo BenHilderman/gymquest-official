@@ -47,6 +47,8 @@ struct TodayView: View {
     // M clubmates lifting now" pinned to the top of Today.
     @Query private var allPresenceStates: [UserPresenceState]
     @Query private var allReactions: [LiveReaction]
+    @Query private var allSavedGyms: [SavedGym]
+    @StateObject private var locationService = AliveLocationService.shared
 
     @State private var showDraftBanner = false
     @State private var draftWorkoutType: String = ""
@@ -221,6 +223,16 @@ struct TodayView: View {
 
             if let activePlan = activePlans.first {
                 PlanScheduleService.shared.resolveMissedDays(planId: activePlan.id)
+            }
+
+            // Alive Phase 3: bootstrap demo gym + start whenInUse location
+            // monitoring (only if user opted in via the per-session dialog).
+            SavedGymSeeder.seedIfNeeded(userId: profile.id, in: modelContext)
+            let gymsForUser = allSavedGyms.filter { $0.userId == profile.id }
+            locationService.refresh(savedGyms: gymsForUser)
+            if LocationOptInStore.enabled {
+                locationService.requestPermission()
+                locationService.startMonitoring()
             }
 
             // Give @Query time to pick up new enrollments from autoEnroll
@@ -1571,6 +1583,15 @@ struct TodayView: View {
 
             ambientLiveStrip
 
+            ForEach(atMyGymMatches) { match in
+                AtMyGymBanner(
+                    friendName: match.userName,
+                    friendUserId: match.userId,
+                    gymName: match.gymName,
+                    fromUserId: profile.id
+                )
+            }
+
             if let inboxReactions = recentReactionsForSelf, !inboxReactions.isEmpty {
                 ReactionInboxCard(
                     reactions: inboxReactions,
@@ -2365,6 +2386,18 @@ struct TodayView: View {
             }
             return state.userId
         }
+    }
+
+    // MARK: - Alive Phase 3 — at-my-gym banner
+
+    private var atMyGymMatches: [AtMyGymResolver.Match] {
+        let followedIds = Set(allFollows.filter { $0.userId == profile.id }.map(\.odId))
+        return AtMyGymResolver.matches(
+            currentGymId: locationService.currentGym?.id,
+            followedIds: followedIds,
+            states: allPresenceStates,
+            nameLookup: { id in nameForUserId(id) }
+        )
     }
 
     // MARK: - Alive Phase 2 — reactions inbox + just-finished

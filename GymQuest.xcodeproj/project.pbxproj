@@ -1289,6 +1289,8 @@
 		A11FE10000000000000000FC /* AliveComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11FE10000000000000000FA /* AliveComponents.swift */; };
 		A11FE10000000000000000FE /* AliveReactions.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11FE10000000000000000FD /* AliveReactions.swift */; };
 		A11FE10000000000000000FF /* AliveReactions.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11FE10000000000000000FD /* AliveReactions.swift */; };
+		A11FE20000000000000000FB /* AliveLocation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11FE20000000000000000FA /* AliveLocation.swift */; };
+		A11FE20000000000000000FC /* AliveLocation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11FE20000000000000000FA /* AliveLocation.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -1840,6 +1842,7 @@
 		FF9DCE2F92D36971BA5E7DB1 /* ActiveWorkoutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveWorkoutView.swift; sourceTree = "<group>"; };
 		A11FE10000000000000000FA /* AliveComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AliveComponents.swift; sourceTree = "<group>"; };
 		A11FE10000000000000000FD /* AliveReactions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AliveReactions.swift; sourceTree = "<group>"; };
+		A11FE20000000000000000FA /* AliveLocation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AliveLocation.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1960,6 +1963,7 @@
 			isa = PBXGroup;
 			children = (
 				A11FE10000000000000000FA /* AliveComponents.swift */,
+				A11FE20000000000000000FA /* AliveLocation.swift */,
 				A11FE10000000000000000FD /* AliveReactions.swift */,
 				CA27357A8F5E83A6D21E7A7E /* CategoryBrowseRow.swift */,
 				8CF220F17909E8D0E0BAEB50 /* CheckInTile.swift */,
@@ -3774,6 +3778,7 @@
 				5188766DF8998A77C2696089 /* CalendarHistoryView.swift in Sources */,
 				5D4441DFD02C0FCFD874F577 /* CameraView.swift in Sources */,
 				A11FE10000000000000000FB /* AliveComponents.swift in Sources */,
+				A11FE20000000000000000FB /* AliveLocation.swift in Sources */,
 				A11FE10000000000000000FE /* AliveReactions.swift in Sources */,
 				D7209202F753EB3E666C6155 /* CategoryBrowseRow.swift in Sources */,
 				FB87944E8F8D1274327C630D /* ChallengeService.swift in Sources */,
@@ -4071,6 +4076,7 @@
 				7B80F0A7C540168EC9176EE7 /* CalendarHistoryView.swift in Sources */,
 				01FE80F0CBBD3BC0CEEBF24C /* CameraView.swift in Sources */,
 				A11FE10000000000000000FC /* AliveComponents.swift in Sources */,
+				A11FE20000000000000000FC /* AliveLocation.swift in Sources */,
 				A11FE10000000000000000FF /* AliveReactions.swift in Sources */,
 				B1877C6C98953422FF42F5B1 /* CategoryBrowseRow.swift in Sources */,
 				C6EC53893031B22F3CDA63A1 /* ChallengeService.swift in Sources */,
