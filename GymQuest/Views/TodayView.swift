@@ -49,6 +49,8 @@ struct TodayView: View {
     @Query private var allReactions: [LiveReaction]
     @Query private var allSavedGyms: [SavedGym]
     @StateObject private var locationService = AliveLocationService.shared
+    @Query private var allCoPresenceLogs: [CoPresenceLog]
+    @Query private var allClubEvents: [ClubEvent]
 
     @State private var showDraftBanner = false
     @State private var draftWorkoutType: String = ""
@@ -1583,6 +1585,24 @@ struct TodayView: View {
 
             ambientLiveStrip
 
+            ForEach(upcomingPreEvents) { ev in
+                PreEventCountdownBanner(
+                    eventTitle: ev.title,
+                    startsAt: ev.startsAt,
+                    attendingFriendCount: ev.attendingFriendCount
+                ) {
+                    appState.selectedTab = .clubs
+                }
+            }
+
+            ForEach(recentCoAttendedLogs) { log in
+                CoAttendedCard(
+                    log: log,
+                    companionName: nameForUserId(otherUserId(log)),
+                    myName: profile.name.isEmpty ? "You" : profile.name
+                )
+            }
+
             ForEach(atMyGymMatches) { match in
                 AtMyGymBanner(
                     friendName: match.userName,
@@ -1652,6 +1672,9 @@ struct TodayView: View {
 
             // Progressive challenges (3 at a time, tier-based)
             TodayChallengesSection(profile: profile)
+
+            GlobalLifterFooter()
+                .padding(.top, 8)
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 100)
@@ -2386,6 +2409,35 @@ struct TodayView: View {
             }
             return state.userId
         }
+    }
+
+    // MARK: - Alive Phase 4 — anticipation + memory
+
+    private var upcomingPreEvents: [PreEventResolver.Match] {
+        let followedIds = Set(allFollows.filter { $0.userId == profile.id }.map(\.odId))
+        let myClubIds = Set(allClubMemberships.filter { $0.userId == profile.id }.map(\.clubId))
+        return PreEventResolver.upcoming(
+            myUserId: profile.id,
+            followedIds: followedIds,
+            myClubIds: myClubIds,
+            events: allClubEvents
+        )
+    }
+
+    private var recentCoAttendedLogs: [CoPresenceLog] {
+        let cutoff = Date().addingTimeInterval(-24 * 3600)
+        return allCoPresenceLogs
+            .filter {
+                ($0.userIdA == profile.id || $0.userIdB == profile.id)
+                && $0.overlapEnd >= cutoff
+            }
+            .sorted { $0.overlapEnd > $1.overlapEnd }
+            .prefix(2)
+            .map { $0 }
+    }
+
+    private func otherUserId(_ log: CoPresenceLog) -> UUID {
+        log.userIdA == profile.id ? log.userIdB : log.userIdA
     }
 
     // MARK: - Alive Phase 3 — at-my-gym banner
