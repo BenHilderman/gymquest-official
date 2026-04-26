@@ -120,22 +120,17 @@ struct ExploreView: View {
                     // filter chip strip can pin at the top of the
                     // scroll view as the user scrolls past the hero.
                     Section {
-                        if let hero = cachedHeroPick {
-                            ExploreHeroCard(
-                                post: hero,
-                                rationale: heroRationale(for: hero),
-                                isSaved: isSaved(hero, in: .train),
-                                picksCount: heroPicks.count,
-                                currentIndex: heroIndex,
-                                onStart: { startWorkout(from: hero) },
-                                onOpen: { recommendedOpenPostId = hero.id },
-                                onToggleSave: { toggleSave(hero, collection: .train) },
-                                onAdvance: { advanceHero() },
-                                onRewind: { rewindHero() },
-                                onJumpTo: { idx in jumpHero(to: idx) },
-                                onLongPressSave: { sheetPostForCollection = hero }
+                        if !heroPicks.isEmpty {
+                            TrendingNowRail(
+                                picks: heroPicks,
+                                currentIndex: $heroIndex,
+                                onTapPost: { post in recommendedOpenPostId = post.id },
+                                onLongPressSave: { post in sheetPostForCollection = post },
+                                onNotInterested: { post in markNotInterested(post) },
+                                onShuffle: { advanceHero() },
+                                onAdvance: { advanceHero() }
                             )
-                            .padding(.horizontal, 12)
+                            .padding(.vertical, 4)
                         } else if workoutChipFilter(discoverFilter) != nil {
                             heroEmptyForFilter
                         }
@@ -1102,6 +1097,21 @@ struct ExploreView: View {
         guard heroPicks.indices.contains(index) else { return }
         guard index != heroIndex else { return }
         heroIndex = index
+    }
+
+    /// "Not interested" signal from the rail's long-press menu. Records
+    /// the negative engagement (which feeds back into the ranker via
+    /// FeedRankingService's `notInterestedPostIds` filter) and rebuilds
+    /// the picks so the rejected post drops out immediately.
+    private func markNotInterested(_ post: Post) {
+        #if canImport(UIKit)
+        UINotificationFeedbackGenerator().notificationOccurred(.warning)
+        #endif
+        EngagementTrackingService.shared.trackNotInterested(postId: post.id, userId: profile.id)
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+            heroPicks = buildHeroPicks()
+            if heroIndex >= heroPicks.count { heroIndex = max(0, heroPicks.count - 1) }
+        }
     }
 
     private var currentShelves: [ExploreShelf] {

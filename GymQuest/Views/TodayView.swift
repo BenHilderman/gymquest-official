@@ -112,23 +112,21 @@ struct TodayView: View {
         return nonRestWorkouts.filter { $0.date >= startOfWeek }.map(\.date)
     }
 
-    /// Keyed by the start-of-day for each completed workout this week.
-    /// If multiple workouts fall on the same day, the most recent wins.
-    private var thisWeekWorkoutIcons: [Date: String] {
+    /// All SF-symbol icons for workouts completed on each day of the
+    /// current week, keyed by start-of-day. Most recent first, since
+    /// `nonRestWorkouts` is ordered by `date` desc (see `@Query`).
+    /// The calendar row uses this to render single-vs-multi-workout
+    /// days differently.
+    private var thisWeekWorkoutIconsByDay: [Date: [String]] {
         let calendar = Calendar.current
         let now = Date()
         guard let startOfWeek = calendar.dateInterval(of: .weekOfYear, for: now)?.start else { return [:] }
-        var icons: [Date: String] = [:]
-        // nonRestWorkouts is sorted by date desc (see @Query above), so
-        // walking forward and skipping days we've already filled gives us
-        // the most recent workout per day.
+        var byDay: [Date: [String]] = [:]
         for w in nonRestWorkouts where w.date >= startOfWeek {
             let dayStart = calendar.startOfDay(for: w.date)
-            if icons[dayStart] == nil {
-                icons[dayStart] = w.type.icon
-            }
+            byDay[dayStart, default: []].append(w.type.icon)
         }
-        return icons
+        return byDay
     }
 
     private var lastNonRestWorkout: Workout? {
@@ -1227,36 +1225,33 @@ struct TodayView: View {
         let todayIdx = Calendar.current.component(.weekday, from: Date()) - 1
         let today = Calendar.current.startOfDay(for: Date())
         let weekStart = Calendar.current.date(byAdding: .day, value: -todayIdx, to: today)!
-        let iconsByDay = thisWeekWorkoutIcons
+        let iconsByDay = thisWeekWorkoutIconsByDay
         HStack(spacing: 0) {
             ForEach(0..<7, id: \.self) { i in
                 let isToday = i == todayIdx
                 let dayDate = Calendar.current.date(byAdding: .day, value: i, to: weekStart)!
                 let dayNum = Calendar.current.component(.day, from: dayDate)
-                let completedIcon = iconsByDay[dayDate]
+                let icons = iconsByDay[dayDate] ?? []
                 VStack(spacing: 5) {
                     Text(labels[i])
                         .font(.system(size: 10, weight: .semibold, design: .rounded))
                         .tracking(1.2)
                         .foregroundColor(
-                            isToday || completedIcon != nil
+                            isToday || !icons.isEmpty
                                 ? GQColors.textPrimary
                                 : GQColors.textTertiary
                         )
                     ZStack {
-                        if let icon = completedIcon {
+                        if !icons.isEmpty {
                             // Completed day: soft tinted fill + gradient
-                            // border. The icon carries the brand color so
-                            // the circle itself stays calm — reads as
-                            // "filled and fulfilled," not a neon badge.
+                            // border. Icon glyph(s) carry the brand color
+                            // so the circle itself stays calm.
                             Circle().fill(GQGradients.primary.opacity(0.14))
                             Circle().strokeBorder(
                                 GQGradients.primary.opacity(isToday ? 0.85 : 0.45),
                                 lineWidth: isToday ? 1.5 : 1
                             )
-                            Image(systemName: icon)
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(GQGradients.primary)
+                            completedDayContent(icons: icons)
                         } else if isToday {
                             Circle().fill(GQGradients.primary.opacity(0.06))
                             Circle().strokeBorder(GQGradients.primary.opacity(0.85), lineWidth: 1.5)
@@ -1277,6 +1272,57 @@ struct TodayView: View {
         }
     }
 
+    /// Icon glyph(s) inside a completed day's 36×36 circle.
+    /// Quiet, Apple-Calendar-style: medium-weight glyphs, brand color,
+    /// no filled badge pills. Multi-workout days lean on a small
+    /// brand-colored numeral or a tiny dot rather than a heavy capsule.
+    /// - 1 workout → single 12pt medium icon
+    /// - 2+ same type → icon + small dot at corner
+    /// - 2 distinct types → two 9pt medium icons diagonally
+    /// - 3+ distinct types → primary icon + "+N" numeric tag
+    @ViewBuilder
+    private func completedDayContent(icons: [String]) -> some View {
+        // Dedupe while keeping first-seen order (most recent first).
+        var seen = Set<String>()
+        let unique = icons.filter { seen.insert($0).inserted }
+
+        if icons.count == 1 {
+            Image(systemName: icons[0])
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(GQGradients.primary)
+        } else if unique.count == 1 {
+            // Two or more of the same workout type — implied by a tiny
+            // dot rather than a numeric badge.
+            Image(systemName: unique[0])
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(GQGradients.primary)
+            Circle()
+                .fill(GQColors.vividPurple)
+                .frame(width: 4, height: 4)
+                .offset(x: 9, y: -9)
+        } else if unique.count == 2 {
+            // Two distinct workouts — small icons in opposite corners.
+            Image(systemName: unique[0])
+                .font(.system(size: 9, weight: .medium))
+                .foregroundStyle(GQGradients.primary)
+                .offset(x: -5, y: -5)
+            Image(systemName: unique[1])
+                .font(.system(size: 9, weight: .medium))
+                .foregroundStyle(GQGradients.primary)
+                .offset(x: 5, y: 5)
+        } else {
+            // 3+ distinct types — lead with the most recent and tag the
+            // remainder with a quiet brand-colored numeral.
+            Image(systemName: unique[0])
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(GQGradients.primary)
+            Text("+\(icons.count - 1)")
+                .font(.system(size: 8, weight: .semibold, design: .rounded))
+                .foregroundColor(GQColors.deepBlue)
+                .offset(x: 11, y: -10)
+        }
+    }
+
     private func workoutTypeFor(_ label: String) -> WorkoutType? {
         if let exact = WorkoutType(rawValue: label) { return exact }
         switch label {
@@ -1286,6 +1332,125 @@ struct TodayView: View {
         case "Recovery", "Rest": return .rest
         default: return nil
         }
+    }
+
+    /// Deep-gradient hero card used when there's an active workout to
+    /// start. Mirrors the Clubs page's tonight-event hero: dark pill at
+    /// top, time-remaining ring on the right, big title + subtitle on
+    /// the left, white Start pill below.
+    @ViewBuilder
+    private func heroPlanCard(title: String, icon: String) -> some View {
+        Button {
+            appState.showingWorkoutStartOptions = true
+        } label: {
+            VStack(alignment: .leading, spacing: 14) {
+                // Top row — dark pill on the left, time ring on the right.
+                HStack(alignment: .top) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "calendar")
+                            .font(.system(size: 9, weight: .semibold))
+                        Text("TODAY  ·  YOUR PLAN")
+                            .font(.system(size: 10, weight: .bold))
+                            .tracking(1.1)
+                    }
+                    .foregroundColor(.white.opacity(0.85))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Capsule().fill(Color.black.opacity(0.28)))
+                    Spacer()
+                    dayTimeRing
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(title)
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    HStack(spacing: 6) {
+                        Image(systemName: icon)
+                            .font(.system(size: 11, weight: .semibold))
+                        Text("Tap to begin")
+                            .font(.system(size: 12, weight: .medium))
+                    }
+                    .foregroundColor(.white.opacity(0.7))
+                }
+
+                Spacer(minLength: 2)
+
+                HStack(spacing: 10) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 11, weight: .bold))
+                        Text("Start")
+                            .font(.system(size: 14, weight: .semibold))
+                    }
+                    .foregroundColor(GQColors.deepBlue)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 10)
+                    .background(Capsule().fill(.white))
+                    Spacer()
+                }
+            }
+            .padding(18)
+            .frame(maxWidth: .infinity, minHeight: 190, alignment: .leading)
+            .background(
+                LinearGradient(
+                    colors: [
+                        GQColors.vividPurple.opacity(0.92),
+                        GQColors.deepBlue.opacity(0.95),
+                        Color.black.opacity(0.55)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 18))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18)
+                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
+            )
+            .shadow(color: GQColors.vividPurple.opacity(0.22), radius: 18, x: 0, y: 8)
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// Compact white-on-dark progress ring showing how much of the
+    /// current day is left (`Xh YM`). Filled portion = time remaining.
+    /// Mirrors the Clubs hero ring at slightly smaller scale.
+    private var dayTimeRing: some View {
+        let cal = Calendar.current
+        let now = Date()
+        let startOfDay = cal.startOfDay(for: now)
+        let endOfDay = cal.date(byAdding: .day, value: 1, to: startOfDay) ?? now
+        let total = endOfDay.timeIntervalSince(startOfDay)
+        let elapsed = now.timeIntervalSince(startOfDay)
+        let remaining = max(0, endOfDay.timeIntervalSince(now))
+        let progressRemaining = total > 0 ? CGFloat(remaining / total) : 0
+        let hours = Int(remaining) / 3600
+        let minutes = (Int(remaining) % 3600) / 60
+
+        return ZStack {
+            Circle()
+                .stroke(Color.white.opacity(0.18), lineWidth: 2.5)
+                .frame(width: 54, height: 54)
+            Circle()
+                .trim(from: 0, to: progressRemaining)
+                .stroke(Color.white.opacity(0.9), style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+                .frame(width: 54, height: 54)
+            VStack(spacing: -1) {
+                Text("\(hours)h")
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
+                Text("\(minutes)M")
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundColor(.white.opacity(0.7))
+            }
+        }
+        .accessibilityElement()
+        .accessibilityLabel("Time left in day: \(hours) hours \(minutes) minutes")
     }
 
     @ViewBuilder
@@ -1336,10 +1501,9 @@ struct TodayView: View {
 
         if let planned, !isRest {
             let plannedType = workoutTypeFor(planned)
-            planCardShell(
-                icon: plannedType?.icon ?? "figure.strengthtraining.traditional",
+            heroPlanCard(
                 title: planned,
-                action: ("Start", { appState.showingWorkoutStartOptions = true })
+                icon: plannedType?.icon ?? "figure.strengthtraining.traditional"
             )
             .sheet(item: $selectedPlanDay) { item in
                 DayOverrideSheet(weekday: item.value, date: Date(), profile: profile)
@@ -1408,6 +1572,12 @@ struct TodayView: View {
             // Today's plan — compact companion to calendar
             todayPlanCard
 
+            // Friends currently training — Clubs-style "live" strip.
+            // Hidden when nobody's lifting so it doesn't read empty.
+            if !friendsLiveNow.isEmpty {
+                friendsNowStrip
+            }
+
             // Activity preview — jumps to Friends where the bell icon
             // surfaces the full Activity sheet.
             Button { appState.selectedTab = .friends } label: {
@@ -1462,6 +1632,127 @@ struct TodayView: View {
 
     private func dismissRecap(_ recap: FriendsWeeklyRecapData) {
         lastDismissedFriendsRecapKey = recapKey(recap)
+    }
+
+    // MARK: - Friends Live Strip
+
+    /// Friend (followed user) check-ins from the last 90 minutes —
+    /// treated as "currently training." 90min covers the long tail of
+    /// lifting sessions while staying tight enough that the dot really
+    /// means "right now." Most-recent first.
+    private var friendsLiveNow: [WorkoutCheckIn] {
+        // `Friend.userId` = the follower (you), `Friend.odId` = the
+        // person you follow.
+        let followedIds = Set(allFollows.filter { $0.userId == profile.id }.map(\.odId))
+        let cutoff = Date().addingTimeInterval(-90 * 60)
+        return allCheckIns
+            .filter { followedIds.contains($0.userId) && $0.timestamp >= cutoff }
+            .sorted { $0.timestamp > $1.timestamp }
+    }
+
+    /// Pill-style row of avatars for friends currently lifting. Each
+    /// avatar carries a green status dot in the bottom-right (with a
+    /// thin background-colored ring so it pops against the gradient).
+    /// Footer text reads naturally: "Olivia & 2 others are lifting"
+    /// — Clubs "3 lifting now" energy, scoped to your follow list.
+    @ViewBuilder
+    private var friendsNowStrip: some View {
+        let live = friendsLiveNow
+        let visible = Array(live.prefix(5))
+        let extra = live.count - visible.count
+
+        Button {
+            appState.selectedTab = .friends
+        } label: {
+            HStack(spacing: 12) {
+                HStack(spacing: -8) {
+                    ForEach(Array(visible.enumerated()), id: \.element.id) { _, c in
+                        liveFriendAvatar(initial: avatarInitial(c.userName))
+                    }
+                    if extra > 0 {
+                        Text("+\(extra)")
+                            .font(.system(size: 10, weight: .bold, design: .rounded))
+                            .foregroundColor(GQColors.textSecondary)
+                            .frame(width: 28, height: 28)
+                            .background(Circle().fill(GQColors.surfaceElevated))
+                            .overlay(Circle().stroke(GQColors.background, lineWidth: 2))
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 5) {
+                        Circle()
+                            .fill(GQColors.success)
+                            .frame(width: 6, height: 6)
+                        Text("LIFTING NOW")
+                            .font(.system(size: 9, weight: .bold))
+                            .tracking(1.2)
+                            .foregroundColor(GQColors.success)
+                    }
+                    Text(liveFooter(live: live))
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(GQColors.textPrimary)
+                        .lineLimit(1)
+                }
+
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .homeSocialCard(cornerRadius: 14)
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// Single circular avatar with brand gradient fill + initial, plus a
+    /// green active dot ringed in the page background color so the dot
+    /// reads as "on top of" the avatar even when avatars overlap.
+    @ViewBuilder
+    private func liveFriendAvatar(initial: String) -> some View {
+        ZStack(alignment: .bottomTrailing) {
+            Circle()
+                .fill(GQGradients.primary)
+                .frame(width: 30, height: 30)
+                .overlay(
+                    Text(initial)
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.white)
+                )
+                .overlay(Circle().stroke(GQColors.background, lineWidth: 2))
+
+            Circle()
+                .fill(GQColors.success)
+                .frame(width: 9, height: 9)
+                .overlay(Circle().stroke(GQColors.background, lineWidth: 1.5))
+                .offset(x: 1, y: 1)
+        }
+    }
+
+    /// First letter of the first word in the user's display name. Falls
+    /// back to "?" for the empty case, which never happens in practice.
+    private func avatarInitial(_ name: String) -> String {
+        guard let first = name.split(separator: " ").first?.first else { return "?" }
+        return String(first).uppercased()
+    }
+
+    /// Natural-language footer for the live strip:
+    /// 1 → "Olivia is lifting"
+    /// 2 → "Olivia & Marcus are lifting"
+    /// 3+ → "Olivia & 2 others are lifting"
+    private func liveFooter(live: [WorkoutCheckIn]) -> String {
+        switch live.count {
+        case 0: return ""
+        case 1: return "\(firstName(live[0].userName)) is lifting"
+        case 2: return "\(firstName(live[0].userName)) & \(firstName(live[1].userName)) are lifting"
+        default: return "\(firstName(live[0].userName)) & \(live.count - 1) others are lifting"
+        }
+    }
+
+    private func firstName(_ name: String) -> String {
+        String(name.split(separator: " ").first ?? "")
     }
 
     // MARK: - Friends Rhythm
