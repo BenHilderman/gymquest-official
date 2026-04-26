@@ -4401,6 +4401,7 @@ final class WorkoutTemplate {
     var savedFromAuthor: String?    // Display name of who created it
     var savedFromUsername: String?   // @username of creator
     var savedFromPostId: UUID?       // Post this template was bookmarked from
+    var scheduledFor: Date?          // User-scheduled "do this on" date (start of day)
 
     init(
         id: UUID = UUID(),
@@ -4415,7 +4416,8 @@ final class WorkoutTemplate {
         lastUsedAt: Date? = nil,
         savedFromAuthor: String? = nil,
         savedFromUsername: String? = nil,
-        savedFromPostId: UUID? = nil
+        savedFromPostId: UUID? = nil,
+        scheduledFor: Date? = nil
     ) {
         self.id = id
         self.odId = odId
@@ -4430,6 +4432,7 @@ final class WorkoutTemplate {
         self.savedFromAuthor = savedFromAuthor
         self.savedFromUsername = savedFromUsername
         self.savedFromPostId = savedFromPostId
+        self.scheduledFor = scheduledFor
     }
 
     var exercises: [TemplateExercise] {

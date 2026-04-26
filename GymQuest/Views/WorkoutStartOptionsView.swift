@@ -460,8 +460,17 @@ struct SavedWorkoutsListView: View {
     let profile: UserProfile
     let templates: [WorkoutTemplate]
 
+    private var scheduledTemplates: [WorkoutTemplate] {
+        let today = Calendar.current.startOfDay(for: Date())
+        return templates
+            .filter { ($0.scheduledFor ?? .distantPast) >= today }
+            .sorted { ($0.scheduledFor ?? .distantFuture) < ($1.scheduledFor ?? .distantFuture) }
+    }
+
     private var groupedTemplates: [(type: WorkoutType, items: [WorkoutTemplate])] {
-        let grouped = Dictionary(grouping: templates, by: { $0.workoutType })
+        let scheduledIds = Set(scheduledTemplates.map(\.id))
+        let unscheduled = templates.filter { !scheduledIds.contains($0.id) }
+        let grouped = Dictionary(grouping: unscheduled, by: { $0.workoutType })
         return WorkoutType.allCases.compactMap { type in
             guard let items = grouped[type], !items.isEmpty else { return nil }
             return (type, items.sorted { $0.createdAt > $1.createdAt })
@@ -479,6 +488,28 @@ struct SavedWorkoutsListView: View {
             } else {
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 20) {
+                        if !scheduledTemplates.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "calendar")
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundStyle(GQGradients.primary)
+                                    Text("UP NEXT")
+                                        .font(GQTypography.sectionHeader)
+                                        .foregroundColor(GQColors.textTertiary)
+                                        .tracking(0.5)
+                                    Text("\(scheduledTemplates.count)")
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundColor(GQColors.textTertiary)
+                                }
+                                VStack(spacing: 10) {
+                                    ForEach(scheduledTemplates) { template in
+                                        templateCard(template)
+                                    }
+                                }
+                            }
+                        }
+
                         ForEach(groupedTemplates, id: \.type) { group in
                             VStack(alignment: .leading, spacing: 8) {
                                 HStack(spacing: 6) {
@@ -537,7 +568,14 @@ struct SavedWorkoutsListView: View {
                             .foregroundColor(GQColors.textPrimary)
                             .lineLimit(1)
                         Spacer()
-                        if let author = template.savedFromUsername, !author.isEmpty {
+                        if let scheduled = template.scheduledFor {
+                            Text(formatScheduled(scheduled))
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(Capsule().fill(GQGradients.primary))
+                        } else if let author = template.savedFromUsername, !author.isEmpty {
                             Text("@\(author)")
                                 .font(.system(size: 12, weight: .medium))
                                 .foregroundStyle(GQGradients.primary)
@@ -581,6 +619,16 @@ struct SavedWorkoutsListView: View {
 
         template.useCount += 1
         template.lastUsedAt = Date()
+        template.scheduledFor = nil
+    }
+
+    private func formatScheduled(_ date: Date) -> String {
+        let calendar = Calendar.current
+        if calendar.isDateInToday(date) { return "TODAY" }
+        if calendar.isDateInTomorrow(date) { return "TOMORROW" }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEE MMM d"
+        return formatter.string(from: date).uppercased()
     }
 }
 

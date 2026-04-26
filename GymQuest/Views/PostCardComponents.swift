@@ -304,6 +304,18 @@ struct PostCardV2: View {
                 .foregroundColor(savedTemplate != nil ? GQColors.textPrimary : GQColors.textTertiary)
         }
         .buttonStyle(.plain)
+        .contextMenu {
+            Button {
+                toggleSaveTemplate()
+            } label: {
+                Label(savedTemplate != nil ? "Unsave" : "Save", systemImage: savedTemplate != nil ? "bookmark.slash" : "bookmark")
+            }
+            Button {
+                scheduleForTomorrow()
+            } label: {
+                Label("Schedule for tomorrow", systemImage: "calendar.badge.plus")
+            }
+        }
 
         // Show the Try button on any post we can launch from — the full
         // structured workout if available, otherwise a blank session of
@@ -338,28 +350,44 @@ struct PostCardV2: View {
         if let existing = savedTemplate {
             modelContext.delete(existing)
         } else {
-            let template: WorkoutTemplate
-            if let shared = post.getSharedWorkout() {
-                template = WorkoutTemplate.fromSharedWorkout(shared, userId: currentUserId, postId: post.id)
-            } else {
-                let inferredType = WorkoutType(rawValue: post.workoutType ?? "") ?? .custom
-                let fallbackName: String = {
-                    let trimmed = post.caption.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if !trimmed.isEmpty { return String(trimmed.prefix(40)) }
-                    return "Saved \(inferredType.rawValue)"
-                }()
-                template = WorkoutTemplate(
-                    odId: currentUserId,
-                    name: fallbackName,
-                    workoutType: inferredType,
-                    savedFromAuthor: post.authorName,
-                    savedFromUsername: post.authorUsername,
-                    savedFromPostId: post.id
-                )
-            }
+            modelContext.insert(buildTemplateFromPost())
+        }
+        try? modelContext.save()
+    }
+
+    private func scheduleForTomorrow() {
+        #if canImport(UIKit)
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        #endif
+        let tomorrow = Calendar.current.startOfDay(for: Date().addingTimeInterval(86_400))
+        if let existing = savedTemplate {
+            existing.scheduledFor = tomorrow
+        } else {
+            let template = buildTemplateFromPost()
+            template.scheduledFor = tomorrow
             modelContext.insert(template)
         }
         try? modelContext.save()
+    }
+
+    private func buildTemplateFromPost() -> WorkoutTemplate {
+        if let shared = post.getSharedWorkout() {
+            return WorkoutTemplate.fromSharedWorkout(shared, userId: currentUserId, postId: post.id)
+        }
+        let inferredType = WorkoutType(rawValue: post.workoutType ?? "") ?? .custom
+        let fallbackName: String = {
+            let trimmed = post.caption.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty { return String(trimmed.prefix(40)) }
+            return "Saved \(inferredType.rawValue)"
+        }()
+        return WorkoutTemplate(
+            odId: currentUserId,
+            name: fallbackName,
+            workoutType: inferredType,
+            savedFromAuthor: post.authorName,
+            savedFromUsername: post.authorUsername,
+            savedFromPostId: post.id
+        )
     }
 
     /// Proof Card post layout — the signature ritual artifact, rendered as a dedicated
@@ -2925,6 +2953,18 @@ struct PostActionsRowCompact: View {
                             .foregroundColor(GQColors.textPrimary)
                     }
                     .buttonStyle(.plain)
+                    .contextMenu {
+                        Button {
+                            toggleSaveTemplate()
+                        } label: {
+                            Label(savedTemplate != nil ? "Unsave" : "Save", systemImage: savedTemplate != nil ? "bookmark.slash" : "bookmark")
+                        }
+                        Button {
+                            scheduleForTomorrow()
+                        } label: {
+                            Label("Schedule for tomorrow", systemImage: "calendar.badge.plus")
+                        }
+                    }
                     if hasWorkout, let onFollow = onFollowWorkout {
                         Button(action: onFollow) {
                             Image(systemName: "arrow.right.circle")
@@ -3231,28 +3271,44 @@ struct PostActionsRowCompact: View {
         if let existing = savedTemplate {
             modelContext.delete(existing)
         } else {
-            let template: WorkoutTemplate
-            if let shared = post.getSharedWorkout() {
-                template = WorkoutTemplate.fromSharedWorkout(shared, userId: currentUserId, postId: post.id)
-            } else {
-                let inferredType = WorkoutType(rawValue: post.workoutType ?? "") ?? .custom
-                let fallbackName: String = {
-                    let trimmed = post.caption.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if !trimmed.isEmpty { return String(trimmed.prefix(40)) }
-                    return "Saved \(inferredType.rawValue)"
-                }()
-                template = WorkoutTemplate(
-                    odId: currentUserId,
-                    name: fallbackName,
-                    workoutType: inferredType,
-                    savedFromAuthor: post.authorName,
-                    savedFromUsername: post.authorUsername,
-                    savedFromPostId: post.id
-                )
-            }
+            modelContext.insert(buildTemplateFromPost())
+        }
+        try? modelContext.save()
+    }
+
+    private func scheduleForTomorrow() {
+        #if canImport(UIKit)
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        #endif
+        let tomorrow = Calendar.current.startOfDay(for: Date().addingTimeInterval(86_400))
+        if let existing = savedTemplate {
+            existing.scheduledFor = tomorrow
+        } else {
+            let template = buildTemplateFromPost()
+            template.scheduledFor = tomorrow
             modelContext.insert(template)
         }
         try? modelContext.save()
+    }
+
+    private func buildTemplateFromPost() -> WorkoutTemplate {
+        if let shared = post.getSharedWorkout() {
+            return WorkoutTemplate.fromSharedWorkout(shared, userId: currentUserId, postId: post.id)
+        }
+        let inferredType = WorkoutType(rawValue: post.workoutType ?? "") ?? .custom
+        let fallbackName: String = {
+            let trimmed = post.caption.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty { return String(trimmed.prefix(40)) }
+            return "Saved \(inferredType.rawValue)"
+        }()
+        return WorkoutTemplate(
+            odId: currentUserId,
+            name: fallbackName,
+            workoutType: inferredType,
+            savedFromAuthor: post.authorName,
+            savedFromUsername: post.authorUsername,
+            savedFromPostId: post.id
+        )
     }
 }
 
