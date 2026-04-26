@@ -223,7 +223,6 @@ struct ActiveWorkoutView: View {
     @State private var showMusicPicker = false
     @State private var workoutSong: Song?
     @State private var isSharingLive = false
-    @State private var showingGymLocationPrompt = false
     @State private var partyService = WorkoutPartyService()
     @State private var locationService = LocationTrackingService.shared
     @State private var isTrackingLocation = false
@@ -502,11 +501,6 @@ struct ActiveWorkoutView: View {
             initializeFromAppState()
             startTimer()
             loadOverloadSuggestions()
-            if !FeatureFlags.shared.hasSeenGymLocationPrompt {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-                    showingGymLocationPrompt = true
-                }
-            }
             // Auto-start GPS for cardio/HIIT workouts
             if workoutType.isGPSEligible {
                 if locationService.hasPermission {
@@ -666,18 +660,6 @@ struct ActiveWorkoutView: View {
         }
         .sheet(isPresented: $showingWorkoutCamera) {
             WorkoutCameraSheet(workoutMedia: $workoutMedia)
-        }
-        .alert("Share Gym Location?", isPresented: $showingGymLocationPrompt) {
-            Button("Share Location") {
-                FeatureFlags.shared.gymLocationSharing = true
-                FeatureFlags.shared.hasSeenGymLocationPrompt = true
-            }
-            Button("Not Now", role: .cancel) {
-                FeatureFlags.shared.gymLocationSharing = false
-                FeatureFlags.shared.hasSeenGymLocationPrompt = true
-            }
-        } message: {
-            Text("Let friends see which gym you're at during workouts. You can change this anytime in Settings.")
         }
     }
 
