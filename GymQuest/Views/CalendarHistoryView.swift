@@ -119,6 +119,7 @@ struct CalendarHistoryView: View {
         let workout = workoutForDate(date)
         let isToday = calendar.isDateInToday(date)
         let dayNumber = calendar.component(.day, from: date)
+        let isRest = workout?.type == .rest
 
         Button {
             if let workout, workout.type != .rest {
@@ -129,20 +130,12 @@ struct CalendarHistoryView: View {
             VStack(spacing: 2) {
                 Text("\(dayNumber)")
                     .font(.system(size: 14, weight: isToday ? .bold : .medium))
-                    .foregroundStyle(
-                        workout != nil ? .white : GQColors.textPrimary
-                    )
+                    .foregroundColor(GQColors.textPrimary)
 
                 if let workout {
-                    if workout.type == .rest {
-                        Image(systemName: "bed.double.fill")
-                            .font(.system(size: 8))
-                            .foregroundStyle(.white.opacity(0.8))
-                    } else {
-                        Image(systemName: workout.type.icon)
-                            .font(.system(size: 8))
-                            .foregroundStyle(.white.opacity(0.8))
-                    }
+                    Image(systemName: isRest ? "bed.double.fill" : workout.type.icon)
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(isRest ? AnyShapeStyle(GQColors.textTertiary) : AnyShapeStyle(GQGradients.primary))
                 }
             }
             .frame(width: 44, height: 44)
@@ -167,15 +160,9 @@ struct CalendarHistoryView: View {
     private func cellBackground(workout: Workout?, isToday: Bool) -> some ShapeStyle {
         if let workout {
             if workout.type == .rest {
-                return AnyShapeStyle(GQColors.textTertiary.opacity(0.3))
+                return AnyShapeStyle(GQColors.adaptiveOverlay(0.04))
             }
-            return AnyShapeStyle(
-                LinearGradient(
-                    colors: [GQColors.deepBlue.opacity(0.8), GQColors.deepBlue.opacity(0.8)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
+            return AnyShapeStyle(GQColors.deepBlue.opacity(0.10))
         }
         return AnyShapeStyle(GQColors.adaptiveOverlay(isToday ? 0.06 : 0.03))
     }

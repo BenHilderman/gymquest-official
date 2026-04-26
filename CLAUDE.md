@@ -78,7 +78,7 @@ In the new worktree's session, **first action** is to add a row to the table bel
 
 | Worktree / branch | Owner focus | Primary files | Do NOT edit | Status | Updated |
 |---|---|---|---|---|---|
-| _(none)_ | | | | | |
+| home-feed-mix / feat/home-feed-mix | Friends feed surface: notifications icon polish (bell→heart + dot indicator, simplified banner). Recommendation injection scoped out — already implemented in mixedFeed. | GymQuest/Views/FriendsFeedView.swift | GymQuest/Views/ClubsView.swift, GymQuest/Views/TodayView.swift (user actively editing on main) | in-progress | 2026-04-25 |
 
 **Status values**: `planning` · `in-progress` · `ready-for-review` · `merged`
 
