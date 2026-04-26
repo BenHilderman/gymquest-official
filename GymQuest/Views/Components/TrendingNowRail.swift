@@ -86,6 +86,10 @@ struct TrendingNowRail: View {
     @Binding var currentIndex: Int
     var onTapPost: (Post) -> Void
     var onLongPressSave: ((Post) -> Void)? = nil
+    /// Fires when the user picks "Not interested" from the long-press
+    /// context menu. Parent should record the negative signal with
+    /// EngagementTrackingService and refresh the rail's picks.
+    var onNotInterested: ((Post) -> Void)? = nil
     var onShuffle: (() -> Void)? = nil
     var onAdvance: (() -> Void)? = nil
 
@@ -208,11 +212,25 @@ struct TrendingNowRail: View {
                             watchedToday = TodaysMixWatchedStore.watchedToday()
                             onTapPost(post)
                         }
-                        .onLongPressGesture(minimumDuration: 0.4) {
-                            #if canImport(UIKit)
-                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                            #endif
-                            onLongPressSave?(post)
+                        .contextMenu {
+                            // Long-press now opens a real menu instead
+                            // of a single hard-coded action — gives the
+                            // user a way to save AND a way to send a
+                            // negative signal back to the ranker.
+                            if onLongPressSave != nil {
+                                Button {
+                                    onLongPressSave?(post)
+                                } label: {
+                                    Label("Save", systemImage: "bookmark")
+                                }
+                            }
+                            if onNotInterested != nil {
+                                Button(role: .destructive) {
+                                    onNotInterested?(post)
+                                } label: {
+                                    Label("Not interested", systemImage: "hand.thumbsdown")
+                                }
+                            }
                         }
                 }
             }

@@ -126,6 +126,7 @@ struct ExploreView: View {
                                 currentIndex: $heroIndex,
                                 onTapPost: { post in recommendedOpenPostId = post.id },
                                 onLongPressSave: { post in sheetPostForCollection = post },
+                                onNotInterested: { post in markNotInterested(post) },
                                 onShuffle: { advanceHero() },
                                 onAdvance: { advanceHero() }
                             )
@@ -1096,6 +1097,21 @@ struct ExploreView: View {
         guard heroPicks.indices.contains(index) else { return }
         guard index != heroIndex else { return }
         heroIndex = index
+    }
+
+    /// "Not interested" signal from the rail's long-press menu. Records
+    /// the negative engagement (which feeds back into the ranker via
+    /// FeedRankingService's `notInterestedPostIds` filter) and rebuilds
+    /// the picks so the rejected post drops out immediately.
+    private func markNotInterested(_ post: Post) {
+        #if canImport(UIKit)
+        UINotificationFeedbackGenerator().notificationOccurred(.warning)
+        #endif
+        EngagementTrackingService.shared.trackNotInterested(postId: post.id, userId: profile.id)
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+            heroPicks = buildHeroPicks()
+            if heroIndex >= heroPicks.count { heroIndex = max(0, heroPicks.count - 1) }
+        }
     }
 
     private var currentShelves: [ExploreShelf] {
