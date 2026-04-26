@@ -34,11 +34,15 @@ enum PresenceService {
         }
     }
 
-    /// Mark workout done. Keeps the record in `.done` for a window so peers
-    /// see a subtle "just finished" cue; later transitions to `.idle`.
+    /// Mark workout done. Keeps the record in `.finishedRecently` for a window
+    /// so peers see a subtle "just finished" cue; later transitions to `.idle`.
+    /// Wipes friend-only location detail (gymId/gymName) per the privacy rule.
     static func setDone(userId: UUID, in modelContext: ModelContext) {
         upsert(userId: userId, in: modelContext) { state in
-            state.status = .done
+            state.status = .finishedRecently
+            state.endedAt = Date()
+            state.gymId = nil
+            state.gymName = nil
             state.updatedAt = Date()
             // Keep startedAt for "trained 47 min" summary rendering.
         }
@@ -48,6 +52,10 @@ enum PresenceService {
         upsert(userId: userId, in: modelContext) { state in
             state.status = .idle
             state.startedAt = nil
+            state.endedAt = nil
+            state.gymId = nil
+            state.gymName = nil
+            state.sessionTags = []
             state.updatedAt = Date()
         }
     }
@@ -87,7 +95,7 @@ enum PresenceService {
         let window: TimeInterval = 10 * 60
         return all.filter { state in
             guard followedIds.contains(state.userId) else { return false }
-            guard state.status == .done else { return false }
+            guard state.status == .finishedRecently else { return false }
             return now.timeIntervalSince(state.updatedAt) <= window
         }
     }

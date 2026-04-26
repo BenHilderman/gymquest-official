@@ -43,6 +43,10 @@ struct TodayView: View {
     // user pinned to today via long-press → Schedule for tomorrow.
     @Query private var allTemplates: [WorkoutTemplate]
 
+    // Live presence rows — drives the AmbientHeaderStrip "N friends ·
+    // M clubmates lifting now" pinned to the top of Today.
+    @Query private var allPresenceStates: [UserPresenceState]
+
     @State private var showDraftBanner = false
     @State private var draftWorkoutType: String = ""
     @State private var draftStartTime: Date = Date()
@@ -1564,6 +1568,8 @@ struct TodayView: View {
         VStack(spacing: 12) {
             dateHeader
 
+            ambientLiveStrip
+
             if showDraftBanner {
                 resumeDraftBanner
             }
@@ -1676,6 +1682,7 @@ struct TodayView: View {
                 HStack(spacing: -8) {
                     ForEach(Array(visible.enumerated()), id: \.element.id) { _, c in
                         liveFriendAvatar(initial: avatarInitial(c.userName))
+                            .presenceRing(c.userId, size: 28)
                     }
                     if extra > 0 {
                         Text("+\(extra)")
@@ -2300,6 +2307,58 @@ struct TodayView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
+    }
+
+    // MARK: - Ambient header strip (Alive Phase 1)
+
+    private var liveFriendIds: [UUID] {
+        let followedIds = Set(allFollows.filter { $0.userId == profile.id }.map(\.odId))
+        let now = Date()
+        return allPresenceStates.compactMap { state in
+            guard followedIds.contains(state.userId) else { return nil }
+            switch state.status {
+            case .arriving, .training, .resting: break
+            default: return nil
+            }
+            if let started = state.startedAt, now.timeIntervalSince(started) > 3 * 3600 {
+                return nil
+            }
+            return state.userId
+        }
+    }
+
+    private var liveClubmateIds: [UUID] {
+        let myClubIds = Set(allClubMemberships.filter { $0.userId == profile.id }.map(\.clubId))
+        guard !myClubIds.isEmpty else { return [] }
+        let clubmateIds = Set(allClubs
+            .filter { myClubIds.contains($0.id) }
+            .flatMap { $0.memberIds })
+            .subtracting([profile.id])
+        let now = Date()
+        return allPresenceStates.compactMap { state in
+            guard clubmateIds.contains(state.userId) else { return nil }
+            switch state.status {
+            case .arriving, .training, .resting: break
+            default: return nil
+            }
+            if let started = state.startedAt, now.timeIntervalSince(started) > 3 * 3600 {
+                return nil
+            }
+            return state.userId
+        }
+    }
+
+    @ViewBuilder
+    private var ambientLiveStrip: some View {
+        let friends = liveFriendIds
+        let clubmates = liveClubmateIds
+        AmbientHeaderStrip(
+            friendCount: friends.count,
+            clubmateCount: clubmates.count,
+            avatarPeek: Array((friends + clubmates).prefix(3))
+        ) {
+            appState.selectedTab = .friends
+        }
     }
 
     // MARK: - Saved-template "scheduled for today" banner

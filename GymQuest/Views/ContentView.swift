@@ -51,7 +51,9 @@ struct ContentView: View {
     var body: some View {
         Group {
             if let profile = profile {
-                mainContent(profile: profile)
+                PresenceLookupProvider {
+                    mainContent(profile: profile)
+                }
             } else {
                 // Loading state while profile loads
                 ZStack {
@@ -300,8 +302,29 @@ struct FloatingTabBar: View {
     @Query(sort: \Post.timestamp, order: .reverse) private var allPosts: [Post]
     @Query private var presenceStates: [UserPresenceState]
     @Query private var tabBarClubs: [Club]
+    @Query private var tabBarFollows: [Friend]
     @State private var workoutSeconds: Int = 0
     @State private var workoutTimer: Timer?
+
+    /// Spec rule: Friends tab pulses green when ANY followed user is in
+    /// `arriving / training / resting` (the "active or about to be" set).
+    private var anyFriendLive: Bool {
+        guard let profile = authenticatedProfiles.first else { return false }
+        let followedIds = Set(tabBarFollows.filter { $0.userId == profile.id }.map(\.odId))
+        guard !followedIds.isEmpty else { return false }
+        let now = Date()
+        return presenceStates.contains { state in
+            guard followedIds.contains(state.userId) else { return false }
+            switch state.status {
+            case .arriving, .training, .resting: break
+            default: return false
+            }
+            if let started = state.startedAt, now.timeIntervalSince(started) > 3 * 3600 {
+                return false
+            }
+            return true
+        }
+    }
 
     /// True when any member of any club the user is in is currently
     /// training. Drives a green dot on the Clubs tab icon — parity with
@@ -350,6 +373,7 @@ struct FloatingTabBar: View {
             HStack(spacing: 0) {
                 ZStack(alignment: .topTrailing) {
                     FloatingTabButton(tab: .friends, icon: "person.2", selectedIcon: "person.2.fill", label: "Friends")
+                        .liveTabPulse(anyFriendLive ? .social : .none)
 
                     if unreadActivityCount > 0 {
                         // Numeric badge on the Friends tab icon itself —
@@ -370,6 +394,7 @@ struct FloatingTabBar: View {
                 }
 
                 FloatingTabButton(tab: .clubs, icon: "person.3", selectedIcon: "person.3.fill", label: "Clubs")
+                    .liveTabPulse(anyClubMemberLive ? .social : .none)
 
                 // Center button — workout indicator when active, "+" when idle
                 if appState.isWorkoutActive {

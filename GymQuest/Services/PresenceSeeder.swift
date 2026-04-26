@@ -17,6 +17,17 @@ enum PresenceSeeder {
         let liveUsers = SocialSeeder.fakeUsers.prefix(3)
         let workoutTypes = ["Push", "Legs", "Pull"]
 
+        // A small set of seeded gyms so stealth co-presence has something to
+        // resolve against. Friend #0 lives at THE_ARC so the AtMyGymBanner
+        // demo flow always finds a hit when the user geofences there.
+        let theArcId = UUID(uuidString: "ABCDEF12-0000-0000-0000-000000000001")!
+        let bardownId = UUID(uuidString: "ABCDEF12-0000-0000-0000-000000000002")!
+        let gymsById: [(UUID, String)] = [
+            (theArcId, "The ARC"),
+            (bardownId, "Bardown Strength"),
+            (theArcId, "The ARC"),
+        ]
+
         // Fetch all presence rows once, then filter in memory. Much cleaner
         // than one predicate per user (which trips the macro on tuple binds).
         let descriptor = FetchDescriptor<UserPresenceState>()
@@ -26,6 +37,7 @@ enum PresenceSeeder {
         for (i, user) in liveUsers.enumerated() {
             let type = workoutTypes[i % workoutTypes.count]
             let startedAt = Date().addingTimeInterval(-Double(Int.random(in: 5...25) * 60))
+            let (gymId, gymName) = gymsById[i % gymsById.count]
 
             if let current = existingByUser[user.id] {
                 // Only refresh records that look stale — keeps any real
@@ -34,6 +46,8 @@ enum PresenceSeeder {
                     current.status = .training
                     current.workoutTypeRaw = type
                     current.startedAt = startedAt
+                    current.gymId = gymId
+                    current.gymName = gymName
                     current.updatedAt = Date()
                 }
             } else {
@@ -41,7 +55,9 @@ enum PresenceSeeder {
                     userId: user.id,
                     status: .training,
                     workoutType: type,
-                    startedAt: startedAt
+                    startedAt: startedAt,
+                    gymId: gymId,
+                    gymName: gymName
                 )
                 modelContext.insert(fresh)
             }

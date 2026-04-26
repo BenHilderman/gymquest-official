@@ -77,6 +77,11 @@ struct FriendsFeedView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 0) {
+                    aliveAmbientStrip
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+                        .padding(.bottom, 4)
+
                     if let toast = refreshToast {
                         refreshToastBanner(toast)
                             .padding(.horizontal, 16)
@@ -254,6 +259,58 @@ struct FriendsFeedView: View {
 
     private func markActivitySeen() {
         UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: lastActivitySeenKey)
+    }
+
+    // MARK: - Alive Phase 1 — ambient header strip
+
+    private var liveFriendIdsForStrip: [UUID] {
+        let followedIds = Set(follows.filter { $0.userId == profile.id }.map(\.odId))
+        let now = Date()
+        return presenceStates.compactMap { state in
+            guard followedIds.contains(state.userId) else { return nil }
+            switch state.status {
+            case .arriving, .training, .resting: break
+            default: return nil
+            }
+            if let started = state.startedAt, now.timeIntervalSince(started) > 3 * 3600 {
+                return nil
+            }
+            return state.userId
+        }
+    }
+
+    private var liveClubmateIdsForStrip: [UUID] {
+        let myClubIds = Set(clubs.filter { $0.memberIds.contains(profile.id) }.map(\.id))
+        guard !myClubIds.isEmpty else { return [] }
+        let clubmateIds = Set(clubs
+            .filter { myClubIds.contains($0.id) }
+            .flatMap { $0.memberIds })
+            .subtracting([profile.id])
+        let now = Date()
+        return presenceStates.compactMap { state in
+            guard clubmateIds.contains(state.userId) else { return nil }
+            switch state.status {
+            case .arriving, .training, .resting: break
+            default: return nil
+            }
+            if let started = state.startedAt, now.timeIntervalSince(started) > 3 * 3600 {
+                return nil
+            }
+            return state.userId
+        }
+    }
+
+    @ViewBuilder
+    private var aliveAmbientStrip: some View {
+        let friends = liveFriendIdsForStrip
+        let clubmates = liveClubmateIdsForStrip
+        AmbientHeaderStrip(
+            friendCount: friends.count,
+            clubmateCount: clubmates.count,
+            avatarPeek: Array((friends + clubmates).prefix(3))
+        ) {
+            presentingActivity = true
+        }
     }
 
     // MARK: - Data
