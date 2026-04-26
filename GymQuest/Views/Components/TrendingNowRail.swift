@@ -180,6 +180,83 @@ private struct TrendingHeroCard: View {
 
     private var hasVideo: Bool { post.videoData != nil }
 
+    // MARK: - Live Signal
+
+    /// Decoded freshness/popularity signal shown as a top-left chip.
+    /// Priority (highest first): just-posted (<5m), very-recent (<1h),
+    /// popular-today (viewCount), trending (engagementScore). nil when
+    /// none apply so the chip doesn't show.
+    private var liveSignal: LiveSignal? {
+        let elapsed = Date().timeIntervalSince(post.timestamp)
+        if elapsed < 300 {
+            return .justPosted
+        }
+        if elapsed < 3600 {
+            return .recent(minutes: Int(elapsed / 60))
+        }
+        if post.viewCount >= 100 {
+            return .views(post.viewCount)
+        }
+        if post.engagementScore >= 0.5 {
+            return .trending
+        }
+        return nil
+    }
+
+    private enum LiveSignal {
+        case justPosted
+        case recent(minutes: Int)
+        case views(Int)
+        case trending
+    }
+
+    @ViewBuilder
+    private func liveChip(_ signal: LiveSignal) -> some View {
+        switch signal {
+        case .justPosted:
+            HStack(spacing: 5) {
+                PulsingDot(color: GQColors.success)
+                Text("JUST POSTED")
+                    .font(.system(size: 9, weight: .bold))
+                    .tracking(0.5)
+            }
+            .foregroundColor(.white)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(Capsule().fill(.black.opacity(0.55)))
+        case .recent(let minutes):
+            chipShell(text: "\(minutes)m ago", icon: "clock.fill")
+        case .views(let n):
+            chipShell(text: formatViews(n), icon: "eye.fill")
+        case .trending:
+            chipShell(text: "TRENDING", icon: "flame.fill", tracking: 0.5, weight: .bold)
+        }
+    }
+
+    @ViewBuilder
+    private func chipShell(text: String, icon: String, tracking: CGFloat = 0.0, weight: Font.Weight = .semibold) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: icon).font(.system(size: 8, weight: .bold))
+            Text(text)
+                .font(.system(size: 10, weight: weight))
+                .tracking(tracking)
+        }
+        .foregroundColor(.white)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(Capsule().fill(.black.opacity(0.55)))
+    }
+
+    private func formatViews(_ n: Int) -> String {
+        if n >= 1000 {
+            let k = Double(n) / 1000.0
+            return String(format: "%.1fK views", k)
+        }
+        return "\(n) views"
+    }
+
+    // MARK: - Title / Author
+
     private var title: String {
         if let data = post.sharedWorkoutData,
            let shared = try? JSONDecoder().decode(SharedWorkoutData.self, from: data),
@@ -233,11 +310,15 @@ private struct TrendingHeroCard: View {
             )
             .allowsHitTesting(false)
 
-            // Top-right chip — workout type pill in the brand gradient.
-            // Sits above the gradient so it's visible against bright
-            // cover photos.
+            // Top row — live-signal chip on the left (freshness /
+            // trending / view count) and workout-type chip on the
+            // right. Both sit above the bottom gradient and only pin
+            // to the top edge so the bottom caption stays roomy.
             VStack {
-                HStack {
+                HStack(alignment: .top) {
+                    if let signal = liveSignal {
+                        liveChip(signal)
+                    }
                     Spacer()
                     if let chip = workoutChip {
                         Text(chip)
@@ -382,6 +463,25 @@ private struct TrendingHeroCard: View {
         #else
         Color.gray
         #endif
+    }
+}
+
+// MARK: - Pulsing Dot
+
+/// Small colored dot that pulses opacity to imply liveness — used on
+/// the JUST POSTED chip so the top-left signal reads as motion even
+/// when the rail is paused.
+private struct PulsingDot: View {
+    let color: Color
+    @State private var pulse = false
+
+    var body: some View {
+        Circle()
+            .fill(color)
+            .frame(width: 6, height: 6)
+            .opacity(pulse ? 0.5 : 1)
+            .animation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true), value: pulse)
+            .onAppear { pulse = true }
     }
 }
 
