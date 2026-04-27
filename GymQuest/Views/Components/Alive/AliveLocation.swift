@@ -23,6 +23,48 @@ import UserNotifications
 import UIKit
 #endif
 
+// MARK: - Per-friend asymmetric trust list
+
+/// "Who can see my gym name when I'm there?" — a UserDefaults-backed set
+/// of friend UUIDs the user has explicitly opted in. Asymmetric: I add
+/// Marcus to this list ⇒ Marcus may see "Olivia is at the ARC". It does
+/// NOT mean I see Marcus's gym — that requires Marcus to add me to his
+/// own trust list.
+///
+/// This replaces the per-session "Yes / Just-active / Ghost" dialog at
+/// workout start — once-per-friend decisions accumulate into a stable
+/// trust shape, no recurring interruption.
+enum LocationTrustedFriendsStore {
+    private static let key = "alive.locationTrustedFriends"
+
+    static func load() -> Set<UUID> {
+        let strings = UserDefaults.standard.stringArray(forKey: key) ?? []
+        return Set(strings.compactMap(UUID.init(uuidString:)))
+    }
+
+    static func contains(_ id: UUID) -> Bool { load().contains(id) }
+
+    static func add(_ id: UUID) {
+        var current = load()
+        current.insert(id)
+        save(current)
+    }
+
+    static func remove(_ id: UUID) {
+        var current = load()
+        current.remove(id)
+        save(current)
+    }
+
+    static func toggle(_ id: UUID) {
+        if contains(id) { remove(id) } else { add(id) }
+    }
+
+    private static func save(_ ids: Set<UUID>) {
+        UserDefaults.standard.set(ids.map { $0.uuidString }, forKey: key)
+    }
+}
+
 // MARK: - Location service
 
 @MainActor

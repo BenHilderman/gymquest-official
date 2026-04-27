@@ -15,6 +15,10 @@ struct UserProfileSheet: View {
     @State private var isFollowing = false
     /// Forces a re-render after toggling AutoReactStore (UserDefaults isn't observable).
     @State private var autoReactTick: Int = 0
+    /// Same — forces re-render after flipping LocationTrustedFriendsStore.
+    @State private var locationTrustTick: Int = 0
+    /// Soft prompt shown the moment the user follows: "Show [Name] my gym?"
+    @State private var showLocationTrustPrompt: Bool = false
     @Query private var profileSheetReactions: [LiveReaction]
 
     private var userProfile: UserProfile? {
@@ -65,7 +69,56 @@ struct UserProfileSheet: View {
                 }
             }
             .onAppear { loadFollowState() }
+            .sheet(isPresented: $showLocationTrustPrompt) {
+                locationTrustSoftPromptSheet
+                    .presentationDetents([.height(220)])
+            }
         }
+    }
+
+    @ViewBuilder
+    private var locationTrustSoftPromptSheet: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Capsule().fill(GQColors.borderDefault).frame(width: 36, height: 4).padding(.top, 8)
+                .frame(maxWidth: .infinity)
+            Text("Show \(firstName) your gym?")
+                .font(.system(size: 17, weight: .bold))
+                .foregroundColor(GQColors.textPrimary)
+            Text("They'll see when you're at a saved gym. Strangers never see this. You can change it anytime in their profile.")
+                .font(.system(size: 13))
+                .foregroundColor(GQColors.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 8) {
+                Button {
+                    showLocationTrustPrompt = false
+                } label: {
+                    Text("Not now")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(GQColors.textPrimary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Capsule().fill(GQColors.surfaceBase))
+                        .overlay(Capsule().stroke(GQColors.borderDefault, lineWidth: 0.5))
+                }
+                .buttonStyle(.plain)
+                Button {
+                    LocationTrustedFriendsStore.add(userId)
+                    locationTrustTick &+= 1
+                    showLocationTrustPrompt = false
+                } label: {
+                    Text("Show \(firstName)")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Capsule().fill(GQGradients.primary))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 18)
+        .padding(.bottom, 18)
+        .background(GQColors.background)
     }
 
     // MARK: - Header
@@ -197,6 +250,36 @@ struct UserProfileSheet: View {
     @ViewBuilder
     private var aliveFriendActions: some View {
         VStack(spacing: 10) {
+            // Per-friend asymmetric location trust toggle. Adding this
+            // friend → they see my gym name when I'm there. Asymmetric:
+            // their trust list is independent.
+            Button {
+                LocationTrustedFriendsStore.toggle(userId)
+                #if canImport(UIKit)
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                #endif
+                locationTrustTick &+= 1
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: locationTrustOn ? "checkmark.circle.fill" : "mappin.circle")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(locationTrustOn ? AnyShapeStyle(AlivePresence.green) : AnyShapeStyle(GQGradients.primary))
+                    Text(locationTrustOn
+                         ? "Showing \(firstName) your gym — On"
+                         : "Show \(firstName) your gym when you train")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(GQColors.textPrimary)
+                        .lineLimit(1)
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(Capsule().fill(GQColors.surfaceBase))
+                .overlay(Capsule().stroke(GQColors.borderDefault, lineWidth: 0.5))
+            }
+            .buttonStyle(.plain)
+            .id(locationTrustTick)
+
             // Reaction streak — visible only when ≥5 of last 6 of THEIR
             // workouts received a reaction from me.
             if reactionStreakHit {
@@ -255,6 +338,11 @@ struct UserProfileSheet: View {
     private var autoReactOn: Bool {
         _ = autoReactTick
         return AutoReactStore.contains(userId)
+    }
+
+    private var locationTrustOn: Bool {
+        _ = locationTrustTick
+        return LocationTrustedFriendsStore.contains(userId)
     }
 
     /// Distinct workout sessions of the target user that received a reaction
@@ -320,6 +408,11 @@ struct UserProfileSheet: View {
             }
         } else {
             isFollowing = true
+            // Soft prompt: ask whether to also share gym location with
+            // this friend. Skip if already in the trust list.
+            if !LocationTrustedFriendsStore.contains(targetId) {
+                showLocationTrustPrompt = true
+            }
             currentProfile.followingCount += 1
             let name = userProfile?.name ?? ""
             let username = userProfile?.username ?? ""

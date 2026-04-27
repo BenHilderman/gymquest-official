@@ -17,12 +17,38 @@ struct SavedGymsManagementSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Query private var savedGyms: [SavedGym]
+    @Query private var allUserProfiles: [UserProfile]
     @StateObject private var locationService = AliveLocationService.shared
     @State private var newName: String = ""
     @State private var savingError: String? = nil
+    @State private var trustTick: Int = 0
 
     private var myGyms: [SavedGym] {
         savedGyms.filter { $0.userId == userId }.sorted { $0.createdAt > $1.createdAt }
+    }
+
+    /// Lightweight projection so we don't need to materialize a full
+    /// UserProfile @Model (the seeded fake users don't have one on
+    /// device — only their info in SocialSeeder.fakeUsers).
+    private struct TrustedFriend: Identifiable {
+        let id: UUID
+        let name: String
+    }
+
+    private var trustedFriends: [TrustedFriend] {
+        _ = trustTick
+        let trustedIds = LocationTrustedFriendsStore.load()
+        var result: [TrustedFriend] = []
+        var seen: Set<UUID> = []
+        for p in allUserProfiles where trustedIds.contains(p.id) {
+            result.append(TrustedFriend(id: p.id, name: p.name))
+            seen.insert(p.id)
+        }
+        for fake in SocialSeeder.fakeUsers where trustedIds.contains(fake.id) && !seen.contains(fake.id) {
+            result.append(TrustedFriend(id: fake.id, name: fake.name))
+            seen.insert(fake.id)
+        }
+        return result.sorted { $0.name < $1.name }
     }
 
     var body: some View {
@@ -46,6 +72,8 @@ struct SavedGymsManagementSheet: View {
                             .foregroundColor(GQColors.textTertiary)
                             .padding(.horizontal, 16)
                     }
+
+                    trustedFriendsSection
 
                     if let savingError {
                         Text(savingError)
@@ -142,6 +170,59 @@ struct SavedGymsManagementSheet: View {
             locationService.requestPermission()
             locationService.startMonitoring()
         }
+    }
+
+    @ViewBuilder
+    private var trustedFriendsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("TRUSTED WITH MY GYM")
+                .font(.system(size: 10, weight: .bold))
+                .tracking(0.6)
+                .foregroundStyle(GQGradients.primary)
+                .padding(.horizontal, 16)
+                .padding(.top, 6)
+            if trustedFriends.isEmpty {
+                Text("No friends are trusted yet. Toggle this on a friend's profile to share your gym with them. Strangers and untrusted friends never see it.")
+                    .font(.system(size: 12))
+                    .foregroundColor(GQColors.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 16)
+            } else {
+                ForEach(trustedFriends) { friend in
+                    HStack(spacing: 12) {
+                        Circle()
+                            .fill(GQGradients.primary)
+                            .frame(width: 32, height: 32)
+                            .overlay(
+                                Text(String(friend.name.prefix(1)).uppercased())
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundColor(.white)
+                            )
+                            .presenceRing(friend.id, size: 32)
+                        Text(friend.name)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(GQColors.textPrimary)
+                        Spacer()
+                        Button {
+                            LocationTrustedFriendsStore.remove(friend.id)
+                            #if canImport(UIKit)
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            #endif
+                            trustTick &+= 1
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 16))
+                                .foregroundColor(GQColors.textTertiary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(14)
+                    .homeSocialCard(cornerRadius: 14)
+                    .padding(.horizontal, 16)
+                }
+            }
+        }
+        .id(trustTick)
     }
 
     private func addFromCurrentLocation() {
