@@ -229,6 +229,12 @@ struct TodayView: View {
             MockDataSeeder.seedIfNeeded(modelContext: modelContext, profile: profile)
             MockDataSeeder.fillCurrentWeek(modelContext: modelContext)
             ClubsSeeder.seedIfNeeded(modelContext: modelContext, profile: profile)
+            // Bring up the social graph (8 follow relationships, posts,
+            // likes, comments, reactions) on first app launch — used to
+            // only run when Discover was opened, which left the FriendsRow
+            // / friends-live strip empty for users who landed on Today
+            // first.
+            SocialSeeder.seedIfNeeded(modelContext: modelContext)
             #if DEBUG
             // Dev-only: seed demo posts once per profile. Never wipe real
             // production data on every tab appearance.

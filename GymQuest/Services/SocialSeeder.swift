@@ -38,7 +38,9 @@ struct SocialSeeder {
         // Bumping this version clears + re-seeds so existing installs get
         // the new varied media per post instead of the same DemoPhotos
         // image repeated across the feed.
-        let seederVersion = "socialSeeder_v16"
+        // v17: re-seed so users who never opened Discover get follow
+        // relationships (the FriendsRow on Today / Friends needs them).
+        let seederVersion = "socialSeeder_v17"
         let needsReseed = !UserDefaults.standard.bool(forKey: seederVersion)
 
         let descriptor = FetchDescriptor<Post>()
