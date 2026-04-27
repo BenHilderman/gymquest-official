@@ -1724,9 +1724,25 @@ struct TodayView: View {
             // Today's plan — compact companion to calendar
             todayPlanCard
 
-            // Friends currently training — Clubs-style "live" strip.
-            // Hidden when nobody's lifting so it doesn't read empty.
-            if !friendsLiveNow.isEmpty {
+            // Instagram-stories-style friend strip — live (green ring) +
+            // recent (purple ring) + inactive (gray) members in one
+            // horizontal scroll. Pulled from FriendsFeedView's existing
+            // FriendsRow so the same component renders the same shape on
+            // Today + Friends.
+            if !aliveFriendsMembers.isEmpty {
+                FriendsRow(
+                    members: aliveFriendsMembers,
+                    onTapMember: { member in
+                        appState.selectedTab = .friends
+                    },
+                    onStartWorkout: {
+                        appState.showingWorkoutStartOptions = true
+                    }
+                )
+                .frame(maxWidth: .infinity)
+            } else if !friendsLiveNow.isEmpty {
+                // Fall back to the simpler strip when we have presence/
+                // checkin signal but no follow graph data yet.
                 friendsNowStrip
             }
 
@@ -1787,6 +1803,31 @@ struct TodayView: View {
 
     private func dismissRecap(_ recap: FriendsWeeklyRecapData) {
         lastDismissedFriendsRecapKey = recapKey(recap)
+    }
+
+    // MARK: - Alive friend strip (Instagram-stories shape)
+
+    /// FriendsRow members for the strip on Today. Reuses the same builder
+    /// FriendsFeedView uses so live/recent/inactive logic stays in one
+    /// place. Filters live presence to non-stale rows.
+    private var aliveFriendsMembers: [FriendsMember] {
+        let now = Date()
+        let liveStates = allPresenceStates.filter { state in
+            switch state.status {
+            case .arriving, .training, .resting: break
+            default: return false
+            }
+            if let started = state.startedAt, now.timeIntervalSince(started) > 3 * 3600 { return false }
+            return true
+        }
+        let profilesById = Dictionary(uniqueKeysWithValues: allUserProfiles.map { ($0.id, $0) })
+        return FriendsMemberBuilder.build(
+            selfId: profile.id,
+            follows: allFollows,
+            allPosts: allPosts,
+            liveNowStates: liveStates,
+            profilesById: profilesById
+        )
     }
 
     // MARK: - Friends Live Strip
