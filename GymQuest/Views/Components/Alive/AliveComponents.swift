@@ -111,19 +111,28 @@ struct PresenceRingModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         let snapshot = lookup(userId)
-        ZStack {
-            if let snap = snapshot, snap.showsRing {
-                Circle()
-                    .stroke(snap.ringColor, lineWidth: 2)
-                    .frame(width: size + 6, height: size + 6)
-                    .opacity(snap.pulses ? (pulse ? 0.55 : 1.0) : 1.0)
-                    .animation(snap.pulses ? .easeInOut(duration: 1.6).repeatForever(autoreverses: true) : .default, value: pulse)
-                    .onAppear { pulse = true }
+        // Render the ring as a non-hit-testing overlay that extends past
+        // the content via negative padding. Crucially we DON'T resize the
+        // content or wrap it in a fixed `size + 6` frame — that was
+        // forcing every ringed avatar to occupy 6pt extra of layout
+        // space, which shifted post headers / strips / cards. Now:
+        // content renders at its natural size, ring floats outside its
+        // bounds when active, zero layout impact when idle.
+        content
+            .overlay {
+                if let snap = snapshot, snap.showsRing {
+                    Circle()
+                        .stroke(snap.ringColor, lineWidth: 2)
+                        .padding(-3)
+                        .opacity(snap.pulses ? (pulse ? 0.55 : 1.0) : 1.0)
+                        .animation(
+                            snap.pulses ? .easeInOut(duration: 1.6).repeatForever(autoreverses: true) : .default,
+                            value: pulse
+                        )
+                        .onAppear { pulse = true }
+                        .allowsHitTesting(false)
+                }
             }
-            content
-                .frame(width: size, height: size)
-        }
-        .frame(width: size + 6, height: size + 6)
     }
 }
 

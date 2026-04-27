@@ -1795,14 +1795,37 @@ struct TodayView: View {
     /// treated as "currently training." 90min covers the long tail of
     /// lifting sessions while staying tight enough that the dot really
     /// means "right now." Most-recent first.
+    ///
+    /// Now unioned with live `UserPresenceState` rows so the strip
+    /// surfaces in seeded/dev environments where the WorkoutCheckIn
+    /// table is sparse but presence is populated. Synthesizes a
+    /// WorkoutCheckIn shape for any presence row whose user doesn't
+    /// already have a recent check-in.
     private var friendsLiveNow: [WorkoutCheckIn] {
-        // `Friend.userId` = the follower (you), `Friend.odId` = the
-        // person you follow.
         let followedIds = Set(allFollows.filter { $0.userId == profile.id }.map(\.odId))
         let cutoff = Date().addingTimeInterval(-90 * 60)
-        return allCheckIns
+        let realCheckIns = allCheckIns
             .filter { followedIds.contains($0.userId) && $0.timestamp >= cutoff }
-            .sorted { $0.timestamp > $1.timestamp }
+        let coveredIds = Set(realCheckIns.map(\.userId))
+        let now = Date()
+        let synthesized: [WorkoutCheckIn] = allPresenceStates.compactMap { state in
+            guard followedIds.contains(state.userId), !coveredIds.contains(state.userId) else { return nil }
+            switch state.status {
+            case .arriving, .training, .resting: break
+            default: return nil
+            }
+            if let started = state.startedAt, now.timeIntervalSince(started) > 3 * 3600 { return nil }
+            let displayName = nameForUserId(state.userId)
+            return WorkoutCheckIn(
+                userId: state.userId,
+                userName: displayName,
+                userUsername: "",
+                workoutType: state.workoutTypeRaw ?? "Training",
+                durationMinutes: state.minutesIn,
+                timestamp: state.startedAt ?? state.updatedAt
+            )
+        }
+        return (realCheckIns + synthesized).sorted { $0.timestamp > $1.timestamp }
     }
 
     /// Pill-style row of avatars for friends currently lifting. Each

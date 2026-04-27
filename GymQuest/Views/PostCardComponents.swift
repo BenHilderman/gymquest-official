@@ -3455,12 +3455,13 @@ struct PostHeaderEnhanced: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            // Simple avatar (tappable). The Alive presence ring + long-
-            // press reaction target were removed here — they conflicted
-            // with scroll gestures on long feeds and visually cluttered
-            // every post header. Long-press is still wired on dedicated
-            // surfaces (Today friends strip, Friend profile sheet,
-            // ClubDetailView active strip, ActivityRow, coPresenceBanner).
+            // Simple avatar (tappable). Carries the Alive presence ring
+            // so live post authors visibly read as live in every feed.
+            // The reaction-palette long-press was removed because it
+            // conflicted with scroll gestures on long feeds — the ring
+            // shows the signal, the dedicated avatar surfaces (Today
+            // friends strip / Friend profile sheet / club detail / etc.)
+            // remain the place to send a reaction.
             Button {
                 onTapUser?()
             } label: {
@@ -3472,6 +3473,7 @@ struct PostHeaderEnhanced: View {
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundColor(.white)
                     )
+                    .presenceRing(post.authorId, size: 42)
             }
             .buttonStyle(.plain)
 
