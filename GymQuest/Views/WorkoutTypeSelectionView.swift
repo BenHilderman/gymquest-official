@@ -227,13 +227,42 @@ struct WorkoutTypeSelectionView: View {
             }
             return nil
         }()
-        // Per-session privacy gate: always ask, never buried in settings.
-        pendingStart = PendingStart(type: selectedType, customTitle: title)
+        // Per-session privacy gate, but ONLY when the master location
+        // toggle is on. Otherwise default to .justActive silently —
+        // the old "tap → workout starts immediately" UX is preserved
+        // for users who haven't opted into location sharing.
+        if LocationOptInStore.enabled {
+            pendingStart = PendingStart(type: selectedType, customTitle: title)
+        } else {
+            startDirectly(type: selectedType, customTitle: title)
+        }
     }
 
     private func startCardioWorkout(subType: CardioSubType) {
         HapticManager.shared.impact(.medium)
-        pendingStart = PendingStart(type: .cardio, customTitle: subType.rawValue)
+        if LocationOptInStore.enabled {
+            pendingStart = PendingStart(type: .cardio, customTitle: subType.rawValue)
+        } else {
+            startDirectly(type: .cardio, customTitle: subType.rawValue)
+        }
+    }
+
+    /// Default-start path used when the user has NOT opted into location
+    /// sharing. Equivalent to picking "Just-active" in the dialog.
+    private func startDirectly(type: WorkoutType, customTitle: String?) {
+        PresenceService.setTraining(
+            userId: profile.id,
+            workoutType: type.rawValue,
+            in: modelContext
+        )
+        AliveLocationStateWriter.writeGym(
+            userId: profile.id,
+            gymId: nil,
+            gymName: nil,
+            sessionTags: ["just-active"],
+            in: modelContext
+        )
+        appState.startWorkout(type: type, customTitle: customTitle)
     }
 
     /// Resolve the per-session privacy choice, write the right shape onto

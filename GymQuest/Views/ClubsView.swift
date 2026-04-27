@@ -1109,9 +1109,9 @@ struct ClubFeedView: View {
             // stick to the top of the scroll view as the user scrolls
             // past it — same pattern Discover uses.
             LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
-                aliveAmbientStrip
-                    .padding(.horizontal, 16)
-                    .padding(.top, 12)
+                // Removed: aliveAmbientStrip. The liveActivityHeader below
+                // already surfaces live presence + co-presence at the top
+                // of the list — doubling up was redundant.
 
                 // R4 — NOW ticker + co-presence banner. Auto-rotating
                 // strip of recent training presence + posts from your

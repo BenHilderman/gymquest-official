@@ -77,10 +77,9 @@ struct FriendsFeedView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 0) {
-                    aliveAmbientStrip
-                        .padding(.horizontal, 16)
-                        .padding(.top, 8)
-                        .padding(.bottom, 4)
+                    // Removed: aliveAmbientStrip. The FriendsRow strip below
+                    // already shows live members; doubling up on signals
+                    // pushed the feed down without adding info.
 
                     if let toast = refreshToast {
                         refreshToastBanner(toast)

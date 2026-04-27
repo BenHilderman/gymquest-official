@@ -43,7 +43,10 @@ struct CreatePostView: View {
     var workout: Workout?
 
     @State private var caption: String = ""
-    @State private var showCaptionField: Bool = false
+    /// Caption visible by default per the original UX. The collapsed
+    /// "Add caption" path can come back later if it tests well — not
+    /// the default for now since it confused users.
+    @State private var showCaptionField: Bool = true
     @State private var selectedItem: PhotosPickerItem?
     @State private var photoData: Data?
     @State private var videoData: Data?

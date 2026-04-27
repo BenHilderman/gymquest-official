@@ -3455,9 +3455,12 @@ struct PostHeaderEnhanced: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            // Simple avatar (tappable) — Alive presence ring + long-press
-            // reaction palette hook so post authors anywhere in the app
-            // surface as live and become reactable.
+            // Simple avatar (tappable). The Alive presence ring + long-
+            // press reaction target were removed here — they conflicted
+            // with scroll gestures on long feeds and visually cluttered
+            // every post header. Long-press is still wired on dedicated
+            // surfaces (Today friends strip, Friend profile sheet,
+            // ClubDetailView active strip, ActivityRow, coPresenceBanner).
             Button {
                 onTapUser?()
             } label: {
@@ -3469,10 +3472,8 @@ struct PostHeaderEnhanced: View {
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundColor(.white)
                     )
-                    .presenceRing(post.authorId, size: 42)
             }
             .buttonStyle(.plain)
-            .reactionTarget(to: post.authorId, name: post.authorName, from: currentUserId)
 
             VStack(alignment: .leading, spacing: 2) {
                 Button {

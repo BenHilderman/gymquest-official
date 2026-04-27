@@ -1648,7 +1648,12 @@ struct TodayView: View {
         VStack(spacing: 12) {
             dateHeader
 
-            ambientLiveStrip
+            // The old design did NOT have an ambient strip pinned under
+            // the date header — the friendsLiveNow strip below + the
+            // tab dot already carry the live-now signal. Layering both
+            // pushed the calendar down. The Alive ambient strip still
+            // surfaces on Activity + ClubDetailView where there's no
+            // pre-existing live signal.
 
             ForEach(upcomingPreEvents) { ev in
                 PreEventCountdownBanner(
