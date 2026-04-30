@@ -245,6 +245,9 @@ struct ReactionPaletteSheet: View {
         photo: Data? = nil,
         stat: String? = nil
     ) {
+        // v4.3 phase 4C — rate-limit live reactions per recipient to
+        // block reaction-spam directed at one person.
+        guard ReactionService.allowReact(userId: fromUserId, targetId: toUserId, in: modelContext) else { return }
         let reaction = LiveReaction(
             fromUserId: fromUserId,
             toUserId: toUserId,

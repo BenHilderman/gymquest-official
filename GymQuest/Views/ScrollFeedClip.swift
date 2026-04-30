@@ -256,6 +256,7 @@ struct ScrollFeedClip: View {
         )
         reactionStickers.append(sticker)
 
+        guard ReactionService.allowReact(userId: profile.id, targetId: post.id, in: modelContext) else { return }
         let reaction = Reaction(
             odId: profile.id,
             odUsername: profile.username,

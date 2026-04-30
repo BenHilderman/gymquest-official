@@ -718,6 +718,7 @@ struct DiscoverFeedCard: View {
     }
 
     private func handleReaction(_ type: ReactionType) {
+        guard ReactionService.allowReact(userId: profile.id, targetId: post.id, in: modelContext) else { return }
         let reaction = Reaction(
             odId: profile.id,
             odUsername: profile.username,

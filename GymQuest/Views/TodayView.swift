@@ -1810,22 +1810,27 @@ struct TodayView: View {
                         // v4.3 phase 4C — rate-limit gate before insert.
                         let tier = BotHeuristicService.cachedTier(for: profile.id, in: modelContext)
                         if RateLimitService.allow(.storyCreate, by: profile.id, tier: tier, in: modelContext).isBlocking {
-                            // Soft/hard cap hit — caller's composer toast handles it.
                             return
                         }
 
                         // v4.3 content-safety phase 1 — story-text slur scan
                         // is fast/sync. Photo/video frame scans run async
-                        // before the row appears in friends' feeds.
+                        // and flip moderationVerdictRaw on rejection.
                         let audience = ContentSafetyService.Audience
                             .from(story.audience.rawValue)
                         if let body = story.textBody,
                            case .rejected = ContentSafetyService.auditText(body, audience: audience) {
-                            // Reject silently — composer caller handles toast
                             return
                         }
                         modelContext.insert(story)
                         try? modelContext.save()
+
+                        // Async media audit — photo / video / workoutShare
+                        // stories ship with a media URL we can sample. Apple
+                        // Vision NSFW classifier rejects the worst frame.
+                        Task { @MainActor in
+                            await auditStoryMediaIfNeeded(story: story, audience: audience)
+                        }
                     }
                 }
             } else if !friendsLiveNow.isEmpty {
@@ -2873,6 +2878,36 @@ struct TodayView: View {
     /// v4.3 Item D — backfilled "from your gym · training your split now"
     /// items. NOT pulled from follow graph — sourced from public users at
     /// the user's saved gym training the same workout type. Empty falls
+    /// v4.3 phase 1 — async story media safety audit. Story comes back
+    /// from the composer with a `mediaURL` for photo/video/workoutShare
+    /// kinds. Vision classifier samples up to 3 frames (or one for image),
+    /// and on rejection we flip `isDeleted = true` so the row drops out
+    /// of all viewer queries. Local-first; server canonical (Phase 2)
+    /// fires the same path via the `stories_enqueue_moderation` trigger.
+    @MainActor
+    private func auditStoryMediaIfNeeded(
+        story: Story,
+        audience: ContentSafetyService.Audience
+    ) async {
+        guard story.kind != .text else { return }
+        guard let urlString = story.mediaURL,
+              let url = URL(string: urlString) else { return }
+
+        let verdict: ContentSafetyService.Verdict
+        if story.kind == .video {
+            verdict = await ContentSafetyService.audit(videoURL: url, audience: audience)
+        } else if let data = try? Data(contentsOf: url) {
+            verdict = await ContentSafetyService.audit(imageData: data, audience: audience)
+        } else {
+            return
+        }
+
+        if case .rejected = verdict {
+            story.isDeleted = true
+            try? modelContext.save()
+        }
+    }
+
     /// v4.3 §2 — count of distinct followed friends who currently have an
     /// active (non-deleted, non-expired) Story. Drives the thin-stories
     /// backfill strip's visibility threshold (renders only when <3).

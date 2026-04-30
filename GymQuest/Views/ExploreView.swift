@@ -395,6 +395,7 @@ struct ExploreView: View {
 
     /// Quick-react 💪 on a friend's post.
     private func quickReactToFriend(_ post: Post) {
+        guard ReactionService.allowReact(userId: profile.id, targetId: post.id, in: modelContext) else { return }
         let reaction = Reaction(
             odId: profile.id,
             odUsername: profile.username,
@@ -408,6 +409,7 @@ struct ExploreView: View {
 
     /// Send a motivational nudge to a friend who's been inactive.
     private func sendNudgeToInactive(_ userId: UUID) {
+        guard ReactionService.allowReact(userId: profile.id, targetId: userId, in: modelContext) else { return }
         let reaction = Reaction(
             odId: profile.id,
             odUsername: profile.username,
@@ -504,6 +506,10 @@ struct ExploreView: View {
         switch nudge {
         case .justFinished(_, _, let userId):
             // Send a 💪 to the friend who just finished.
+            guard ReactionService.allowReact(userId: profile.id, targetId: userId, in: modelContext) else {
+                dismissedNudgeIds.insert(nudge.id)
+                return
+            }
             let reaction = Reaction(
                 odId: profile.id,
                 odUsername: profile.username,
@@ -561,6 +567,7 @@ struct ExploreView: View {
     /// targeting the other user so they feel the support instantly.
     private func sendSupport(to state: UserPresenceState) {
         guard state.userId != profile.id else { return }
+        guard ReactionService.allowReact(userId: profile.id, targetId: state.userId, in: modelContext) else { return }
         let reaction = Reaction(
             odId: profile.id,
             odUsername: profile.username,
