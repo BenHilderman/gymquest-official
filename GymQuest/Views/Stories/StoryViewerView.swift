@@ -151,8 +151,25 @@ struct StoryViewerView: View {
     }
 
     private var closeButton: some View {
-        HStack {
+        HStack(spacing: 8) {
             Spacer()
+            // v4.3 phase 3B — report a story. Hidden when viewing own story.
+            if let currentUserId = currentUserIdForReport,
+               stories[index].authorId != currentUserId {
+                Menu {
+                    Button(role: .destructive) {
+                        v43ShowReportSheet = true
+                    } label: {
+                        Label("report", systemImage: "flag")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .padding(8)
+                        .background(Circle().fill(.black.opacity(0.4)))
+                }
+            }
             Button { dismiss() } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 16, weight: .semibold))
@@ -161,7 +178,22 @@ struct StoryViewerView: View {
                     .background(Circle().fill(.black.opacity(0.4)))
             }
         }
+        .sheet(isPresented: $v43ShowReportSheet) {
+            if let currentUserId = currentUserIdForReport {
+                ReportSheetView(
+                    reporterId: currentUserId,
+                    targetKind: .story,
+                    targetId: stories[index].id,
+                    targetTitle: "story by @\(stories[index].authorId.uuidString.prefix(6))"
+                )
+            }
+        }
     }
+
+    @State private var v43ShowReportSheet: Bool = false
+    /// Caller passes their own UUID so we can both gate the report
+    /// menu and pass the reporterId down. Nil hides the report option.
+    var currentUserIdForReport: UUID? = nil
 
     private var replyAndReactBar: some View {
         VStack {

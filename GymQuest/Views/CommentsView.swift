@@ -31,6 +31,8 @@ struct CommentsSheet: View {
     /// v4.3 content-safety toast — surfaces auditing reason ("verifying…",
     /// "language flagged"). Nil when no message; auto-dismisses after 4s.
     @State private var safetyToast: String?
+    /// v4.3 phase 3B — comment being reported. Nil when no sheet shown.
+    @State private var reportingComment: Comment?
     /// v4.3 phase 1D — staged photo for the next comment send. Set when
     /// the user picks a library image, cleared after addComment() runs.
     @State private var stagedPhotoData: Data?
@@ -80,7 +82,35 @@ struct CommentsSheet: View {
         }
         .gqPageBackground()
         .task { fetchRemoteComments() }
+        .sheet(item: $reportingComment) { comment in
+            ReportSheetView(
+                reporterId: currentUserId,
+                targetKind: .comment,
+                targetId: comment.id,
+                targetTitle: "comment by @\(comment.authorUsername)"
+            )
+        }
+        .overlay(alignment: .top) {
+            if let toast = safetyToast {
+                RateLimitToast(title: toast, retryAfter: rateLimitRetryAfter ?? 0)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 12)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .onAppear {
+                        // Auto-dismiss after 4s.
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
+                            if safetyToast == toast {
+                                withAnimation { safetyToast = nil }
+                            }
+                        }
+                    }
+            }
+        }
     }
+
+    /// Captured retry-after window from the most recent soft rate-limit.
+    /// RateLimitToast uses it for the "try again in N min" formatter.
+    @State private var rateLimitRetryAfter: TimeInterval? = nil
 
     // MARK: - Header
 
@@ -236,6 +266,15 @@ struct CommentsSheet: View {
                 onLike: { likeComment(comment) },
                 replyCount: commentReplies.count
             )
+            .contextMenu {
+                if comment.authorId != currentUserId {
+                    Button(role: .destructive) {
+                        reportingComment = comment
+                    } label: {
+                        Label("report", systemImage: "flag")
+                    }
+                }
+            }
 
             // Replies
             if !visibleReplies.isEmpty {
@@ -251,6 +290,15 @@ struct CommentsSheet: View {
                             onLike: { likeComment(reply) },
                             replyCount: 0
                         )
+                        .contextMenu {
+                            if reply.authorId != currentUserId {
+                                Button(role: .destructive) {
+                                    reportingComment = reply
+                                } label: {
+                                    Label("report", systemImage: "flag")
+                                }
+                            }
+                        }
                         .opacity(replyAppeared ? 1 : 0)
                         .offset(y: replyAppeared ? 0 : 6)
                         .onAppear {
@@ -558,13 +606,23 @@ struct CommentsSheet: View {
         let tier = BotHeuristicService.cachedTier(for: currentUserId, in: modelContext)
         switch RateLimitService.allow(.commentCreate, by: currentUserId, tier: tier, in: modelContext) {
         case .softLimited(let retry):
-            safetyToast = "you're commenting fast — try again in \(retry < 60 ? "a moment" : "\(Int(retry/60)) min")"
+            rateLimitRetryAfter = retry
+            safetyToast = "you're commenting fast"
             return
-        case .hardCapped:
+        case .hardCapped(let retry):
+            rateLimitRetryAfter = retry
             safetyToast = "you've hit today's comment limit"
             return
         case .allowed:
             break
+        }
+
+        // v4.3 phase 4 ring-4 — anti-harassment per-target cap. A single
+        // author can leave at most 5 comments per day on the same post.
+        // This is the "comment-bombing one user" pattern.
+        if !checkPerTargetCommentCap(postId: post.id) {
+            safetyToast = "you've commented a lot on this post today — give it some space"
+            return
         }
 
         let audience = ContentSafetyService.Audience.from(post.audience)
@@ -656,6 +714,24 @@ struct CommentsSheet: View {
         withAnimation(.easeOut(duration: 0.2)) {
             replyTarget = nil
         }
+    }
+
+    /// v4.3 phase 4 ring-4 — anti-harassment per-target cap. Counts how
+    /// many comments the current user has left on this exact post in the
+    /// last 24h and rejects when over `commentsByOneAuthorOnOnePost`.
+    private func checkPerTargetCommentCap(postId: UUID) -> Bool {
+        let cap = AbuseThresholds.commentsByOneAuthorOnOnePost
+        let dayAgo = Date().addingTimeInterval(-86_400)
+        let authorId = currentUserId
+        let descriptor = FetchDescriptor<Comment>(
+            predicate: #Predicate { c in
+                c.authorId == authorId
+                    && c.postId == postId
+                    && c.timestamp >= dayAgo
+            }
+        )
+        let count = (try? modelContext.fetch(descriptor).count) ?? 0
+        return count < cap
     }
 
     /// Applies a media-audit verdict to a freshly-inserted comment.

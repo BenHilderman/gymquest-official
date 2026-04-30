@@ -67,6 +67,9 @@ struct PostCardV2: View {
     /// state the user is now in (muted -> speaker.slash, playing -> wave).
     @State private var muteOverlayIcon: String = "speaker.wave.2.fill"
     @State private var showActionDialog = false
+    /// v4.3 phase 3B — full categorized report sheet, presented from
+    /// the post overflow menu's "report" action.
+    @State private var showReportSheet = false
     @State private var useMusicStyleB = false
     @State private var albumArtworkURL: URL?
     @State private var albumDominantColor: Color = GQColors.vividPurple
@@ -138,20 +141,26 @@ struct PostCardV2: View {
             PostActionSheet(
                 username: post.authorUsername,
                 onReport: {
-                    PermissionsService.shared.reportContent(
-                        reporterId: currentUserId,
-                        contentType: "post",
-                        contentId: post.id,
-                        reason: "inappropriate"
-                    )
+                    // v4.3 phase 3B — categorized report flow with
+                    // 3-distinct-reporter auto-hide. Old single-button
+                    // "inappropriate" replaced by ReportSheetView.
                     showActionDialog = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        showReportSheet = true
+                    }
                 },
                 onMute: {
                     PermissionsService.shared.muteUser(userId: currentUserId, targetId: post.authorId)
                     showActionDialog = false
                 },
                 onBlock: {
-                    PermissionsService.shared.blockUser(userId: currentUserId, targetId: post.authorId)
+                    // v4.3 phase 3 — block via ContentReportService so it
+                    // shows up in the user's blocklist + filters feeds.
+                    ContentReportService.block(
+                        userId: currentUserId,
+                        blockedUserId: post.authorId,
+                        in: modelContext
+                    )
                     showActionDialog = false
                 },
                 onCancel: { showActionDialog = false }
@@ -159,6 +168,14 @@ struct PostCardV2: View {
             .presentationDetents([.height(240)])
             .presentationDragIndicator(.visible)
             .presentationBackground(GQColors.surfaceBase)
+        }
+        .sheet(isPresented: $showReportSheet) {
+            ReportSheetView(
+                reporterId: currentUserId,
+                targetKind: .post,
+                targetId: post.id,
+                targetTitle: "post by @\(post.authorUsername)"
+            )
         }
         .opacity(hasAppeared ? 1 : 0)
         .task {

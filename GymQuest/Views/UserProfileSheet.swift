@@ -413,6 +413,11 @@ struct UserProfileSheet: View {
             if !LocationTrustedFriendsStore.contains(targetId) {
                 showLocationTrustPrompt = true
             }
+            // v4.3 phase 4C — rate-limit follow requests (anti-graph-spam).
+            let tier = BotHeuristicService.cachedTier(for: myId, in: modelContext)
+            if RateLimitService.allow(.followRequest, by: myId, tier: tier, in: modelContext).isBlocking {
+                return
+            }
             currentProfile.followingCount += 1
             let name = userProfile?.name ?? ""
             let username = userProfile?.username ?? ""

@@ -1565,6 +1565,16 @@ struct EnhancedPostEditorView: View {
             return
         }
 
+        // v4.3 phase 4C — mention/tag flood check. AbuseThresholds caps
+        // the number of @-mentions per post (10 standard, 15 trusted).
+        // Beyond cap = blocked with a clean reason; this is anti-tag-bombing.
+        if let mentionCap = AbuseThresholds.hourlyLimit(.mentionInPost, tier: tier),
+           taggedUsernames.count > mentionCap {
+            errorMessage = "you can tag up to \(mentionCap) people per post"
+            showError = true
+            return
+        }
+
         // v4.3 content-safety phase 1 — kick the audit off async. The
         // upload proceeds optimistically; the editor flips its
         // `moderationVerdictRaw` to "held" while server (Phase 2) catches

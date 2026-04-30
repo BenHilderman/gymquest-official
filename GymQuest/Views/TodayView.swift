@@ -1807,6 +1807,13 @@ struct TodayView: View {
                 .frame(maxWidth: .infinity)
                 .sheet(isPresented: $v43ShowingStoryComposer) {
                     StoryComposerView(authorId: profile.id) { story in
+                        // v4.3 phase 4C — rate-limit gate before insert.
+                        let tier = BotHeuristicService.cachedTier(for: profile.id, in: modelContext)
+                        if RateLimitService.allow(.storyCreate, by: profile.id, tier: tier, in: modelContext).isBlocking {
+                            // Soft/hard cap hit — caller's composer toast handles it.
+                            return
+                        }
+
                         // v4.3 content-safety phase 1 — story-text slur scan
                         // is fast/sync. Photo/video frame scans run async
                         // before the row appears in friends' feeds.

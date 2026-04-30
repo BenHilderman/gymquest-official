@@ -9181,6 +9181,11 @@ struct ClubDetailView: View {
 
             if !squad.isFull && !squad.memberIds.contains(profile.id) {
                 Button("Join") {
+                    // v4.3 phase 4C — rate-limit join floods (anti-mass-join).
+                    let tier = BotHeuristicService.cachedTier(for: profile.id, in: modelContext)
+                    if RateLimitService.allow(.clubJoin, by: profile.id, tier: tier, in: modelContext).isBlocking {
+                        return
+                    }
                     squad.memberIds.append(profile.id)
                     let membership = ClubMembership(userId: profile.id, clubId: squad.id)
                     modelContext.insert(membership)
