@@ -187,11 +187,22 @@ enum BotHeuristicService {
         in context: ModelContext
     ) -> Bool {
         let cutoff = Date().addingTimeInterval(-86_400)
-        let descriptor = FetchDescriptor<Post>(
+
+        // Combine voice-note durations from posts + audio-comment durations
+        // so a bot pattern doesn't slip through by mixing surfaces.
+        let postDescriptor = FetchDescriptor<Post>(
             predicate: #Predicate { $0.authorId == userId && $0.timestamp >= cutoff }
         )
-        let posts = (try? context.fetch(descriptor)) ?? []
-        let durations = posts.compactMap { $0.voiceNoteDuration }
+        let posts = (try? context.fetch(postDescriptor)) ?? []
+        let postDurations = posts.compactMap { $0.voiceNoteDuration }
+
+        let commentDescriptor = FetchDescriptor<Comment>(
+            predicate: #Predicate { $0.authorId == userId && $0.timestamp >= cutoff }
+        )
+        let comments = (try? context.fetch(commentDescriptor)) ?? []
+        let commentDurations = comments.compactMap { $0.audioDurationSeconds }
+
+        let durations = postDurations + commentDurations
         guard durations.count >= 5 else { return false }
         // Bucket durations into 0.5s buckets — any bucket with ≥5 hits = flag.
         let buckets = Dictionary(durations.map { (Int($0 * 2), 1) }, uniquingKeysWith: +)

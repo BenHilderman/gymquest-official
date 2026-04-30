@@ -1367,17 +1367,44 @@ struct ProfileView: View {
 
     @ViewBuilder
     private var v43OtherProfileActions: some View {
-        OtherProfilePrimaryActions(
-            canLiftWithThem: false,
-            vsYouEnabled: $v43VSYouEnabled,
-            onTrainLikeThem: {
-                // Wired to the existing "try latest workout" path on next pass —
-                // for now the button surfaces the design.
-            },
-            onLiftWithThem: {
-                // Reaches Partner Mode invite once the friend graph routes it.
+        VStack(spacing: 10) {
+            OtherProfilePrimaryActions(
+                canLiftWithThem: false,
+                vsYouEnabled: $v43VSYouEnabled,
+                onTrainLikeThem: {
+                    // Wired to the existing "try latest workout" path on next pass —
+                    // for now the button surfaces the design.
+                },
+                onLiftWithThem: {
+                    // Reaches Partner Mode invite once the friend graph routes it.
+                }
+            )
+            // v4.3 phase 3 — Block this user. Bidirectional state via
+            // ContentReportService; hides their content from feed +
+            // prevents new DMs / mentions / tags.
+            HStack {
+                Spacer()
+                if let me = currentMyUserId {
+                    UserBlockButton(
+                        currentUserId: me,
+                        targetUserId: profile.id,
+                        targetDisplayName: profile.name
+                    )
+                }
+                Spacer()
             }
+        }
+    }
+
+    /// Resolves the current viewer's UUID for use as `reporterId` /
+    /// `currentUserId` on report + block surfaces. ProfileView's main
+    /// `profile` is the *target* user when `isOtherUser` is true, so we
+    /// fetch the authenticated user from SwiftData.
+    private var currentMyUserId: UUID? {
+        let descriptor = FetchDescriptor<UserProfile>(
+            predicate: #Predicate { $0.isAuthenticated == true }
         )
+        return (try? modelContext.fetch(descriptor))?.first?.id
     }
 
     @ViewBuilder
@@ -3873,6 +3900,9 @@ struct SettingsView: View {
             // v4.3 §8A — Privacy & Trust shortcut.
             v43PrivacyTrustRow
             settingsDivider
+            // v4.3 phase 3 — Held content (appeals).
+            heldContentRow
+            settingsDivider
             // v4.3 §8B — full Settings sections destination.
             v43FullSettingsRow
             settingsDivider
@@ -3899,6 +3929,31 @@ struct SettingsView: View {
         .sheet(isPresented: $showingSavedGyms) {
             SavedGymsManagementSheet(userId: profile.id)
         }
+    }
+
+    /// v4.3 phase 3 — entry point for users to see content held by the
+    /// moderation pipeline + appeal it. Counts held rows so users with
+    /// nothing flagged see "0 held" inline rather than tapping in.
+    @ViewBuilder
+    private var heldContentRow: some View {
+        NavigationLink {
+            AppealSheetView(currentUserId: profile.id)
+        } label: {
+            HStack {
+                Image(systemName: "exclamationmark.shield")
+                    .foregroundColor(GQColors.textPrimary)
+                    .frame(width: 24)
+                Text("Held content")
+                    .font(.system(size: 14))
+                    .foregroundColor(GQColors.textPrimary)
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+            .padding(.vertical, 12)
+        }
+        .buttonStyle(.plain)
     }
 
     @ViewBuilder

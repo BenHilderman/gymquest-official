@@ -3459,6 +3459,12 @@ struct PostActionsRowCompact: View {
             return
         }
 
+        // v4.3 phase 4C — rate-limit reactions (anti-engagement-farming).
+        let tier = BotHeuristicService.cachedTier(for: userId, in: modelContext)
+        if RateLimitService.allow(.reaction, by: userId, targetKey: postId.uuidString, tier: tier, in: modelContext).isBlocking {
+            return
+        }
+
         let reaction = Reaction(
             odId: currentUserId,
             odUsername: currentUserName,
@@ -4917,6 +4923,12 @@ struct PostActionsRowAnimated: View {
             try? modelContext.save()
             reconcileLikeCount()
             fetchReactionCounts()
+            return
+        }
+
+        // v4.3 phase 4C — rate-limit reactions (anti-engagement-farming).
+        let tier = BotHeuristicService.cachedTier(for: userId, in: modelContext)
+        if RateLimitService.allow(.reaction, by: userId, targetKey: postId.uuidString, tier: tier, in: modelContext).isBlocking {
             return
         }
 

@@ -1395,6 +1395,21 @@ struct DiscoverCommentsSheet: View {
         let trimmed = newComment.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
+        // v4.3 content-safety phase 1 — text slur scan.
+        let audience = ContentSafetyService.Audience.from(post.audience)
+        if case .rejected = ContentSafetyService.auditText(trimmed, audience: audience) {
+            // Silent rejection here — Discover surface doesn't have toast
+            // plumbing. The user sees the field clear without a send.
+            newComment = ""
+            return
+        }
+
+        // v4.3 phase 4C — rate-limit gate.
+        let tier = BotHeuristicService.cachedTier(for: profile.id, in: modelContext)
+        if RateLimitService.allow(.commentCreate, by: profile.id, tier: tier, in: modelContext).isBlocking {
+            return
+        }
+
         let comment = Comment(
             postId: post.id,
             authorId: profile.id,

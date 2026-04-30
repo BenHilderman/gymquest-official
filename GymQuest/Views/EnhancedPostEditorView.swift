@@ -96,6 +96,10 @@ struct EnhancedPostEditorView: View {
     // Error handling
     @State private var showError = false
     @State private var errorMessage = ""
+    /// v4.3 phase 4 — styled rate-limit toast. When set, the editor
+    /// renders RateLimitToast over the body and auto-dismisses after 4s.
+    @State private var rateLimitToastTitle: String? = nil
+    @State private var rateLimitRetryAfter: TimeInterval = 0
 
     // Quick Clip integration (auto-activated when a video is selected)
     @State private var clipOverlays: [ClipOverlay] = []
@@ -128,6 +132,21 @@ struct EnhancedPostEditorView: View {
                 }
         }
         .tint(GQColors.textPrimary)
+        .overlay(alignment: .top) {
+            if let title = rateLimitToastTitle {
+                RateLimitToast(title: title, retryAfter: rateLimitRetryAfter)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 12)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .onAppear {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
+                            if rateLimitToastTitle == title {
+                                withAnimation { rateLimitToastTitle = nil }
+                            }
+                        }
+                    }
+            }
+        }
         .sheet(isPresented: $v43ShowWhatsNext, onDismiss: { dismiss() }) {
             VStack(spacing: 16) {
                 WhatsNextCardView(
@@ -1555,13 +1574,13 @@ struct EnhancedPostEditorView: View {
         let tier = BotHeuristicService.cachedTier(for: profile.id, in: modelContext)
         let decision = RateLimitService.allow(.postCreate, by: profile.id, tier: tier, in: modelContext)
         if case .softLimited(let retry) = decision {
-            errorMessage = "you're posting fast — try again in \(retryLabel(retry))"
-            showError = true
+            rateLimitRetryAfter = retry
+            rateLimitToastTitle = "you're posting fast"
             return
         }
-        if case .hardCapped = decision {
-            errorMessage = "you've hit today's post limit — try again tomorrow"
-            showError = true
+        if case .hardCapped(let retry) = decision {
+            rateLimitRetryAfter = retry
+            rateLimitToastTitle = "you've hit today's post limit"
             return
         }
 
