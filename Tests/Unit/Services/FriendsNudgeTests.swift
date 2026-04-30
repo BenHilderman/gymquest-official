@@ -138,7 +138,7 @@ final class FriendsNudgeTests: XCTestCase {
         )
         let friendId = UUID()
         let finished = UserPresenceState(
-            userId: friendId, status: .done, workoutType: "Push",
+            userId: friendId, status: .finishedRecently, workoutType: "Push",
             startedAt: Date().addingTimeInterval(-1800)
         )
         finished.updatedAt = Date().addingTimeInterval(-5 * 60)

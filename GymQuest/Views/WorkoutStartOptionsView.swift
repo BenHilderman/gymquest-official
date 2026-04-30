@@ -17,6 +17,13 @@ struct WorkoutStartOptionsView: View {
 
     @Query(sort: \Workout.date, order: .reverse) private var recentWorkouts: [Workout]
     @Query(sort: \WorkoutTemplate.createdAt, order: .reverse) private var savedTemplates: [WorkoutTemplate]
+    @Query private var v43Presence: [UserPresenceState]
+    @Query private var v43Follows: [Friend]
+    @Query private var v43UserProfiles: [UserProfile]
+    @State private var v43PendingPartner: (name: String, id: UUID)?
+    /// Session-stable seed so the default-pool subtitle doesn't re-roll on
+    /// every render. Locked spec Item C: "rotation per open".
+    @State private var v43HeroRotationSeed = RotationSeed()
 
     let profile: UserProfile
 
@@ -27,8 +34,25 @@ struct WorkoutStartOptionsView: View {
                     heroBand
                         .padding(.top, 4)
 
+                    // v4.3 §4B — Workout-of-the-Day card.
+                    v43WorkoutOfTheDay
+
+                    // v4.3 §4B — Music row + Friends training row + social proof.
+                    v43MusicRow
+                    v43FriendsTrainingRow
+                    v43SocialProofLine
+
                     sectionLabel("PICK HOW YOU WANT TO TRAIN")
                     pathSection
+
+                    // v4.3 §4B — "lift with [friend]" pill below quick-start
+                    // row when a followed friend is at the same saved gym.
+                    if let pill = v43LiftWithFriendPillName {
+                        LiftWithFriendPill(friendDisplayName: pill.name) {
+                            v43PendingPartner = (pill.name, pill.id)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
 
                     sectionLabel("THIS MONTH")
                     momentumSection
@@ -49,6 +73,110 @@ struct WorkoutStartOptionsView: View {
         .tint(GQColors.textPrimary)
     }
 
+    // MARK: - v4.3 Plus polish (design §4B)
+
+    @ViewBuilder
+    private var v43WorkoutOfTheDay: some View {
+        WorkoutOfTheDayCard(
+            title: nextWODTitle,
+            detail: nextWODDetail,
+            source: nextWODSource,
+            onStart: {}
+        )
+        .onAppear {
+            // v4.3 §11 — Plus tab WOD card is one of the 5 allowed
+            // Discover Engine surfaces. Audit on render.
+            try? DiscoverEngineSurfaceAudit.allow(surface: .plusWOD)
+        }
+    }
+
+    private var nextWODTitle: String {
+        if let last = recentWorkouts.first { return "repeat \(last.type.rawValue.lowercased())" }
+        return "trending push day"
+    }
+
+    private var nextWODDetail: String {
+        if recentWorkouts.first != nil { return "your most recent workout — one tap to start" }
+        return "47 ppl tried it today"
+    }
+
+    private var nextWODSource: WorkoutOfTheDayCard.Source {
+        recentWorkouts.first != nil ? .saved : .trending
+    }
+
+    @ViewBuilder
+    private var v43MusicRow: some View {
+        GymPlaylistRow(
+            resumeTitle: "resume your gym playlist",
+            friendListeningSong: nil,
+            friendListeningName: nil
+        )
+    }
+
+    @ViewBuilder
+    private var v43FriendsTrainingRow: some View {
+        FriendsTrainingRow(items: v43FriendsTrainingItems,
+                            onTap: { _ in
+                                // Surface the Friends tab where live sessions
+                                // render — keeps the Plus tab as a router
+                                // (design §4B says Plus is fast, not destination).
+                                appState.selectedTab = .friends
+                            },
+                            onLongPressLiftWith: { item in
+            v43PendingPartner = (item.displayName, item.id)
+        })
+        .sheet(isPresented: Binding(
+            get: { v43PendingPartner != nil },
+            set: { if !$0 { v43PendingPartner = nil } }
+        )) {
+            if let p = v43PendingPartner {
+                PartnerInviteSheet(partnerDisplayName: p.name) { _ in }
+            }
+        }
+    }
+
+    private var v43FriendsTrainingItems: [FriendTrainingRowItem] {
+        let now = Date()
+        let followedIds = Set(v43Follows.filter { $0.userId == profile.id }.map(\.odId))
+        let liveStates = v43Presence.filter { state in
+            guard followedIds.contains(state.userId) else { return false }
+            switch state.status {
+            case .training, .arriving, .resting:
+                if let started = state.startedAt, now.timeIntervalSince(started) > 3 * 3600 {
+                    return false
+                }
+                return true
+            default: return false
+            }
+        }
+        return liveStates.compactMap { state -> FriendTrainingRowItem? in
+            let resolved = v43UserProfiles.first(where: { $0.id == state.userId })
+            let displayName = resolved?.name ?? "friend"
+            let kind = state.workoutTypeRaw?.lowercased() ?? "training"
+            let mins: Int? = state.startedAt.map { Int(now.timeIntervalSince($0) / 60) }
+            return FriendTrainingRowItem(
+                id: state.userId,
+                displayName: displayName,
+                kindLabel: kind,
+                elapsedMinutes: mins,
+                avatarURL: nil,
+                isLive: state.status == .training
+            )
+        }
+    }
+
+    @ViewBuilder
+    private var v43SocialProofLine: some View {
+        PlusSocialProofLine(nearbyTrainingCount: nil, mutualsTrainedTodayPercent: nil)
+    }
+
+    /// First followed friend currently active. Surfaces the "lift with X"
+    /// pill below the quick-start row per design §4B.
+    private var v43LiftWithFriendPillName: (name: String, id: UUID)? {
+        guard let item = v43FriendsTrainingItems.first(where: { $0.isLive }) else { return nil }
+        return (item.displayName, item.id)
+    }
+
     // MARK: - Hero band (profile-style)
 
     private var heroBand: some View {
@@ -62,13 +190,90 @@ struct WorkoutStartOptionsView: View {
                     .foregroundStyle(GQGradients.primary)
             }
 
-            Text(profile.showUpFor.trimmingCharacters(in: .whitespaces).isEmpty
-                 ? "Let's train"
-                 : "Showing up for \(profile.showUpFor)")
+            // v4.3 Item C locked: humanlike check-in subtitle
+            // Format: `day [N] · [check-in line]` with context overrides.
+            Text(v43HeroSubtitle)
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundColor(GQColors.textPrimary)
+                .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
+    }
+
+    /// v4.3 Plus hero subtitle — Item C locked spec.
+    /// Context overrides win over default pool. Day prefix prepended unless
+    /// the line is intentionally prefix-less (e.g. "let's start").
+    private var v43HeroSubtitle: String {
+        let streakDays = max(0, recentWorkouts.count) // proxy for streak
+        let goal = profile.showUpFor.trimmingCharacters(in: .whitespaces)
+        let now = Date()
+        let cal = Calendar(identifier: .gregorian)
+        let weekday = cal.component(.weekday, from: now)  // 1=Sun, 7=Sat
+        let hour = cal.component(.hour, from: now)
+        let lastWorkoutDate = recentWorkouts.first?.date
+        let daysSinceLast = lastWorkoutDate.map { Int(now.timeIntervalSince($0) / 86_400) } ?? Int.max
+        let trainedToday = daysSinceLast == 0
+
+        // ── Context overrides (priority order) ──
+        // First open ever — no streak prefix
+        if streakDays == 0 && lastWorkoutDate == nil {
+            return "let's start"
+        }
+        // Returning after >7 days off
+        if daysSinceLast > 7 && daysSinceLast != Int.max {
+            return "day \(streakDays) · welcome back"
+        }
+        // Long streak milestones
+        if streakDays >= 365 { return "day \(streakDays) · a year in" }
+        if streakDays >= 100 { return "day \(streakDays) · respect" }
+        if streakDays == 1 { return "day 1 · here we go" }
+
+        // v4.3 Item C locked — at saved gym override.
+        if AliveLocationService.shared.currentGym != nil {
+            return "day \(streakDays) · you're here"
+        }
+
+        // v4.3 Item C locked — first open after a PR session.
+        // PR detected when last workout has any PR events.
+        if let last = recentWorkouts.first,
+           !last.prEvents.isEmpty,
+           daysSinceLast <= 1 {
+            return "day \(streakDays) · ride that PR"
+        }
+
+        // Time-of-day overrides
+        if !trainedToday && hour >= 19 {
+            return "day \(streakDays) · still got time"
+        }
+        if hour < 9 {
+            return "day \(streakDays) · starting strong"
+        }
+
+        // Weekend
+        if weekday == 1 || weekday == 7 {
+            return "day \(streakDays) · weekend lift"
+        }
+
+        // ── Default pool — random per open ──
+        let pool: [String] = {
+            var lines = [
+                "let's get to it",
+                "ready when you are",
+                "another one",
+                "back at it",
+                "in for one",
+                "what's the move today?",
+                "you came back",
+                "good to see you",
+                "let's lift"
+            ]
+            if !goal.isEmpty {
+                lines.append("showing up for \(goal)")
+            }
+            return lines
+        }()
+        let pick = pool.isEmpty ? "let's lift" : pool[v43HeroRotationSeed.index % pool.count]
+        return "day \(streakDays) · \(pick)"
     }
 
     // MARK: - Path section (friends-style list)

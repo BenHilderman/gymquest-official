@@ -228,6 +228,25 @@ struct WatchActiveWorkoutView: View {
 
     private var overviewTab: some View {
         VStack(spacing: 12) {
+            // v4.3 §9 — Watch Partner Mode indicator. Renders compact when
+            // `connectivity.partnerName` is set; tap-anywhere hands off to
+            // the iOS Partner Sheet.
+            if let partnerName = connectivity.partnerName, !partnerName.isEmpty {
+                HStack(spacing: 6) {
+                    Circle().fill(.purple).frame(width: 6, height: 6)
+                    Text("with \(partnerName.lowercased())")
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundStyle(.white)
+                    if let lastSet = connectivity.partnerLastSet, !lastSet.isEmpty {
+                        Text("· \(lastSet)")
+                            .font(.system(size: 10, design: .rounded))
+                            .foregroundStyle(WatchColors.textTertiary)
+                    }
+                }
+                .padding(.horizontal, 10).padding(.vertical, 4)
+                .background(Capsule().fill(Color.purple.opacity(0.2)))
+            }
+
             Text(formatDuration(elapsedSeconds))
                 .font(.system(size: 36, weight: .light, design: .rounded).monospacedDigit())
                 .foregroundStyle(.white)

@@ -25,6 +25,12 @@ final class WatchConnectivityManager: NSObject {
     var quickExercises: [String] = []
     var suggestedWeight: Double?
 
+    // v4.3 §9 / §10 — Watch Partner Mode mirror. Set when the iOS app
+    // pushes partner-session state via `transferUserInfo` and cleared when
+    // the session ends. Drives the Watch overview-tab partner indicator.
+    var partnerName: String?
+    var partnerLastSet: String?
+
     private var session: WCSession?
     private var healthStore = HKHealthStore()
     private var workoutSession: HKWorkoutSession?

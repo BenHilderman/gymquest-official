@@ -73,6 +73,9 @@ struct DiscoverFeedView: View {
     @State private var cachedMutualFriendIds: Set<UUID> = []
     @State private var cachedRankedPosts: [Post] = []
     @State private var selectedSort: DiscoverSortMode = .forYou
+    // v4.3 §3A — current sub-tab (Watch / Friends / Tips). Stored locally;
+    // ranking integration with each sub-feed lands in the next pass.
+    @State private var v43DiscoverSubTab: DiscoverSubTab = .watch
 
     var body: some View {
         GeometryReader { geo in
@@ -113,6 +116,16 @@ struct DiscoverFeedView: View {
 
                 // Category pills + sort pill pinned at top
                 VStack(spacing: 8) {
+                    // v4.3 §3A — Watch / Friends / Tips sub-tabs + Discover Streak chip.
+                    // Visually layered above the existing category + sort bars
+                    // until the Friends and Tips sub-feeds replace the unified
+                    // ranked stream (next pass).
+                    DiscoverSubTabsHeader(
+                        selected: $v43DiscoverSubTab,
+                        streakSummary: DiscoverStreakService.shared.snapshot.summaryLine,
+                        onTapStreak: {}
+                    )
+                    .padding(.top, 4)
                     CategoryFilterBar(
                         selectedCategory: $selectedCategory
                     )
@@ -133,6 +146,11 @@ struct DiscoverFeedView: View {
         }
         .padding(.bottom, 56)
         .onAppear {
+            // v4.3 §11 — Discover Engine surface audit. Watch tab is one
+            // of the 5 allowed surfaces. The audit throws on misuse so a
+            // CI test catches any future misrouting.
+            try? DiscoverEngineSurfaceAudit.allow(surface: .discoverWatch)
+
             if !hasSeeded {
                 DiscoverSeeder.seedIfNeeded(modelContext: modelContext)
                 hasSeeded = true
@@ -155,6 +173,17 @@ struct DiscoverFeedView: View {
         .onChange(of: selectedSort) {
             scrolledIndex = 0
             refreshRankedPosts()
+        }
+        .onChange(of: v43DiscoverSubTab) {
+            scrolledIndex = 0
+            refreshRankedPosts()
+            // v4.3 §11 — re-audit when surface changes so each sub-tab
+            // logs a render of its allowed engine output.
+            switch v43DiscoverSubTab {
+            case .watch:   try? DiscoverEngineSurfaceAudit.allow(surface: .discoverWatch)
+            case .friends: try? DiscoverEngineSurfaceAudit.allow(surface: .discoverFriends)
+            case .tips:    try? DiscoverEngineSurfaceAudit.allow(surface: .discoverTips)
+            }
         }
         .onChange(of: allFriendRecords.count) {
             computeMutualFriends()
@@ -193,11 +222,38 @@ struct DiscoverFeedView: View {
 
     private func refreshRankedPosts() {
         let service = EngagementTrackingService.shared
+        let followedAuthorIds: Set<UUID> = {
+            // For the Friends sub-tab, narrow to the user's follow graph.
+            // Posts in the last 7 days only — matches design §3A Friends.
+            let mine = allFriendRecords.filter { $0.userId == profile.id }
+            return Set(mine.map { $0.odId })
+        }()
+        let sevenDaysAgo = Date().addingTimeInterval(-7 * 86_400)
         let eligible = allPosts.filter { post in
-            (post.photoData != nil || post.videoData != nil || post.workoutType != nil)
-            && isUserPublicOrFriend(post.authorId)
-            && !(post.videoAspectRatio.map { $0 > 1.0 } ?? false)
-            && !service.sessionNotInterestedPostIds.contains(post.id)
+            let baseEligible = (post.photoData != nil || post.videoData != nil || post.workoutType != nil)
+                && isUserPublicOrFriend(post.authorId)
+                && !(post.videoAspectRatio.map { $0 > 1.0 } ?? false)
+                && !service.sessionNotInterestedPostIds.contains(post.id)
+            guard baseEligible else { return false }
+
+            // v4.3 §3A — sub-tab routing.
+            switch v43DiscoverSubTab {
+            case .watch:
+                return true
+            case .friends:
+                return followedAuthorIds.contains(post.authorId) && post.timestamp >= sevenDaysAgo
+            case .tips:
+                // v4.3 §3A — Tips sub-tab: short videos, max 30 sec.
+                // Duration lives on `PostMedia.videoDurationSeconds` for new
+                // multi-media posts; legacy `Post.videoData` posts have no
+                // duration record, so we allow them through.
+                let hasVideo = post.videoData != nil
+                    || post.mediaItems.contains(where: { $0.mediaType == .video })
+                let firstClipUnder30: Bool = post.mediaItems
+                    .first(where: { $0.mediaType == .video })?
+                    .videoDurationSeconds.map { $0 <= 30 } ?? true
+                return hasVideo && firstClipUnder30
+            }
         }
         let userInterests = interestProfiles.first { $0.userId == profile.id }
 
@@ -556,6 +612,9 @@ struct DiscoverFeedCard: View {
 
         FeedContentService.shared.syncLikeToSupabase(postId: post.id, userId: profile.id, userName: profile.name)
         EngagementTrackingService.shared.trackLike(postId: post.id, userId: profile.id)
+
+        // v4.3 §3A — feed Discover Streak counters when the user reacts.
+        DiscoverStreakService.shared.increment(.clipReacted)
 
         showHeartAnimation = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {

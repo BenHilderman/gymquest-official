@@ -5,22 +5,138 @@
     "allow": [
       "Bash(xcodebuild:*)",
       "Bash(xcrun simctl:*)",
+      "Bash(swift build:*)",
+      "Bash(swift test:*)",
       "Bash(git status)",
       "Bash(git status:*)",
+      "Bash(git diff)",
       "Bash(git diff:*)",
+      "Bash(git log)",
       "Bash(git log:*)",
       "Bash(git branch:*)",
       "Bash(git worktree:*)",
       "Bash(git add:*)",
       "Bash(git restore:*)",
       "Bash(git rev-parse:*)",
-      "Bash(git push)",
-      "Bash(git push:*)",
       "Bash(git remote:*)",
+      "Bash(git stash:*)",
+      "Bash(git show:*)",
+      "Bash(git fetch:*)",
       "Bash(ls:*)",
       "Bash(pwd)",
-      "Bash(swift build:*)",
-      "Bash(swift test:*)"
+      "Bash(cat:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(grep:*)",
+      "Bash(rg:*)",
+      "Bash(find:*)",
+      "Bash(file:*)",
+      "Bash(wc:*)",
+      "Bash(jq:*)",
+      "Bash(python3 -m py_compile:*)",
+      "Bash(swiftlint:*)",
+      "Bash(swiftformat --lint:*)",
+      "Bash(supabase status)",
+      "Bash(supabase --help)",
+      "Bash(supabase db diff:*)"
+    ],
+    "ask": [
+      "Bash(git commit)",
+      "Bash(git commit:*)",
+      "Bash(git merge:*)",
+      "Bash(git rebase:*)",
+      "Bash(git cherry-pick:*)",
+      "Bash(git tag:*)",
+      "Bash(git worktree remove:*)",
+      "Bash(npm install:*)",
+      "Bash(pnpm install:*)",
+      "Bash(yarn install:*)",
+      "Bash(pip install:*)",
+      "Bash(pip3 install:*)",
+      "Bash(brew install:*)",
+      "Bash(brew upgrade:*)",
+      "Bash(swift package update:*)",
+      "Bash(supabase migration new:*)",
+      "Bash(supabase migration up:*)",
+      "Bash(supabase db push:*)",
+      "Bash(supabase db reset:*)",
+      "Bash(rm:*)",
+      "Bash(mv:*)",
+      "Write(supabase/migrations/**)",
+      "Edit(supabase/migrations/**)",
+      "Edit(Package.resolved)",
+      "Edit(**/Package.resolved)",
+      "Edit(project.yml)",
+      "Edit(GymQuest.xcodeproj/**)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(.env)",
+      "Read(.env.*)",
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Read(backend/.env)",
+      "Read(backend/.env.*)",
+      "Read(**/secrets/**)",
+      "Read(**/secret/**)",
+      "Read(**/*secret*)",
+      "Read(**/*credential*)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Read(**/id_rsa)",
+      "Read(**/id_rsa.*)",
+      "Read(**/*.p12)",
+      "Read(**/*.mobileprovision)",
+      "Read(GymQuest/GoogleService-Info.plist)",
+      "Read(GymQuest/GymQuest.entitlements)",
+      "Bash(git push)",
+      "Bash(git push:*)",
+      "Bash(git reset --hard:*)",
+      "Bash(git reset --hard)",
+      "Bash(git clean -f:*)",
+      "Bash(git clean -fd:*)",
+      "Bash(git clean -fdx:*)",
+      "Bash(git checkout -- :*)",
+      "Bash(git checkout .)",
+      "Bash(git restore --source=:*)",
+      "Bash(git branch -D:*)",
+      "Bash(git branch --delete --force:*)",
+      "Bash(rm -rf:*)",
+      "Bash(rm -fr:*)",
+      "Bash(rm -rf /:*)",
+      "Bash(sudo:*)",
+      "Bash(sudo)",
+      "Bash(curl * | sh:*)",
+      "Bash(curl * | bash:*)",
+      "Bash(wget * | sh:*)",
+      "Bash(wget * | bash:*)",
+      "Bash(eval:*)",
+      "Bash(:(){ :|:& };:)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/block-git-push.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/check-after-edit.sh"
+          }
+        ]
+      }
     ]
   }
 }

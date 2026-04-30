@@ -52,8 +52,35 @@ struct TodayView: View {
     /// Watch bridge stamp — count of own-incoming reactions on last appear.
     /// Bumped when count grows, triggering a haptic ping to paired Watch.
     @State private var watchBridgeLastCount: Int = -1
+    /// v4.3 §4A — Story composer presentation flag, fired by stories+presence row "+" tap.
+    @State private var v43ShowingStoryComposer: Bool = false
+    @State private var v43BackfillTappedUserId: IdentifiableUUID? = nil
     @Query private var allCoPresenceLogs: [CoPresenceLog]
     @Query private var allClubEvents: [ClubEvent]
+    /// v4.3 Item H — Slot 2 squad chat preview rotation now sources from
+    /// real SquadMessage rows. Pool layers chat-text / poll / workoutShare /
+    /// systemEvent facets on top of the existing trained-today / streak /
+    /// weekly-goal facets.
+    @Query private var allSquadThreads: [SquadThread]
+    @Query(sort: \SquadMessage.createdAt, order: .reverse) private var allSquadMessages: [SquadMessage]
+    /// Per-squad seeds for the Slot 2 chat preview rotation. Squad ID is
+    /// the key so each squad row gets its own stable pick on the same Home
+    /// open — same vibe as Crews header / Plus hero / Squad Moments.
+    @State private var v43SquadPreviewSeeds: [UUID: Int] = [:]
+    /// v4.3 §2 — Stories row on Home backfills with public bubbles when
+    /// fewer than 3 followed friends have an active story in the last 24h.
+    /// The discover-stories source is deferred (same path as the caught-up
+    /// overlay in StoryViewerView); the audit hook fires on tap so analytics
+    /// + RLS gating land ahead of content.
+    @Query private var allStoriesForBackfill: [Story]
+    /// v4.3 §2 — flag for the public-stories viewer presented from the
+    /// thin-backfill strip tap. Resolved through `DiscoverStoriesService`.
+    @State private var v43PublicStoriesViewer: [Story]? = nil
+    /// v4.3 Item H — Slot 2 reaction-facet rotation. Spec example
+    /// "sarah reacted 🐐 to your push day" reads as a Reaction row on a
+    /// post the user authored. Queried separately from LiveReaction so we
+    /// pick up the post-targeted reactions specifically.
+    @Query(sort: \Reaction.createdAt, order: .reverse) private var allPostReactions: [Reaction]
 
     @State private var showDraftBanner = false
     @State private var draftWorkoutType: String = ""
@@ -1661,6 +1688,30 @@ struct TodayView: View {
             // surfaces on Activity + ClubDetailView where there's no
             // pre-existing live signal.
 
+            // v4.3 §4A — Smart Top Card (single highest-priority hero).
+            // Only renders when the existing slot signals are quiet —
+            // avoids stacking on top of the existing event/recap/streak
+            // cards that already cover most of the 12-candidate pool.
+            if v43SmartTopCardKind != nil &&
+               upcomingPreEvents.isEmpty &&
+               sundayCrewRecap == nil &&
+               streakAlarmCandidate == nil {
+                if let kind = v43SmartTopCardKind {
+                    SmartTopCardView(kind: kind, detailLine: nil) {
+                        switch kind {
+                        case .resumeActiveWorkout, .startAtSavedGym, .todaysPlannedWorkout, .squadChallengeNearComplete:
+                            appState.showingWorkoutStartOptions = true
+                        case .followedAtMyGym, .friendsTrainingNow, .friendJustFinished, .friendPostedRecently, .unreadReactions, .mutualHitPR:
+                            appState.selectedTab = .friends
+                        case .crewEventSoon:
+                            appState.selectedTab = .clubs
+                        case .streakDanger:
+                            break
+                        }
+                    }
+                }
+            }
+
             ForEach(upcomingPreEvents) { ev in
                 PreEventCountdownBanner(
                     eventTitle: ev.title,
@@ -1742,14 +1793,82 @@ struct TodayView: View {
                         appState.selectedTab = .friends
                     },
                     onStartWorkout: {
-                        appState.showingWorkoutStartOptions = true
+                        // v4.3 §4A — "+" on stories+presence row posts a story.
+                        // Workout start has its own dedicated + tab in the
+                        // floating tab bar. Falls back to legacy behavior
+                        // when v4.3 is off.
+                        if FeatureFlags.shared.coliftV43Enabled {
+                            v43ShowingStoryComposer = true
+                        } else {
+                            appState.showingWorkoutStartOptions = true
+                        }
                     }
                 )
                 .frame(maxWidth: .infinity)
+                .sheet(isPresented: $v43ShowingStoryComposer) {
+                    StoryComposerView(authorId: profile.id) { story in
+                        // v4.3 content-safety phase 1 — story-text slur scan
+                        // is fast/sync. Photo/video frame scans run async
+                        // before the row appears in friends' feeds.
+                        let audience = ContentSafetyService.Audience
+                            .from(story.audience.rawValue)
+                        if let body = story.textBody,
+                           case .rejected = ContentSafetyService.auditText(body, audience: audience) {
+                            // Reject silently — composer caller handles toast
+                            return
+                        }
+                        modelContext.insert(story)
+                        try? modelContext.save()
+                    }
+                }
             } else if !friendsLiveNow.isEmpty {
                 // Fall back to the simpler strip when we have presence/
                 // checkin signal but no follow graph data yet.
                 friendsNowStrip
+            }
+
+            // v4.3 Item D — always-on backfill strip below the friend strip.
+            // "from your gym · training your split now". Smaller avatars,
+            // NO presence rings (visual demotion preserves friend-ring trust).
+            if FeatureFlags.shared.coliftV43Enabled {
+                SplitBackfillStrip(items: v43SplitBackfillItems) { item in
+                    // Locked spec: tap → public profile (not a faked live session).
+                    v43BackfillTappedUserId = IdentifiableUUID(id: item.id)
+                }
+                .padding(.top, 4)
+                .navigationDestination(item: $v43BackfillTappedUserId) { wrapped in
+                    if let target = allUserProfiles.first(where: { $0.id == wrapped.id }) {
+                        ProfileView(profile: target, isPushed: true, isOtherUser: target.id != profile.id)
+                    }
+                }
+
+                // v4.3 §2 — Stories row backfills when fewer than 3 friends
+                // have an active story. Honors the "labeled creator/trending
+                // bubbles" rule via a slim, visually-demoted strip — never
+                // injected into FriendsRow itself so presence rings stay a
+                // pure follow + live trust signal.
+                StoriesThinBackfillStrip(activeFriendStoryCount: v43ActiveFriendStoryCount) {
+                    try? DiscoverEngineSurfaceAudit.allow(surface: .storiesPublicOptIn)
+                    let followed = Set(allFollows.filter { $0.userId == profile.id }.map(\.odId))
+                    let publicSet = DiscoverStoriesService.publicStories(
+                        currentUserId: profile.id,
+                        followedIds: followed,
+                        in: modelContext
+                    )
+                    if !publicSet.isEmpty {
+                        v43PublicStoriesViewer = publicSet
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 4)
+                .fullScreenCover(isPresented: Binding(
+                    get: { v43PublicStoriesViewer != nil },
+                    set: { if !$0 { v43PublicStoriesViewer = nil } }
+                )) {
+                    if let publicStories = v43PublicStoriesViewer {
+                        StoryViewerView(stories: publicStories, startIndex: 0)
+                    }
+                }
             }
 
             // Activity preview — jumps to Friends where the bell icon
@@ -1772,6 +1891,27 @@ struct TodayView: View {
 
             // Progressive challenges (3 at a time, tier-based)
             TodayChallengesSection(profile: profile)
+
+            // Slot 5 — v4.3 §4A Day-of-Week Ritual + Identity Footer.
+            DayOfWeekRitualCard()
+                .padding(.top, 4)
+
+            v43IdentityFooter
+                .padding(.top, 6)
+
+            // v4.3 Item 1 — Discover peek card at the very bottom of Home.
+            // Refreshes once per day (not per open). Tap → Discover Watch.
+            // Honors v4.3's "router not destination" rule: Discover is still
+            // a separate trip; this card just advertises it.
+            if FeatureFlags.shared.coliftV43Enabled {
+                DiscoverPeekCard(
+                    title: v43DiscoverPeekTitle,
+                    thumbnailURL: nil
+                ) {
+                    appState.selectedTab = .discover
+                }
+                .padding(.top, 8)
+            }
 
             GlobalLifterFooter()
                 .padding(.top, 8)
@@ -2415,6 +2555,132 @@ struct TodayView: View {
         }
     }
 
+    /// v4.3 Item H — Slot 2 squad chat preview rotation. Real squad data only,
+    /// rotates per open + stable while user is on Home. A fresh chat message
+    /// (last 4 hours) bypasses the rotation per the locked spec.
+    private func v43SquadPreviewLine(squad: Club, remaining: Int, target: Int, completed: Int) -> String {
+        let memberIds = Set(squad.memberIds)
+        let now = Date()
+        let cal = Calendar(identifier: .gregorian)
+        let today = cal.startOfDay(for: now)
+        let fourHoursAgo = now.addingTimeInterval(-4 * 3600)
+
+        // Fresh message in the last 4 hours always wins per spec — no rotation.
+        if let thread = allSquadThreads.first(where: { $0.squadId == squad.id }),
+           let fresh = allSquadMessages.first(where: { $0.threadId == thread.id && $0.createdAt >= fourHoursAgo }),
+           let line = squadMessagePreviewLine(fresh) {
+            return line
+        }
+
+        var pool: [String] = []
+
+        // 1. Today's training status — close-call language when nearly done.
+        let trainedTodayCount = allCheckIns.filter { checkIn in
+            memberIds.contains(checkIn.userId) && checkIn.timestamp >= today
+        }.count
+        let memberCount = squad.memberIds.count
+        if trainedTodayCount > 0 && trainedTodayCount >= memberCount - 1 && memberCount > 1 {
+            pool.append("\(trainedTodayCount) of \(memberCount) trained today — close one")
+        } else if trainedTodayCount > 0 {
+            pool.append("\(trainedTodayCount) of \(memberCount) trained today")
+        }
+
+        // 2. Weekly goal — remaining or done.
+        if remaining > 0 {
+            pool.append("\(remaining) more this week")
+        } else {
+            pool.append("goal complete")
+        }
+
+        // 3. Squad streak weeks (real data via Squad-flavor club).
+        let weekStreak = squad.streakWeeks ?? 0
+        if weekStreak >= 2 {
+            pool.append("squad streak: \(weekStreak) weeks")
+        }
+
+        // 4. Recent workout-share event (real Post by a squadmate, last 24h).
+        let dayAgo = now.addingTimeInterval(-86_400)
+        let recentSquadPosts = allPosts.filter { post in
+            memberIds.contains(post.authorId) && post.timestamp >= dayAgo
+        }
+        if let latest = recentSquadPosts.first,
+           let workoutType = latest.workoutType,
+           let authorProfile = allUserProfiles.first(where: { $0.id == latest.authorId }) {
+            pool.append("\(authorProfile.name.lowercased()) just crushed \(workoutType.lowercased())")
+        }
+
+        // 5. Member count fallback for cold-start.
+        if memberCount > 1 && pool.isEmpty {
+            pool.append("\(memberCount) in the squad")
+        }
+
+        // 6. Older chat facet (4–24h) — pulled from SquadMessage so the
+        // pool stays alive when nothing fresh has come in yet.
+        if let thread = allSquadThreads.first(where: { $0.squadId == squad.id }),
+           let older = allSquadMessages.first(where: { $0.threadId == thread.id && $0.createdAt >= dayAgo && $0.createdAt < fourHoursAgo }),
+           let line = squadMessagePreviewLine(older) {
+            pool.append(line)
+        }
+
+        // 7. Reaction facet — locked spec Item H lists "sarah reacted 🐐 to
+        // your push day". A squadmate reacting on the user's own post in
+        // the last 24h is the closest signal we have today, since chat-
+        // message reactions don't have a model yet (Reaction.targetType
+        // covers "post"/"workoutCard"/"prMoment", not "squadMessage").
+        let myRecentPostIds = Set(allPosts
+            .filter { $0.authorId == profile.id && $0.timestamp >= dayAgo }
+            .map(\.id))
+        if !myRecentPostIds.isEmpty,
+           let reaction = allPostReactions.first(where: { reaction in
+               reaction.targetType == "post"
+                   && myRecentPostIds.contains(reaction.targetId)
+                   && memberIds.contains(reaction.odId)
+                   && reaction.createdAt >= dayAgo
+           }) {
+            let reactorName = allUserProfiles.first(where: { $0.id == reaction.odId })?.name.lowercased() ?? "someone"
+            pool.append("\(reactorName) reacted to your post")
+        }
+
+        guard !pool.isEmpty else { return "show up this week" }
+        // Per-squad stable seed — rotates per Home open, doesn't re-roll on render.
+        let seed: Int = {
+            if let existing = v43SquadPreviewSeeds[squad.id] { return existing }
+            let fresh = Int.random(in: 0..<1024)
+            DispatchQueue.main.async { v43SquadPreviewSeeds[squad.id] = fresh }
+            return fresh
+        }()
+        return pool[seed % pool.count]
+    }
+
+    /// Maps a SquadMessage to its slot-2 preview line. Returns nil for
+    /// facets that don't have enough payload (empty body, missing sender).
+    private func squadMessagePreviewLine(_ msg: SquadMessage) -> String? {
+        let senderName = allUserProfiles.first(where: { $0.id == msg.senderId })?.name.lowercased()
+        switch msg.kind {
+        case .text:
+            guard let body = msg.body, !body.isEmpty else { return nil }
+            let snippet = String(body.prefix(40)).lowercased()
+            return senderName.map { "\($0): \(snippet)" } ?? snippet
+        case .poll:
+            let optionCount = msg.pollOptions?.count ?? 0
+            return "new poll · \(optionCount) options"
+        case .workoutShare:
+            return senderName.map { "\($0) shared a workout" }
+        case .voice:
+            return senderName.map { "\($0) sent a voice note" }
+        case .photo:
+            return senderName.map { "\($0) dropped a photo" }
+        case .video:
+            return senderName.map { "\($0) sent a clip" }
+        case .systemEvent:
+            return senderName.map { "\($0) joined the squad" }
+        case .reaction:
+            // Locked spec Item H — "sarah reacted 🐐 to chat".
+            let emoji = msg.reactionEmoji ?? "❤️"
+            return senderName.map { "\($0) reacted \(emoji) to chat" }
+        }
+    }
+
     private func squadRow(_ squad: Club) -> some View {
         let completed = userMomentum?.currentWeekCompleted ?? workoutsThisWeek
         let target = squad.weeklyWorkoutTarget ?? 3
@@ -2445,9 +2711,12 @@ struct TodayView: View {
                 Text(squad.name)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(GQColors.textPrimary)
-                Text(remaining > 0 ? "\(remaining) more this week" : "Goal complete")
+                // v4.3 Item H — chat preview rotates across real squad facets per open.
+                // Latest fresh message wins; falls back to streak / today's status / weekly goal.
+                Text(v43SquadPreviewLine(squad: squad, remaining: remaining, target: target, completed: completed))
                     .font(.system(size: 11))
                     .foregroundColor(GQColors.textTertiary)
+                    .lineLimit(1)
             }
 
             Spacer()
@@ -2568,6 +2837,128 @@ struct TodayView: View {
             checkIns: allCheckIns,
             coPresence: allCoPresenceLogs
         )
+    }
+
+    /// v4.3 Item 1 — Discover peek title. Refreshes once per day, never per
+    /// open. Pulls a real candidate post (videoData != nil) from the existing
+    /// Post pool and surfaces its workout type or caption snippet.
+    private var v43DiscoverPeekTitle: String? {
+        let dayKey = ISO8601DateFormatter.string(
+            from: .init(),
+            timeZone: .current,
+            formatOptions: [.withFullDate]
+        )
+        // Stable rotation: hash the day key into the candidate index so the
+        // peek card holds across all opens of the same calendar day.
+        let candidates = allPosts.filter { $0.videoData != nil }
+        guard !candidates.isEmpty else { return nil }
+        let index = abs(dayKey.hashValue) % candidates.count
+        let pick = candidates[index]
+        if let workoutType = pick.workoutType, !workoutType.isEmpty {
+            return "trending \(workoutType.lowercased()) · in your gym"
+        }
+        if !pick.caption.isEmpty {
+            return pick.caption.split(separator: "\n").first.map(String.init)
+        }
+        return "trending in your gym"
+    }
+
+    /// v4.3 Item D — backfilled "from your gym · training your split now"
+    /// items. NOT pulled from follow graph — sourced from public users at
+    /// the user's saved gym training the same workout type. Empty falls
+    /// v4.3 §2 — count of distinct followed friends who currently have an
+    /// active (non-deleted, non-expired) Story. Drives the thin-stories
+    /// backfill strip's visibility threshold (renders only when <3).
+    private var v43ActiveFriendStoryCount: Int {
+        let myFollowedIds = Set(allFollows.filter { $0.userId == profile.id }.map(\.odId))
+        let now = Date()
+        let liveAuthors = allStoriesForBackfill
+            .filter { story in
+                !story.isDeleted
+                    && story.expiresAt > now
+                    && myFollowedIds.contains(story.authorId)
+            }
+            .map(\.authorId)
+        return Set(liveAuthors).count
+    }
+
+    /// back to placeholder avatars so the strip still indicates "people
+    /// are training rn" (the §1 core promise).
+    private var v43SplitBackfillItems: [SplitBackfillItem] {
+        // Public/non-followed users currently training the same workout split.
+        let myFollowedIds = Set(allFollows.filter { $0.userId == profile.id }.map(\.odId))
+        let mySplit = allWorkouts.first.map { $0.type.rawValue } ?? "push"
+
+        let candidates = allPresenceStates.filter { state in
+            // Active right now
+            guard state.status == .training else { return false }
+            // NOT a friend (this is "from your gym", labeled separately)
+            guard !myFollowedIds.contains(state.userId) else { return false }
+            // Same split when known
+            if let workoutType = state.workoutTypeRaw, workoutType != mySplit { return false }
+            return true
+        }
+
+        return candidates.prefix(5).map { state in
+            let resolvedProfile = allUserProfiles.first(where: { $0.id == state.userId })
+            return SplitBackfillItem(
+                id: state.userId,
+                displayName: resolvedProfile?.name ?? "lifter",
+                avatarURL: nil
+            )
+        }
+    }
+
+    /// v4.3 §4A Identity Footer — XP / streak / level chip strip.
+    @ViewBuilder
+    private var v43IdentityFooter: some View {
+        let level = profile.level
+        let xp = profile.xp
+        let nextLevelXp = (level + 1) * 100
+        let toGo = max(0, nextLevelXp - xp)
+        let workoutsThisWeekCount = workoutsThisWeek
+        Button {
+            appState.selectedTab = .friends  // tap → Profile via avatar btn
+        } label: {
+            HStack(spacing: 14) {
+                Text("+\(workoutsThisWeekCount * 12) XP today")
+                    .font(.system(size: 11, weight: .semibold))
+                Text("·").foregroundStyle(.secondary)
+                StreakVisualBadge(days: workoutsThisWeekCount)
+                Text("·").foregroundStyle(.secondary)
+                Text("level \(level) · \(toGo) XP to \(level + 1)")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 12).padding(.vertical, 8)
+            .background(RoundedRectangle(cornerRadius: 12).fill(.white.opacity(0.06)))
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// v4.3 §4A Slot 1 — single-best Smart Top Card for the 12-candidate pool.
+    /// Returns nil when no signal fires; the existing top-of-slots cards then
+    /// take over without duplicating.
+    private var v43SmartTopCardKind: SmartTopCardKind? {
+        var s = SmartTopCardSignals()
+        s.hasActiveWorkout = appState.isWorkoutActive
+        s.atSavedGym = locationService.currentGym != nil
+        s.friendsTrainingNow = friendsTrainingNowCount
+        s.unreadReactionsCount = recentReactionsForSelf?.count ?? 0
+        s.streakDanger = false  // existing `streakAlarmCandidate` handles this; left off to avoid double-signal
+        return SmartTopCardPicker.pick(s)
+    }
+
+    private var friendsTrainingNowCount: Int {
+        let now = Date()
+        let followedIds = Set(allFollows.filter { $0.userId == profile.id }.map(\.odId))
+        return allPresenceStates.filter { state in
+            guard followedIds.contains(state.userId) else { return false }
+            guard state.status == .training else { return false }
+            if let started = state.startedAt, now.timeIntervalSince(started) > 3 * 3600 { return false }
+            return true
+        }.count
     }
 
     private var streakAlarmCandidate: StreakAlarmCandidate? {

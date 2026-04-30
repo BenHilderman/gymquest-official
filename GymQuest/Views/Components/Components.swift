@@ -1724,7 +1724,16 @@ struct ShareSheet: UIViewControllerRepresentable {
     let items: [Any]
 
     func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: items, applicationActivities: nil)
+        // v4.3 §7B — every external share carries a subtle Lift watermark.
+        // When a UIImage is in the activity items, we route it through
+        // `ExternalShareWatermark.apply(...)` before handing to the OS.
+        let watermarked: [Any] = items.map { item -> Any in
+            if FeatureFlags.shared.coliftV43Enabled, let img = item as? UIImage {
+                return ExternalShareWatermark.apply(to: img)
+            }
+            return item
+        }
+        return UIActivityViewController(activityItems: watermarked, applicationActivities: nil)
     }
 
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}

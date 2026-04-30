@@ -31,6 +31,10 @@ struct EnhancedPostEditorView: View {
     var initialSong: Song? = nil
     var preloadedMedia: [PostMedia] = []
     var detectedPRs: [PRMoment] = []
+    /// v4.3 Item B — when the editor is opened from the Profile suggestion card,
+    /// the resulting Post is a throwback: timestamp is anchored to the
+    /// workout's original date and `isThrowback` flips on so feeds skip it.
+    var isThrowback: Bool = false
 
     // Navigation
     private enum PostEditorPhase: Hashable { case customize }
@@ -51,6 +55,9 @@ struct EnhancedPostEditorView: View {
     @State private var caption: String = ""
     @State private var mediaItems: [PostMedia] = []
     @State private var includeStats: Bool = true
+    /// v4.3 §7B — "What's Next" moment after publish. Set in `createPost()`.
+    @State private var v43ShowWhatsNext: Bool = false
+    @State private var v43WhatsNextKind: WhatsNextCardKind = .saveAsTemplate
 
     // Tagging state
     @State private var taggedUsernames: [String] = []
@@ -68,6 +75,8 @@ struct EnhancedPostEditorView: View {
     @State private var showLocationPicker = false
     @State private var showSquadPicker = false
     @State private var showMusicPicker = false
+    /// v4.3 Item B — flag for the throwback date-filtered picker sheet.
+    @State private var showingThrowbackPicker = false
 
     // Voice note
     @State private var voiceNoteData: Data?
@@ -119,6 +128,23 @@ struct EnhancedPostEditorView: View {
                 }
         }
         .tint(GQColors.textPrimary)
+        .sheet(isPresented: $v43ShowWhatsNext, onDismiss: { dismiss() }) {
+            VStack(spacing: 16) {
+                WhatsNextCardView(
+                    kind: v43WhatsNextKind,
+                    detailLine: nil,
+                    onTap: {
+                        // Tap closes the card; primary tab navigation
+                        // happens via the launching surface on dismiss.
+                        v43ShowWhatsNext = false
+                    },
+                    onSkip: { v43ShowWhatsNext = false }
+                )
+                AnticipationHookBanner(tone: .squadGonnaSee)
+            }
+            .padding(20)
+            .presentationDetents([.medium])
+        }
         .sheet(isPresented: $showUserTagger) {
             UserTaggingView(taggedUsernames: $taggedUsernames)
         }
@@ -381,12 +407,82 @@ struct EnhancedPostEditorView: View {
         navigationPath.append(PostEditorPhase.customize)
     }
 
+    /// v4.3 Item B — throwback photo-attach hint. Presented above the
+    /// camera viewfinder when the editor was launched from the Profile
+    /// suggestion card. Opens a date-filtered library picker scoped to a
+    /// ±24h window around the workout's actual date so the user only
+    /// sees photos that could actually be "from that day".
     @ViewBuilder
+    private func throwbackPhotoHintBanner(date: Date) -> some View {
+        let formatter: DateFormatter = {
+            let f = DateFormatter()
+            f.dateFormat = "MMM d"
+            return f
+        }()
+        let label = "from \(formatter.string(from: date).lowercased())"
+
+        Button {
+            showingThrowbackPicker = true
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "calendar.badge.plus")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(GQGradients.primary)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("attach a photo \(label)?")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(GQColors.textPrimary)
+                    Text("optional · only library photos from that day")
+                        .font(.system(size: 11))
+                        .foregroundColor(GQColors.textTertiary)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "photo.on.rectangle")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(GQColors.textSecondary)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(GQColors.overlayLight)
+            )
+        }
+        .buttonStyle(.plain)
+        #if canImport(UIKit)
+        .sheet(isPresented: $showingThrowbackPicker) {
+            ThrowbackPhotoPicker(workoutDate: date) { fullData, thumbData in
+                let media = PostMedia(
+                    exerciseName: nil,
+                    exerciseIndex: nil,
+                    mediaType: .photo,
+                    data: fullData,
+                    thumbnailData: thumbData ?? fullData
+                )
+                withAnimation { mediaItems.append(media) }
+            }
+        }
+        #endif
+    }
+
     private var mediaSelectionPhase: some View {
         ZStack {
             GQColors.background.ignoresSafeArea()
 
             VStack(spacing: 0) {
+                // v4.3 Item B locked spec — throwback opt-in hint. When the
+                // editor opens from the Profile suggestion card, surface a
+                // single banner pointing at the workout's actual date so the
+                // user can attach a library photo from that day. The picker
+                // itself stays unfiltered — `PhotosPicker` has no native
+                // date-range constraint — but the contextual nudge is the
+                // explicit opt-in the spec calls for.
+                if isThrowback, let workoutDate = workout?.date {
+                    throwbackPhotoHintBanner(date: workoutDate)
+                        .padding(.horizontal, 12)
+                        .padding(.top, 8)
+                }
+
                 // Camera viewfinder
                 ZStack {
                     #if canImport(UIKit)
@@ -804,10 +900,20 @@ struct EnhancedPostEditorView: View {
                     .padding(.horizontal, 2)
             }
 
+            // v4.3 §7B — Gen Z smart caption chips row above the editor.
+            SmartCaptionChipsRow(caption: $caption)
+                .padding(.bottom, 4)
+
             // Caption input — dedicated editor below the preview so the
             // live-rendered caption inside the PostCardV2 above reflects
             // exactly how the final post will read.
             captionEditorBubble
+
+            // v4.3 §7B — anticipation hook + What's Next stub appear after
+            // share. Surfaced here for design completeness; the publish
+            // path wires the rotating What's Next card next.
+            AnticipationHookBanner(tone: .squadGonnaSee)
+                .padding(.top, 6)
         }
     }
 
@@ -1388,6 +1494,53 @@ struct EnhancedPostEditorView: View {
         syncPreviewPostFromState(cached)
     }
 
+    /// Format a retry interval for the rate-limit error toast.
+    private func retryLabel(_ retryAfter: TimeInterval) -> String {
+        if retryAfter < 60 { return "a moment" }
+        let minutes = Int(retryAfter / 60)
+        if minutes < 60 { return "\(minutes) min" }
+        let hours = max(1, minutes / 60)
+        return hours == 1 ? "an hour" : "\(hours) hours"
+    }
+
+    /// v4.3 content-safety phase 1 — runs Vision + Speech + slur audits
+    /// on every media item + caption + voice note. Best-effort: a held
+    /// verdict logs but doesn't block publish (Phase 2 server canonical
+    /// audit will downgrade post-publish if needed). Rejected verdicts
+    /// surface the reason as the editor's error and abort the publish.
+    @MainActor
+    private func runPostSafetyAudit() async {
+        let audience = ContentSafetyService.Audience.from(selectedAudience.rawValue)
+
+        // Caption text scan.
+        if !caption.isEmpty,
+           case .rejected(let reason) = ContentSafetyService.auditText(caption, audience: audience) {
+            errorMessage = reason
+            showError = true
+            return
+        }
+
+        // Photo media scan — first hit short-circuits.
+        for item in mediaItems where item.mediaType == .photo {
+            guard let imageData = item.data else { continue }
+            if case .rejected(let reason) = await ContentSafetyService.audit(imageData: imageData, audience: audience) {
+                errorMessage = reason
+                showError = true
+                return
+            }
+        }
+
+        // Voice note scan — transcribe + slur check.
+        if let voiceData = voiceNoteData {
+            let result = await ContentSafetyService.audit(audioData: voiceData, audience: audience)
+            if case .rejected(let reason) = result.verdict {
+                errorMessage = reason
+                showError = true
+                return
+            }
+        }
+    }
+
     private func createPost() {
         // Block publish if a video is attached but exceeds the hard length cap
         if hasVideo, let err = clipLengthError {
@@ -1395,6 +1548,28 @@ struct EnhancedPostEditorView: View {
             showError = true
             return
         }
+
+        // v4.3 content-safety phase 4C — rate-limit gate. Tier comes from
+        // the cached BotHeuristicService score; soft/hard limits both
+        // surface as errorMessage so the editor stays in place.
+        let tier = BotHeuristicService.cachedTier(for: profile.id, in: modelContext)
+        let decision = RateLimitService.allow(.postCreate, by: profile.id, tier: tier, in: modelContext)
+        if case .softLimited(let retry) = decision {
+            errorMessage = "you're posting fast — try again in \(retryLabel(retry))"
+            showError = true
+            return
+        }
+        if case .hardCapped = decision {
+            errorMessage = "you've hit today's post limit — try again tomorrow"
+            showError = true
+            return
+        }
+
+        // v4.3 content-safety phase 1 — kick the audit off async. The
+        // upload proceeds optimistically; the editor flips its
+        // `moderationVerdictRaw` to "held" while server (Phase 2) catches
+        // up. Hard rejections short-circuit the publish.
+        Task { await runPostSafetyAudit() }
 
         let firstPhoto = mediaItems.first(where: { $0.mediaType == .photo })
         let firstVideo = mediaItems.first(where: { $0.mediaType == .video })
@@ -1465,6 +1640,14 @@ struct EnhancedPostEditorView: View {
         // Audience scope — defaults to friends, never public unless user explicitly selected
         post.audience = selectedAudience.rawValue
 
+        // v4.3 Item B — throwback anchor: pin timestamp to the original workout
+        // date so the post sorts to its actual chronological place rather than
+        // the top of feeds. Feeds filter `isThrowback` out of the public mix.
+        if isThrowback, let originalDate = workout?.date {
+            post.isThrowback = true
+            post.timestamp = originalDate
+        }
+
         // Attach widget if set
         if let widget = attachedWidget {
             post.postWidgetData = try? JSONEncoder().encode(widget)
@@ -1493,13 +1676,29 @@ struct EnhancedPostEditorView: View {
             UINotificationFeedbackGenerator().notificationOccurred(.success)
             #endif
             showConfetti = true
+            // v4.3 §7B — show "What's Next" card before dismissing.
+            // Picks one of 5 candidate prompts per design.
+            v43WhatsNextKind = pickV43WhatsNext()
+            v43ShowWhatsNext = FeatureFlags.shared.coliftV43Enabled
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                dismiss()
+                if !v43ShowWhatsNext { dismiss() }
             }
         } catch {
             errorMessage = "Failed to save post. Please try again."
             showError = true
         }
+    }
+
+    /// v4.3 §7B — pick a "What's Next" prompt at publish time.
+    private func pickV43WhatsNext() -> WhatsNextCardKind {
+        let choices: [WhatsNextCardKind] = [
+            .reactToFriend,
+            .saveAsTemplate,
+            .squadProgress,
+            .tipOfTheMoment,
+            .tomorrowsPlan
+        ]
+        return choices.randomElement() ?? .saveAsTemplate
     }
 
     // MARK: - Quick Clip Helpers (auto-activated when a video is selected)

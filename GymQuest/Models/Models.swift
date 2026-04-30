@@ -1799,6 +1799,22 @@ final class Post {
     var inspiredByWorkoutId: UUID?    // Original workout ID
     var inspiredByName: String?       // Display name of original author
 
+    // v4.3 §10 Partner Mode — links a post to a shared partner session.
+    // Both partners' feeds reference the same `Post`, with `partnerUserId`
+    // pointing to the OTHER user. Maps to `posts.partner_user_id` and
+    // `posts.partner_session_id` columns (migration 4).
+    var partnerUserId: UUID?
+    var partnerDisplayName: String?
+    var partnerSessionId: UUID?
+
+    // v4.3 Item B — throwback flag for retroactive posts surfaced via the
+    // Profile "you might post about" suggestion card. Throwbacks:
+    //   - sort to their workout date (not now), not the top of feeds
+    //   - never appear in friends' "just posted" or "for you" top
+    //   - render with explicit "throwback · [N] days ago" / "from oct 14" label
+    // The post's `timestamp` matches the original workout date when this is true.
+    var isThrowback: Bool = false
+
     // social
     var taggedUsernames: [String]
     var likeCount: Int
@@ -2107,6 +2123,15 @@ final class Like {
 }
 
 // comments on posts
+/// Comment media kind. v4.3 content-safety phase 1 — comments support
+/// audio + photo replies in addition to text. Each kind picks which of
+/// the optional `audioData` / `photoData` fields are populated.
+enum CommentMediaKind: String, Codable, CaseIterable {
+    case text       // text-only (legacy default)
+    case audio      // voice-note reply, transcript inline
+    case photo      // photo reply, optional caption in `content`
+}
+
 @Model
 final class Comment {
     var id: UUID
@@ -2120,6 +2145,30 @@ final class Comment {
     var replyToAuthorName: String?
     var likeCount: Int
 
+    // v4.3 phase 1 content-safety extension. Defaults preserve text-only
+    // behavior — existing comments stay `.text` with no media payload.
+    var mediaKindRaw: String = CommentMediaKind.text.rawValue
+    /// Voice-note reply audio (m4a). Capped at 30s by the input UI.
+    @Attribute(.externalStorage) var audioData: Data?
+    var audioDurationSeconds: Double?
+    /// On-device transcription captured at upload time. Used for inline
+    /// rendering ("audio · 'wsg form check'") and the slur word scan.
+    var audioTranscript: String?
+    /// Photo reply data (JPEG). Thumbnail for the comment row.
+    @Attribute(.externalStorage) var photoData: Data?
+    /// Server moderation outcome — set by the Phase 2 audit pipeline.
+    /// `nil` = not yet checked (Phase 1 friends/squad), `"allowed"` /
+    /// `"held"` / `"rejected"` once an audit row writes back.
+    var moderationVerdictRaw: String?
+    /// Soft-delete flag. Phase 2 trigger flips this on rejection so the
+    /// comment disappears from feeds without losing the audit trail.
+    var isHiddenByModeration: Bool = false
+
+    var mediaKind: CommentMediaKind {
+        get { CommentMediaKind(rawValue: mediaKindRaw) ?? .text }
+        set { mediaKindRaw = newValue.rawValue }
+    }
+
     init(
         id: UUID = UUID(),
         postId: UUID = UUID(),
@@ -2130,7 +2179,12 @@ final class Comment {
         timestamp: Date = Date(),
         parentCommentId: UUID? = nil,
         replyToAuthorName: String? = nil,
-        likeCount: Int = 0
+        likeCount: Int = 0,
+        mediaKind: CommentMediaKind = .text,
+        audioData: Data? = nil,
+        audioDurationSeconds: Double? = nil,
+        audioTranscript: String? = nil,
+        photoData: Data? = nil
     ) {
         self.id = id
         self.postId = postId
@@ -2142,6 +2196,11 @@ final class Comment {
         self.parentCommentId = parentCommentId
         self.replyToAuthorName = replyToAuthorName
         self.likeCount = likeCount
+        self.mediaKindRaw = mediaKind.rawValue
+        self.audioData = audioData
+        self.audioDurationSeconds = audioDurationSeconds
+        self.audioTranscript = audioTranscript
+        self.photoData = photoData
     }
 }
 

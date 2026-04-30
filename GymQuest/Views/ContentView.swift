@@ -96,6 +96,24 @@ struct ContentView: View {
         hasSeenAppTour = true
     }
 
+    /// v4.3 §7C — persist OnboardingV43View selections onto the existing
+    /// `UserProfile`. Only writes fields that have direct equivalents
+    /// today; richer mapping (split, vibe, saved gym) lands when those
+    /// columns are added to `UserProfile`.
+    private func applyV43OnboardingSelections(_ selections: OnboardingV43Selections) {
+        guard let profile = authenticatedProfiles.first else { return }
+        if let knownFor = selections.knownFor, profile.showUpFor.isEmpty {
+            profile.showUpFor = knownFor.rawValue
+        }
+        if let exp = selections.experience {
+            profile.experienceLevelRaw = exp.rawValue
+        }
+        if !selections.savedGymName.isEmpty, profile.gymName.isEmpty {
+            profile.gymName = selections.savedGymName
+        }
+        try? modelContext.save()
+    }
+
     @ViewBuilder
     private func mainContent(profile: UserProfile) -> some View {
         ZStack(alignment: .bottom) {
@@ -166,8 +184,21 @@ struct ContentView: View {
             .presentationDetents([.medium])
         }
         .fullScreenCover(isPresented: $showCommunityOnboarding) {
-            OnboardingFlow(isPresented: $showCommunityOnboarding)
-                .onDisappear { hasSeenCommunityOnboarding = true }
+            // v4.3 §7C — 11-step Onboarding when the Colift design is on,
+            // legacy 4-page tour when it's off (A/B comparison).
+            Group {
+                if FeatureFlags.shared.coliftV43Enabled {
+                    NavigationStack {
+                        OnboardingV43View(onComplete: { selections in
+                            applyV43OnboardingSelections(selections)
+                            showCommunityOnboarding = false
+                        })
+                    }
+                } else {
+                    OnboardingFlow(isPresented: $showCommunityOnboarding)
+                }
+            }
+            .onDisappear { hasSeenCommunityOnboarding = true }
         }
         .task {
             // First-launch: show onboarding once per install. Users can
@@ -221,13 +252,40 @@ struct ContentView: View {
                 }
             }
 
-            // Cold-launch landing: Friends when the user has a social graph,
-            // Discover otherwise — avoids a sparse empty Friends page on
-            // first launch. Runs once per process lifetime.
+            // Cold-launch landing: design v4.3 §2 Smart Contextual Landing.
+            // Routes through `LaunchRouter` (15-priority dispatcher); the
+            // 2-state fallback below is retained as a last-resort default.
             if !hasAppliedInitialLanding {
                 hasAppliedInitialLanding = true
                 let followCount = allFriends.filter { $0.userId == profile.id }.count
-                appState.selectedTab = followCount > 0 ? .friends : .discover
+                var launchCtx = LaunchContext(now: .init())
+                launchCtx.hasActiveWorkout = appState.isWorkoutActive
+                launchCtx.followCount = followCount
+                launchCtx.lastBackgroundedAt = appState.lastBackgroundedAt
+                launchCtx.lastSurface = mapTabToLandingHint(appState.selectedTab)
+                let target = LaunchRouterIntegration.decide(launchCtx)
+                switch target {
+                case .activeWorkout:
+                    break  // active-workout overlay handled by AppState
+                case .discoverWatch:
+                    appState.selectedTab = .discover
+                case .friends, .friendsActivity, .friendsFeedAtPost, .messagesThread, .post:
+                    appState.selectedTab = .friends
+                case .home, .homeWeekend, .homeLiveStrip:
+                    appState.selectedTab = .today
+                case .lastSurface(let hint):
+                    switch hint {
+                    case .home: appState.selectedTab = .today
+                    case .friends: appState.selectedTab = .friends
+                    case .clubs: appState.selectedTab = .clubs
+                    case .discover: appState.selectedTab = .discover
+                    }
+                }
+                // Fallback if no rule matched (router always returns a target,
+                // but keep the original heuristic as a defensive default).
+                if appState.selectedTab == .today && followCount == 0 {
+                    appState.selectedTab = .discover
+                }
             }
 
             // First-time app tour — show after 1s delay on first launch
@@ -382,7 +440,7 @@ struct FloatingTabBar: View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
                 ZStack(alignment: .topTrailing) {
-                    FloatingTabButton(tab: .friends, icon: "person.2", selectedIcon: "person.2.fill", label: "Friends")
+                    FloatingTabButton(tab: .friends, icon: "person.2", selectedIcon: "person.2.fill", label: "feed")
                         .liveTabPulse(anyFriendLive ? .social : .none)
 
                     if unreadActivityCount > 0 {
@@ -403,7 +461,7 @@ struct FloatingTabBar: View {
                     // rings inside the Friends page carry that signal.
                 }
 
-                FloatingTabButton(tab: .clubs, icon: "person.3", selectedIcon: "person.3.fill", label: "Clubs")
+                FloatingTabButton(tab: .clubs, icon: "person.3", selectedIcon: "person.3.fill", label: "Crews")
                     .liveTabPulse(anyClubMemberLive ? .social : .none)
 
                 // Center button — workout indicator when active, "+" when idle

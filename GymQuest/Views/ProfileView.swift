@@ -24,9 +24,35 @@ struct ProfileView: View {
     @Query(sort: \Post.timestamp, order: .reverse) private var posts: [Post]
     @Query(sort: \Workout.date, order: .reverse) private var workouts: [Workout]
     @Query(sort: \PREvent.date, order: .reverse) private var prEvents: [PREvent]
+    @Query(sort: \StoryHighlightSlot.slotIndex) private var storyHighlightSlots: [StoryHighlightSlot]
+    @Query private var allStories: [Story]
+    /// v4.3 §10 — partner sessions used for the live-state "with partner"
+    /// stat-fill threshold. We only consider sessions in `.ended` state so
+    /// pending invites don't trigger the line.
+    @Query private var allPartnerSessions: [PartnerSession]
+    /// v4.3 §2 — used by `DiscoverStoriesService` to filter the public
+    /// stream to non-followed authors when the user opts into "see public
+    /// stories" from the caught-up overlay.
+    @Query private var allFollows: [Friend]
+    @State private var v43HighlightsViewer: [Story]? = nil
+    @State private var v43HighlightsStartIndex: Int = 0
+    /// v4.3 Item B — when the suggestion card is tapped we open the post
+    /// editor pre-filled with the suggested workout. Stored as a workout
+    /// reference so the editor can serialize it as a SharedWorkoutData payload
+    /// just like a fresh post-workout share.
+    @State private var v43SuggestionEditorWorkout: Workout? = nil
+    /// v4.3 §5A Item E — stable seed for the rest-day stat-fill rotation.
+    /// Locked spec: rotates per profile open, doesn't re-roll on render.
+    @State private var v43LiveStateSeed = RotationSeed()
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismissProfile
+    /// v4.3 Item E — primary signal for the "training now" Live State Line.
+    /// AppState is the source of truth: it tracks workoutType + startTime
+    /// the moment a workout begins and clears on end, with paused-state
+    /// distinction. WorkoutDraft remains the fallback for crash recovery
+    /// across launches when AppState hasn't rehydrated yet.
+    @EnvironmentObject private var appState: AppState
 
     let profile: UserProfile
     /// True when this view is pushed onto a parent NavigationStack
@@ -189,6 +215,22 @@ struct ProfileView: View {
                                     .clipShape(Circle())
                             }
                             .buttonStyle(.plain)
+                        } else if isOtherUser {
+                            // v4.3 §5B — paper-airplane DM button on other-user profile.
+                            NavigationLink {
+                                MessagesListView(unreadCount: 0,
+                                                 reactStreakConvoCount: 0,
+                                                 threads: [],
+                                                 suggestions: [])
+                            } label: {
+                                Image(systemName: "paperplane")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(GQColors.textPrimary)
+                                    .frame(width: 34, height: 34)
+                                    .background(GQColors.overlayLight)
+                                    .clipShape(Circle())
+                            }
+                            .buttonStyle(.plain)
                         }
                         #endif
                     }
@@ -198,7 +240,26 @@ struct ProfileView: View {
 
                     VStack(spacing: 12) {
                         profileHeader
+                        // v4.3 §5A — Live State Line + Privacy pill below header.
+                        v43IdentityRow
+                        // v4.3 §5A — Story Highlights row (user-curated best moments).
+                        // Owner-only "fresh" dot indicates highlights not viewed in 30+ days
+                        // (Item F locked spec).
+                        v43StoryHighlightsSection
+                        // v4.3 Item B — suggestion card surfaces real history when
+                        // user has zero posts. Disappears the moment they post one.
+                        if isOwnProfile && posts.filter({ $0.authorId == profile.id }).isEmpty {
+                            v43SuggestionSection
+                        }
                         if isOwnProfile { profileCompletionBanner }
+                        // v4.3 §5B — other-user primary actions (TRAIN LIKE THEM,
+                        // LIFT WITH THEM, VS YOU). Only renders on someone else's
+                        // profile.
+                        if isOtherUser { v43OtherProfileActions }
+                        // v4.3 §5A — Year So Far (refreshes weekly via cron).
+                        if isOwnProfile { v43YearSoFarSection }
+                        // v4.3 §5A — Training Identity card.
+                        v43TrainingIdentitySection
                         achievementBadgesSection
                     }
                     .padding(.horizontal, 16)
@@ -1018,6 +1079,387 @@ struct ProfileView: View {
             HStack { Text(label).font(.system(size: 10, weight: .semibold)).foregroundColor(GQColors.textSecondary); Spacer(); Text("\(value)/\(goal)").font(.system(size: 11, weight: .bold, design: .rounded)) }
             GeometryReader { g in ZStack(alignment: .leading) { Capsule().fill(GQColors.adaptiveOverlay(0.06)); Capsule().fill(GQGradients.primary).frame(width: g.size.width * CGFloat(p)) } }.frame(height: 4)
         }.padding(8).background(RoundedRectangle(cornerRadius: 10).fill(GQColors.adaptiveOverlay(0.03)))
+    }
+
+    // MARK: - v4.3 Identity surfaces (design §5A)
+
+    /// v4.3 Item B — single suggestion card on empty profile.
+    /// Picks the strongest available signal and opens the post editor
+    /// pre-filled with that workout, marked as a throwback so timestamp
+    /// anchors to the original session date.
+    @ViewBuilder
+    private var v43SuggestionSection: some View {
+        if let suggestion = ProfileSuggestionPicker.pick(from: workouts) {
+            ProfileV43SuggestionCard(
+                signalLine: suggestion.signalLine,
+                detailLine: suggestion.detailLine,
+                onPost: {
+                    v43SuggestionEditorWorkout = suggestion.workout
+                },
+                onDismiss: {
+                    // Dismiss handled by post-count threshold; user can ignore the card.
+                }
+            )
+            .sheet(isPresented: Binding(
+                get: { v43SuggestionEditorWorkout != nil },
+                set: { if !$0 { v43SuggestionEditorWorkout = nil } }
+            )) {
+                if let workout = v43SuggestionEditorWorkout {
+                    EnhancedPostEditorView(
+                        profile: profile,
+                        workout: workout,
+                        exercises: completedExercises(from: workout),
+                        duration: workout.duration,
+                        isThrowback: true
+                    )
+                }
+            }
+        }
+    }
+
+    /// Maps a saved Workout's exercises into the lightweight CompletedExercise
+    /// shape the post editor expects (name + completed-set count).
+    private func completedExercises(from workout: Workout) -> [CompletedExercise] {
+        workout.exercises
+            .sorted { $0.order < $1.order }
+            .enumerated()
+            .map { idx, ex in
+                CompletedExercise(name: ex.name, sets: ex.sets.count, index: idx)
+            }
+    }
+
+    /// v4.3 §5A — Story Highlights row + Item F "fresh" dot for owner.
+    /// Real thumbnails resolved from `allStories` keyed by `storyId`.
+    /// Tap presents `StoryViewerView` over the profile.
+    @ViewBuilder
+    private var v43StoryHighlightsSection: some View {
+        let highlightSlots = storyHighlightSlots.filter { $0.userId == profile.id }
+        if !highlightSlots.isEmpty {
+            ProfileStoryHighlightsRow(
+                slots: highlightSlots,
+                stories: allStories,
+                isOwnProfile: isOwnProfile,
+                onTapStory: { tappedStory, slot in
+                    // Mark as viewed by owner so the fresh dot disappears next time.
+                    if isOwnProfile {
+                        slot.ownerLastViewedAt = .init()
+                        try? modelContext.save()
+                    }
+                    // Build a viewer sequence from the user's pinned highlights
+                    // in slot order, starting at the tapped one.
+                    let resolved = highlightSlots
+                        .sorted { $0.slotIndex < $1.slotIndex }
+                        .compactMap { s in allStories.first { $0.id == s.storyId } }
+                    let startIdx = resolved.firstIndex { $0.id == tappedStory.id } ?? 0
+                    v43HighlightsStartIndex = startIdx
+                    v43HighlightsViewer = resolved
+                }
+            )
+            .fullScreenCover(isPresented: Binding(
+                get: { v43HighlightsViewer != nil },
+                set: { if !$0 { v43HighlightsViewer = nil } }
+            )) {
+                if let stories = v43HighlightsViewer {
+                    StoryViewerView(
+                        stories: stories,
+                        startIndex: v43HighlightsStartIndex,
+                        publicStoriesProvider: {
+                            let followed = Set(allFollows
+                                .filter { $0.userId == profile.id }
+                                .map(\.odId))
+                            return DiscoverStoriesService.publicStories(
+                                currentUserId: profile.id,
+                                followedIds: followed,
+                                in: modelContext
+                            )
+                        }
+                    )
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var v43IdentityRow: some View {
+        HStack(spacing: 8) {
+            ProfileLiveStateLine(state: v43LiveState)
+            Spacer(minLength: 0)
+            PrivacyTrustShortcutPill(ghostLevel: .friends) {
+                showingSettings = true
+            }
+        }
+    }
+
+    @State private var v43VSYouEnabled: Bool = false
+
+    /// v4.3 §5A — Item E locked spec. Rotating pool with thresholds.
+    /// Training-state always priority; stat fills only fill rest-day slot.
+    /// On other-user profiles we don't have their local Workout rows, so
+    /// the line falls back to "rest day" until the server-side feed lands.
+    private var v43LiveState: ProfileLiveStateKind {
+        guard !isOtherUser else { return .restDay }
+        let myWorkouts = workouts
+        let now = Date()
+
+        // Locked spec Item E top priority — "Training now" reads when the
+        // user has an in-progress workout. AppState is the live signal;
+        // WorkoutDraft is the cold-launch fallback. AppState wins because
+        // it knows about pause state — paused workouts shouldn't read
+        // "in it · push · 32 min" since the user isn't actively lifting.
+        if let active = appState.activeWorkout, !appState.isWorkoutPaused {
+            let elapsedMin = max(1, Int(now.timeIntervalSince(active.startTime) / 60))
+            let kind = active.workoutType.rawValue.lowercased()
+            return .trainingNow(label: "in it · \(kind) · \(elapsedMin) min")
+        }
+        if let draft = WorkoutDraft.load() {
+            let elapsedMin = max(1, Int(now.timeIntervalSince(draft.startTime) / 60))
+            let kind = draft.workoutTypeRaw.lowercased()
+            return .trainingNow(label: "in it · \(kind) · \(elapsedMin) min")
+        }
+
+        // Training-state branch (always priority).
+        if let last = myWorkouts.first {
+            let secondsSince = now.timeIntervalSince(last.date)
+            let daysSince = Int(secondsSince / 86_400)
+            let kind = last.type.rawValue.lowercased()
+            let mins = last.duration
+
+            if daysSince == 0 {
+                return .recent(label: "done for today · \(kind) · \(mins) min")
+            }
+            if daysSince == 1 {
+                return .recent(label: "last lifted yesterday · \(kind) · \(mins) min")
+            }
+            if daysSince <= 6 {
+                return .recent(label: "last lifted \(daysSince) days ago · \(kind) · \(mins) min")
+            }
+            // 7+ days off — prompt to come back.
+            return .prompt(label: "back tomorrow?")
+        }
+
+        // No workouts — never trained.
+        if myWorkouts.isEmpty {
+            return .prompt(label: "let's start")
+        }
+
+        // Rest day branch — try threshold-based stat fills first.
+        if let stat = v43LiveStateStatFill() {
+            return .statFill(label: stat)
+        }
+        // Locked spec Item E differentiates earned rest from generic rest.
+        // "Rest day · earned" reads when the user has trained recently and
+        // sustainedly — at least 3 sessions in the last 7 days. Otherwise
+        // it's the plain "rest day" reminder.
+        let weekAgo = now.addingTimeInterval(-7 * 86_400)
+        let recentSessionCount = myWorkouts.filter { $0.date >= weekAgo }.count
+        if recentSessionCount >= 3 {
+            return .restDayEarned
+        }
+        return .restDay
+    }
+
+    /// Picks one self-derived stat line if its threshold is met. Random per
+    /// profile open. Returns nil when no threshold clears (then we fall back
+    /// to "rest day"). All thresholds per the locked Item E spec — never
+    /// renders if the underlying data is below the meaningful bar.
+    private func v43LiveStateStatFill() -> String? {
+        var pool: [String] = []
+        let now = Date()
+        let cal = Calendar(identifier: .iso8601)
+
+        // Threshold: streak crosses 7 / 30 / 100 / 365 day milestone.
+        // Locked spec Item E: "day 17 going strong" — streak-day count, not
+        // total workout count. `cachedStreak` is refreshed on appear via
+        // `refreshProfileStats()` and tracks the user's current streak.
+        let streakDays = cachedStreak
+        if [7, 30, 100, 365].contains(where: { streakDays >= $0 && streakDays < $0 + 3 }) {
+            pool.append("day \(streakDays) going strong")
+        }
+
+        // Threshold: consistency ≥70% of weeks this year.
+        let yearStart = cal.date(from: cal.dateComponents([.year], from: .init())) ?? .distantPast
+        let yearWorkouts = workouts.filter { $0.date >= yearStart }
+        let weeksTrained = Set(yearWorkouts.map { cal.component(.weekOfYear, from: $0.date) }).count
+        let totalWeeksThisYear = max(1, cal.component(.weekOfYear, from: .init()))
+        let consistencyPct = Int(100.0 * Double(weeksTrained) / Double(totalWeeksThisYear))
+        if consistencyPct >= 70 {
+            pool.append("\(consistencyPct)% of weeks this year — consistent")
+        }
+
+        // Threshold: top exercise weight up ≥10 lbs over 30 days.
+        let monthAgo = now.addingTimeInterval(-30 * 86_400)
+        let recentMonthWorkouts = workouts.filter { $0.date >= monthAgo }
+        let topExerciseDelta = computeTopExerciseDelta(recent: recentMonthWorkouts, all: workouts)
+        if let delta = topExerciseDelta, delta.lbsUp >= 10 {
+            pool.append("\(delta.exerciseName) up \(delta.lbsUp) lbs in a month")
+        }
+
+        // Threshold: volume up significantly month-over-month (≥20%).
+        let twoMonthsAgo = now.addingTimeInterval(-60 * 86_400)
+        let thisMonthVolume = recentMonthWorkouts.reduce(0.0) { $0 + $1.totalVolume }
+        let lastMonthVolume = workouts
+            .filter { $0.date >= twoMonthsAgo && $0.date < monthAgo }
+            .reduce(0.0) { $0 + $1.totalVolume }
+        if lastMonthVolume > 0 {
+            let pct = Int((thisMonthVolume / lastMonthVolume - 1) * 100)
+            if pct >= 20 {
+                pool.append("volume up \(pct)% from last month")
+            }
+        }
+
+        // Threshold: first leg day this week (planned / today).
+        let weekStart = cal.date(byAdding: .day, value: -7, to: now) ?? .distantPast
+        let weekWorkouts = workouts.filter { $0.date >= weekStart }
+        let hasLegThisWeek = weekWorkouts.contains { $0.type == .legs }
+        if !hasLegThisWeek, let last = workouts.first, last.type != .legs {
+            pool.append("first leg day this week")
+        }
+
+        // Threshold: partner mode 2+ ended sessions in the last 14 days.
+        // Locked spec §5A Item E — only counts the user's own sessions, on
+        // either side of the pair, and stays quiet below the bar.
+        let fortnightAgo = now.addingTimeInterval(-14 * 86_400)
+        let myPartnerSessions = allPartnerSessions.filter { session in
+            (session.initiatorId == profile.id || session.partnerId == profile.id) &&
+            session.state == .ended &&
+            (session.endedAt ?? session.invitedAt) >= fortnightAgo
+        }
+        if myPartnerSessions.count >= 2 {
+            pool.append("\(myPartnerSessions.count) partner sessions this fortnight")
+        }
+
+        guard !pool.isEmpty else { return nil }
+        return pool[v43LiveStateSeed.index % pool.count]
+    }
+
+    private struct V43ExerciseDelta {
+        let exerciseName: String
+        let lbsUp: Int
+    }
+
+    private func computeTopExerciseDelta(recent: [Workout], all: [Workout]) -> V43ExerciseDelta? {
+        // Find an exercise the user did recently AND historically; compare top weights.
+        var recentBest: [String: Double] = [:]
+        for workout in recent {
+            for exercise in workout.exercises {
+                let topWeight = exercise.sets.map(\.weight).max() ?? 0
+                recentBest[exercise.name] = max(recentBest[exercise.name] ?? 0, topWeight)
+            }
+        }
+        var olderBest: [String: Double] = [:]
+        let monthAgo = Date().addingTimeInterval(-30 * 86_400)
+        for workout in all where workout.date < monthAgo {
+            for exercise in workout.exercises {
+                let topWeight = exercise.sets.map(\.weight).max() ?? 0
+                olderBest[exercise.name] = max(olderBest[exercise.name] ?? 0, topWeight)
+            }
+        }
+        var bestDelta: V43ExerciseDelta?
+        for (name, recentWeight) in recentBest {
+            guard let olderWeight = olderBest[name] else { continue }
+            let delta = Int(recentWeight - olderWeight)
+            if delta > (bestDelta?.lbsUp ?? 0) {
+                bestDelta = V43ExerciseDelta(exerciseName: name.lowercased(), lbsUp: delta)
+            }
+        }
+        return bestDelta
+    }
+
+    @ViewBuilder
+    private var v43OtherProfileActions: some View {
+        OtherProfilePrimaryActions(
+            canLiftWithThem: false,
+            vsYouEnabled: $v43VSYouEnabled,
+            onTrainLikeThem: {
+                // Wired to the existing "try latest workout" path on next pass —
+                // for now the button surfaces the design.
+            },
+            onLiftWithThem: {
+                // Reaches Partner Mode invite once the friend graph routes it.
+            }
+        )
+    }
+
+    @ViewBuilder
+    private var v43YearSoFarSection: some View {
+        let stats = computeV43YearSoFarStats()
+        YearSoFarCard(
+            totalSessions: stats.totalSessions,
+            totalVolumeTons: stats.tonsLifted,
+            heaviestLiftLabel: stats.heaviestLabel,
+            mostConsistentMonth: stats.mostConsistentMonth,
+            prCount: stats.prCount
+        )
+    }
+
+    private struct V43YearStats {
+        var totalSessions: Int
+        var tonsLifted: Double
+        var heaviestLabel: String
+        var mostConsistentMonth: String
+        var prCount: Int
+    }
+
+    private func computeV43YearSoFarStats() -> V43YearStats {
+        let cal = Calendar(identifier: .gregorian)
+        let yearStart = cal.date(from: cal.dateComponents([.year], from: .init())) ?? .distantPast
+        let yearWorkouts = workouts.filter { $0.date >= yearStart }
+        let totalSessions = yearWorkouts.count
+
+        // Sum volume from existing `Workout.totalVolume` computed property.
+        let totalKg = yearWorkouts.reduce(0.0) { $0 + $1.totalVolume }
+        let tons = totalKg / 1000.0
+
+        // Most consistent month — month with the most sessions.
+        let byMonth = Dictionary(grouping: yearWorkouts) {
+            cal.component(.month, from: $0.date)
+        }
+        let topMonth = byMonth.max { $0.value.count < $1.value.count }?.key
+        let monthName: String = {
+            guard let m = topMonth else { return "—" }
+            let formatter = DateFormatter()
+            formatter.dateFormat = "MMMM"
+            var comps = DateComponents()
+            comps.month = m
+            comps.day = 1
+            comps.year = cal.component(.year, from: .init())
+            if let date = cal.date(from: comps) {
+                return formatter.string(from: date).lowercased()
+            }
+            return "—"
+        }()
+
+        // Heaviest lift — best PR event by `newValue`.
+        let topPR = yearWorkouts.flatMap { $0.prEvents }
+            .max { $0.newValue < $1.newValue }
+        let heaviest: String = {
+            guard let pr = topPR else { return "—" }
+            return "\(pr.exerciseName) · \(Int(pr.newValue))"
+        }()
+
+        let prCount = yearWorkouts.reduce(0) { $0 + $1.prEvents.count }
+
+        return V43YearStats(
+            totalSessions: totalSessions,
+            tonsLifted: tons,
+            heaviestLabel: heaviest,
+            mostConsistentMonth: monthName,
+            prCount: prCount
+        )
+    }
+
+    @ViewBuilder
+    private var v43TrainingIdentitySection: some View {
+        let level = profile.experienceLevelRaw ?? "—"
+        let mission = profile.showUpFor.isEmpty ? "—" : profile.showUpFor
+        TrainingIdentityCard(
+            split: "—",
+            goal: mission,
+            experience: level,
+            favoriteLifts: [],
+            trainingStyle: mission,
+            vibeTag: "—"
+        )
     }
 
     private var profileHeader: some View {
@@ -3428,6 +3870,16 @@ struct SettingsView: View {
             settingsDivider
             aliveSavedGymsRow
             settingsDivider
+            // v4.3 §8A — Privacy & Trust shortcut.
+            v43PrivacyTrustRow
+            settingsDivider
+            // v4.3 §8B — full Settings sections destination.
+            v43FullSettingsRow
+            settingsDivider
+            // v4.3 design preview (until each surface is wired into its
+            // primary entry point). Devs / TestFlight can verify here.
+            v43DesignPreviewSection
+            settingsDivider
             linksSection
             settingsDivider
             FounderDashboardSection()
@@ -3447,6 +3899,221 @@ struct SettingsView: View {
         .sheet(isPresented: $showingSavedGyms) {
             SavedGymsManagementSheet(userId: profile.id)
         }
+    }
+
+    @ViewBuilder
+    private var v43PrivacyTrustRow: some View {
+        NavigationLink {
+            PrivacyTrustPanelView()
+        } label: {
+            HStack {
+                Image(systemName: "shield.lefthalf.filled")
+                    .foregroundColor(GQColors.textPrimary)
+                    .frame(width: 24)
+                Text("Privacy & Trust")
+                    .font(.system(size: 14))
+                    .foregroundColor(GQColors.textPrimary)
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+            .padding(.horizontal, 16).padding(.vertical, 12)
+            .homeSocialCard(cornerRadius: 14)
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private var v43DesignPreviewSection: some View {
+        VStack(spacing: 6) {
+            HStack {
+                Text("v4.3 PREVIEW")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(GQColors.textSecondary)
+                Spacer()
+            }
+            v43PreviewLink(title: "Onboarding (11 steps)", systemIcon: "sparkles") {
+                OnboardingV43View()
+            }
+            v43PreviewLink(title: "Messages list", systemIcon: "envelope") {
+                MessagesListView(unreadCount: 0, reactStreakConvoCount: 0,
+                                 threads: [], suggestions: [])
+            }
+            v43PreviewLink(title: "Story composer", systemIcon: "camera") {
+                StoryComposerView(authorId: profile.id)
+            }
+            v43PreviewLink(title: "Partner Mode invite", systemIcon: "person.2") {
+                PartnerInviteSheet(partnerDisplayName: "Marcus")
+            }
+            v43PreviewLink(title: "Crew Detail (zones)", systemIcon: "person.3") {
+                ScrollView {
+                    VStack(spacing: 14) {
+                        CrewDetailHeader(
+                            coverImageURL: nil,
+                            crewName: "barrhaven goons",
+                            vibeTags: ["serious", "strength"],
+                            memberCount: 47,
+                            activeMemberCount: 3,
+                            location: "goodlife",
+                            isJoined: true
+                        )
+                        CrewNowAndNextZone(
+                            activeMembers: ["marcus", "sarah", "alex"],
+                            nextEventTitle: "saturday squat session",
+                            nextEventCountdown: "in 2 days",
+                            friendsGoingCount: 5
+                        )
+                        CrewStreakBadge(daysInCrew: 47, attendanceRankPercent: 12, nextMilestoneDays: 60)
+                        CrewMemoriesSection()
+                    }
+                    .padding(16)
+                }
+            }
+            v43PreviewLink(title: "Discover sub-tabs preview", systemIcon: "rectangle.3.group") {
+                v43DiscoverPreview
+            }
+            v43PreviewLink(title: "Day-of-Week ritual", systemIcon: "calendar.badge.clock") {
+                ScrollView {
+                    VStack(spacing: 14) {
+                        ForEach([DayOfWeekRitualKind.mondayGoal,
+                                 .tuesdayTip,
+                                 .wednesdayCheckIn,
+                                 .thursdayFridayPlan,
+                                 .fridayWeekend,
+                                 .saturdayEvents,
+                                 .sundayCrewRecap]) { k in
+                            DayOfWeekRitualCard(kind: k)
+                        }
+                    }
+                    .padding(16)
+                }
+            }
+            v43PreviewLink(title: "DM thread", systemIcon: "bubble.left.and.bubble.right") {
+                DMThreadView(
+                    threadId: UUID(),
+                    partnerDisplayName: "marcus",
+                    partnerPresence: .live
+                )
+            }
+            v43PreviewLink(title: "Squad chat", systemIcon: "person.3.sequence") {
+                SquadChatView(squadName: "barrhaven goons", memberCount: 5)
+            }
+            v43PreviewLink(title: "Active workout social layer", systemIcon: "figure.strengthtraining.traditional") {
+                ScrollView {
+                    VStack(spacing: 14) {
+                        XWatchingPill(count: 3)
+                        FriendsHypedPill(count: 3)
+                        ReactionBubbleAutoDismiss(emoji: "🔥", fromName: "marcus")
+                        RestTimerTransformed(
+                            restSeconds: 47,
+                            recentReactionEmoji: "🦍",
+                            recentReactionFrom: "sarah",
+                            peerSignal: "marcus just finished his last set"
+                        )
+                        FinishMomentView(
+                            totalDurationLabel: "1:04:12",
+                            totalVolumeLabel: "12,400 lb",
+                            prCount: 2,
+                            aboutToSee: 14,
+                            partnerLine: "you and marcus just lifted together"
+                        )
+                    }
+                    .padding(16)
+                }
+            }
+            v43PreviewLink(title: "Post-workout polish", systemIcon: "sparkles.rectangle.stack") {
+                ScrollView {
+                    VStack(spacing: 14) {
+                        WhatsNextCardView(kind: .squadProgress, detailLine: "your squad needs 1 more session this week")
+                        AnticipationHookBanner(tone: .squadGonnaSee)
+                        AnticipationHookBanner(tone: .mightPopOff)
+                        PartnerProofCard(
+                            partnerADisplayName: "you",
+                            partnerBDisplayName: "marcus",
+                            partnerAAvatar: nil,
+                            partnerBAvatar: nil,
+                            sharedDurationLabel: "64 min",
+                            combinedVolumeLabel: "24,800 lb combined"
+                        )
+                    }
+                    .padding(16)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var v43DiscoverPreview: some View {
+        @State var sub: DiscoverSubTab = .watch
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                DiscoverSubTabsHeader(
+                    selected: .constant(.watch),
+                    streakSummary: "3 saved this week"
+                )
+                TodayMixRail(cards: [
+                    .init(id: UUID(), title: "push day · 47 ppl tried",
+                          subtitle: "trending in your gym",
+                          imageURL: nil, kindLabel: "trending"),
+                    .init(id: UUID(), title: "form fix: bench arch",
+                          subtitle: "1 of 5 saved this week",
+                          imageURL: nil, kindLabel: "tip")
+                ])
+                TrendingNowChipsRail(titles: ["push", "RDLs", "incline DB"])
+            }
+            .padding(.vertical, 16)
+        }
+    }
+
+    @ViewBuilder
+    private func v43PreviewLink<Destination: View>(
+        title: String,
+        systemIcon: String,
+        @ViewBuilder destination: @escaping () -> Destination
+    ) -> some View {
+        NavigationLink {
+            destination()
+        } label: {
+            HStack {
+                Image(systemName: systemIcon)
+                    .foregroundColor(GQColors.textPrimary)
+                    .frame(width: 24)
+                Text(title)
+                    .font(.system(size: 14))
+                    .foregroundColor(GQColors.textPrimary)
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+            .padding(.horizontal, 16).padding(.vertical, 12)
+            .homeSocialCard(cornerRadius: 14)
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private var v43FullSettingsRow: some View {
+        NavigationLink {
+            SettingsV43Sections()
+        } label: {
+            HStack {
+                Image(systemName: "slider.horizontal.3")
+                    .foregroundColor(GQColors.textPrimary)
+                    .frame(width: 24)
+                Text("All Settings (v4.3)")
+                    .font(.system(size: 14))
+                    .foregroundColor(GQColors.textPrimary)
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+            .padding(.horizontal, 16).padding(.vertical, 12)
+            .homeSocialCard(cornerRadius: 14)
+        }
+        .buttonStyle(.plain)
     }
 
     @ViewBuilder
@@ -3521,6 +4188,18 @@ struct SettingsView: View {
                         profile.isProfilePublic = newValue
                         try? modelContext.save()
                     }
+                )
+            )
+
+            // v4.3 Colift design toggle — let users opt out for A/B comparison.
+            settingsToggleRow(
+                title: "Colift v4.3 Design",
+                subtitle: FeatureFlags.shared.coliftV43Enabled
+                    ? "New identity surfaces, day-of-week ritual, smart cards"
+                    : "Falling back to v4.2 layout",
+                isOn: Binding(
+                    get: { FeatureFlags.shared.coliftV43Enabled },
+                    set: { FeatureFlags.shared.coliftV43Enabled = $0 }
                 )
             )
         }

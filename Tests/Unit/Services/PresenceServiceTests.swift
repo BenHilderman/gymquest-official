@@ -32,7 +32,7 @@ final class PresenceServiceTests: XCTestCase {
         let states = [
             makeState(userId: selfId, status: .training, mins: 5),
             makeState(userId: aId, status: .idle, mins: 0),
-            makeState(userId: bId, status: .done, mins: 47)
+            makeState(userId: bId, status: .finishedRecently, mins: 47)
         ]
         let result = PresenceService.liveNow(
             from: states,
@@ -55,10 +55,10 @@ final class PresenceServiceTests: XCTestCase {
 
     func testJustFinished_includesFollowedUsersDoneInLast10Min() {
         let friendId = UUID()
-        let fresh = UserPresenceState(userId: friendId, status: .done, workoutType: "Legs", startedAt: Date().addingTimeInterval(-1800))
+        let fresh = UserPresenceState(userId: friendId, status: .finishedRecently, workoutType: "Legs", startedAt: Date().addingTimeInterval(-1800))
         fresh.updatedAt = Date().addingTimeInterval(-5 * 60)   // 5 min ago
 
-        let old = UserPresenceState(userId: UUID(), status: .done, workoutType: "Push", startedAt: Date().addingTimeInterval(-3600))
+        let old = UserPresenceState(userId: UUID(), status: .finishedRecently, workoutType: "Push", startedAt: Date().addingTimeInterval(-3600))
         old.updatedAt = Date().addingTimeInterval(-30 * 60)    // 30 min ago — outside window
 
         let result = PresenceService.justFinished(

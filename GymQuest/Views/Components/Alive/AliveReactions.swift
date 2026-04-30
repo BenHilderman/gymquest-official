@@ -257,9 +257,17 @@ struct ReactionPaletteSheet: View {
         )
         modelContext.insert(reaction)
         try? modelContext.save()
-        #if canImport(UIKit)
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
-        #endif
+        // v4.3 §9 — distinct haptic patterns per reaction kind so the
+        // sender feels the same shape the receiver will.
+        if FeatureFlags.shared.coliftV43Enabled {
+            let mapped: ReactionKind = (kind == "voice") ? .voice
+                : (kind == "photo") ? .photo : .emoji
+            ReactionHapticPlayer.play(mapped)
+        } else {
+            #if canImport(UIKit)
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            #endif
+        }
         withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) { didSend = true }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
             dismiss()

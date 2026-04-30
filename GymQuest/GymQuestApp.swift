@@ -245,6 +245,10 @@ struct LiftAIApp: App {
                             NowPlayingService.shared.startPolling()
                         } else {
                             NowPlayingService.shared.stopPolling()
+                            // v4.3 §2 — record backgrounded time so the
+                            // LaunchRouter "re-open within 5 min" rule
+                            // (rule 3) can fire on the next launch/return.
+                            appState.lastBackgroundedAt = Date()
                         }
                     }
                     .onOpenURL { url in
@@ -307,6 +311,10 @@ class AppState: ObservableObject {
     @Published var showingMealLog = false
     @Published var showingAddMeasurement = false
     @Published var liveWorkoutStatus: LiveWorkoutStatus?
+
+    /// v4.3 §2 — set by `scenePhase != .active`. Read by LaunchRouter
+    /// rule 3 (re-open within 5 min → return to last surface).
+    @Published var lastBackgroundedAt: Date?
 
     var isWorkoutActive: Bool { activeWorkout != nil }
 

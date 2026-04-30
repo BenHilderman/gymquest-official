@@ -89,6 +89,8 @@ struct SocialActivityView: View {
     @State private var isSearchMode = false
     @State private var profileUserId: IdentifiableUUID?
     @State private var lastDataHash: Int = 0
+    // v4.3 §5C — filter chips above the list (all / reactions / comments / tags / followers / system).
+    @State private var v43Filter: ActivityV43Filter = .all
 
     var body: some View {
         NavigationStack {
@@ -105,7 +107,11 @@ struct SocialActivityView: View {
                         }
                     )
                 } else {
-                    activityList
+                    VStack(spacing: 8) {
+                        ActivityFilterChipsBar(selected: $v43Filter)
+                            .padding(.top, 6)
+                        activityList
+                    }
                 }
             }
             .navigationTitle("Activity")
@@ -182,7 +188,9 @@ struct SocialActivityView: View {
                         .padding(.horizontal, 16)
                         .padding(.top, 8)
                         .padding(.bottom, 4)
-                    let grouped = groupedActivity
+                    let grouped = FeatureFlags.shared.coliftV43Enabled
+                        ? v43GroupedActivity
+                        : groupedActivity
                     ForEach(grouped, id: \.title) { section in
                         sectionHeader(section.title)
                         ForEach(section.items) { item in
@@ -242,20 +250,103 @@ struct SocialActivityView: View {
     }
 
     private var groupedActivity: [ActivitySection] {
+        // v4.3 §5C — apply chip filter first.
+        let filtered = activityItemsFilteredV43(activityItems)
+
         let calendar = Calendar.current
         let now = Date()
         let startOfToday = calendar.startOfDay(for: now)
         let startOfWeek = calendar.date(byAdding: .day, value: -7, to: startOfToday) ?? startOfToday
 
-        let today = activityItems.filter { $0.timestamp >= startOfToday }
-        let thisWeek = activityItems.filter { $0.timestamp >= startOfWeek && $0.timestamp < startOfToday }
-        let earlier = activityItems.filter { $0.timestamp < startOfWeek }
+        let today = filtered.filter { $0.timestamp >= startOfToday }
+        let thisWeek = filtered.filter { $0.timestamp >= startOfWeek && $0.timestamp < startOfToday }
+        let earlier = filtered.filter { $0.timestamp < startOfWeek }
 
         var sections: [ActivitySection] = []
         if !today.isEmpty { sections.append(ActivitySection(title: "Today", items: today)) }
         if !thisWeek.isEmpty { sections.append(ActivitySection(title: "This Week", items: thisWeek)) }
         if !earlier.isEmpty { sections.append(ActivitySection(title: "Earlier", items: earlier)) }
         return sections
+    }
+
+    /// v4.3 §5C — emotional category grouping. Replaces the time-based
+    /// (Today/This Week/Earlier) buckets with the design's headers:
+    /// "people reacted to your sessions" / "friends asked about your routines"
+    /// / "your squad noticed you" / "new followers" / "tags + mentions"
+    /// / "story views" / "crew activity".
+    private var v43GroupedActivity: [ActivitySection] {
+        let filtered = activityItemsFilteredV43(activityItems)
+
+        var reacted: [ActivityItem] = []
+        var asked: [ActivityItem] = []
+        var squadNoticed: [ActivityItem] = []
+        var newFollowers: [ActivityItem] = []
+        var crewActivity: [ActivityItem] = []
+        var other: [ActivityItem] = []
+
+        for item in filtered {
+            switch item.action {
+            case .reaction, .like:
+                reacted.append(item)
+            case .comment:
+                asked.append(item)
+            case .follow:
+                newFollowers.append(item)
+            case .duoDay, .friendsMilestone:
+                squadNoticed.append(item)
+            case .checkIn, .startedTraining:
+                crewActivity.append(item)
+            }
+        }
+
+        var sections: [ActivitySection] = []
+        if !reacted.isEmpty {
+            sections.append(.init(title: "people reacted to your sessions", items: reacted))
+        }
+        if !asked.isEmpty {
+            sections.append(.init(title: "friends asked about your routines", items: asked))
+        }
+        if !squadNoticed.isEmpty {
+            sections.append(.init(title: "your squad noticed you", items: squadNoticed))
+        }
+        if !newFollowers.isEmpty {
+            sections.append(.init(title: "new followers", items: newFollowers))
+        }
+        if !crewActivity.isEmpty {
+            sections.append(.init(title: "crew activity", items: crewActivity))
+        }
+        if !other.isEmpty {
+            sections.append(.init(title: "other", items: other))
+        }
+        return sections
+    }
+
+    /// v4.3 §5C — narrow the activity stream by the selected filter chip.
+    private func activityItemsFilteredV43(_ items: [ActivityItem]) -> [ActivityItem] {
+        switch v43Filter {
+        case .all: return items
+        case .reactions:
+            return items.filter {
+                if case .reaction = $0.action { return true }
+                if case .like = $0.action { return true }
+                return false
+            }
+        case .comments:
+            return items.filter { if case .comment = $0.action { return true } else { return false } }
+        case .tags:
+            // No tag-action enum yet — placeholder leaves the surface visible
+            // but empty until a real `tagged` action lands.
+            return []
+        case .followers:
+            return items.filter { if case .follow = $0.action { return true } else { return false } }
+        case .system:
+            return items.filter {
+                switch $0.action {
+                case .checkIn, .startedTraining, .duoDay, .friendsMilestone: return true
+                default: return false
+                }
+            }
+        }
     }
 
     // MARK: - Build Activity Items

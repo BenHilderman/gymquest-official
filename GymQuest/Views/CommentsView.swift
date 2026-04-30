@@ -28,6 +28,20 @@ struct CommentsSheet: View {
     @Query private var comments: [Comment]
     @State private var newComment = ""
     @State private var replyTarget: Comment?
+    /// v4.3 content-safety toast — surfaces auditing reason ("verifying…",
+    /// "language flagged"). Nil when no message; auto-dismisses after 4s.
+    @State private var safetyToast: String?
+    /// v4.3 phase 1D — staged photo for the next comment send. Set when
+    /// the user picks a library image, cleared after addComment() runs.
+    @State private var stagedPhotoData: Data?
+    @State private var stagedPhotoItem: PhotosPickerItem?
+    /// v4.3 phase 1D — staged audio for the next comment send (m4a + duration).
+    @State private var stagedAudioData: Data?
+    @State private var stagedAudioDurationSeconds: Double?
+    /// Recording state for the audio button. Long-press starts; release
+    /// commits the recorded clip into stagedAudioData.
+    @State private var isRecordingAudio: Bool = false
+    @StateObject private var commentVoiceRecorder = CommentVoiceRecorder()
     @State private var expandedReplies: Set<UUID> = []
     @State private var appearedComments: Set<UUID> = []
     @State private var likedCommentIds: Set<UUID> = []
@@ -326,45 +340,191 @@ struct CommentsSheet: View {
 
     @ViewBuilder
     private var commentInputBar: some View {
-        HStack(spacing: 10) {
-            // Current user avatar
-            Circle()
-                .fill(GQGradients.primary)
-                .frame(width: 28, height: 28)
-                .overlay(
-                    Text(String(currentUserName.prefix(1)).uppercased())
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(.white)
-                )
-
-            TextField(replyTarget != nil ? "Reply..." : "Add a comment...", text: $newComment)
-                .font(.system(size: 14))
-                .foregroundColor(Color(hex: "1A1A1E"))
-                .focused($isInputFocused)
-                .tint(Color(hex: "1A1A1E"))
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(
-                    Capsule()
-                        .fill(Color(hex: "F0F0F5"))
-                )
-
-            Button {
-                addComment()
-            } label: {
-                Image(systemName: "arrow.up.circle.fill")
-                    .font(.system(size: 28))
-                    .foregroundStyle(newComment.isEmpty
-                        ? AnyShapeStyle(GQColors.textTertiary.opacity(0.4))
-                        : AnyShapeStyle(GQGradients.primary))
-                    .scaleEffect(newComment.isEmpty ? 1 : 1.05)
-                    .animation(.spring(response: 0.25, dampingFraction: 0.6), value: newComment.isEmpty)
+        VStack(spacing: 6) {
+            // v4.3 §3B / §6C — quick-comment chips above the text field for
+            // tap-to-send Gen Z native comments. Bypasses typing entirely.
+            if FeatureFlags.shared.coliftV43Enabled && newComment.isEmpty {
+                QuickCommentChipsRow { chip in
+                    newComment = chip
+                    addComment()
+                }
+                .padding(.bottom, 2)
             }
-            .disabled(newComment.isEmpty)
-            .buttonStyle(.plain)
+            commentInputRow
+        }
+    }
+
+    @ViewBuilder
+    private var commentInputRow: some View {
+        VStack(spacing: 6) {
+            stagedMediaPreview
+            HStack(spacing: 10) {
+                // Current user avatar
+                Circle()
+                    .fill(GQGradients.primary)
+                    .frame(width: 28, height: 28)
+                    .overlay(
+                        Text(String(currentUserName.prefix(1)).uppercased())
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.white)
+                    )
+
+                TextField(replyTarget != nil ? "Reply..." : "Add a comment...", text: $newComment)
+                    .font(.system(size: 14))
+                    .foregroundColor(Color(hex: "1A1A1E"))
+                    .focused($isInputFocused)
+                    .tint(Color(hex: "1A1A1E"))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(
+                        Capsule()
+                            .fill(Color(hex: "F0F0F5"))
+                    )
+
+                photoCommentButton
+                audioCommentButton
+
+                Button {
+                    addComment()
+                } label: {
+                    Image(systemName: "arrow.up.circle.fill")
+                        .font(.system(size: 28))
+                        .foregroundStyle(canSendComment
+                            ? AnyShapeStyle(GQGradients.primary)
+                            : AnyShapeStyle(GQColors.textTertiary.opacity(0.4)))
+                        .scaleEffect(canSendComment ? 1.05 : 1)
+                        .animation(.spring(response: 0.25, dampingFraction: 0.6), value: canSendComment)
+                }
+                .disabled(!canSendComment)
+                .buttonStyle(.plain)
+            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
+    }
+
+    /// Send is enabled when the user has typed text OR staged a media reply.
+    private var canSendComment: Bool {
+        !newComment.isEmpty || stagedPhotoData != nil || stagedAudioData != nil
+    }
+
+    /// Photo + audio quick-action buttons + the staged-media preview row.
+    @ViewBuilder
+    private var stagedMediaPreview: some View {
+        if stagedPhotoData != nil || stagedAudioData != nil {
+            HStack(spacing: 8) {
+                if let data = stagedPhotoData {
+                    #if canImport(UIKit)
+                    if let img = UIImage(data: data) {
+                        Image(uiImage: img)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 44, height: 44)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+                    #endif
+                    Button {
+                        stagedPhotoData = nil
+                        stagedPhotoItem = nil
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 18))
+                            .foregroundColor(GQColors.textTertiary)
+                    }
+                    .buttonStyle(.plain)
+                }
+                if let dur = stagedAudioDurationSeconds {
+                    HStack(spacing: 6) {
+                        Image(systemName: "waveform")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(GQGradients.primary)
+                        Text(String(format: "%.0fs voice note", dur))
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(GQColors.textPrimary)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Capsule().fill(GQColors.overlayLight))
+                    Button {
+                        stagedAudioData = nil
+                        stagedAudioDurationSeconds = nil
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 18))
+                            .foregroundColor(GQColors.textTertiary)
+                    }
+                    .buttonStyle(.plain)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 4)
+        }
+    }
+
+    @ViewBuilder
+    private var photoCommentButton: some View {
+        PhotosPicker(selection: $stagedPhotoItem, matching: .images) {
+            Image(systemName: "photo.on.rectangle")
+                .font(.system(size: 18, weight: .medium))
+                .foregroundColor(stagedPhotoData == nil ? GQColors.textSecondary : .white)
+                .padding(8)
+                .background(
+                    Circle().fill(stagedPhotoData == nil
+                                  ? AnyShapeStyle(GQColors.overlayLight)
+                                  : AnyShapeStyle(GQGradients.primary))
+                )
+        }
+        .onChange(of: stagedPhotoItem) { _, item in
+            Task {
+                if let item, let data = try? await item.loadTransferable(type: Data.self) {
+                    await MainActor.run { stagedPhotoData = data }
+                }
+            }
+        }
+    }
+
+    /// Long-press to record (industry standard for in-thread voice notes).
+    /// Hard-capped at 30s. Release commits; drag-up cancels.
+    @ViewBuilder
+    private var audioCommentButton: some View {
+        Image(systemName: isRecordingAudio ? "stop.circle.fill" : "mic.fill")
+            .font(.system(size: 18, weight: .medium))
+            .foregroundColor(isRecordingAudio ? .white : GQColors.textSecondary)
+            .padding(8)
+            .background(
+                Circle().fill(isRecordingAudio
+                              ? AnyShapeStyle(GQGradients.primary)
+                              : AnyShapeStyle(GQColors.overlayLight))
+            )
+            .onLongPressGesture(minimumDuration: 0.25) {
+                // Long-press began — start recording.
+                Task { await beginAudioCommentRecording() }
+            } onPressingChanged: { pressing in
+                // Release ends recording.
+                if !pressing && isRecordingAudio {
+                    Task { await endAudioCommentRecording() }
+                }
+            }
+    }
+
+    private func beginAudioCommentRecording() async {
+        await MainActor.run {
+            isRecordingAudio = true
+            commentVoiceRecorder.start()
+        }
+    }
+
+    private func endAudioCommentRecording() async {
+        await MainActor.run {
+            commentVoiceRecorder.stop()
+            isRecordingAudio = false
+            // Commit the recorded clip into the staged-media slot.
+            if let url = commentVoiceRecorder.lastFileURL,
+               let data = try? Data(contentsOf: url) {
+                stagedAudioData = data
+                stagedAudioDurationSeconds = commentVoiceRecorder.elapsed
+            }
+        }
     }
 
     // MARK: - Actions
@@ -390,10 +550,39 @@ struct CommentsSheet: View {
     }
 
     private func addComment() {
-        guard !newComment.isEmpty else { return }
-
+        // Allow text-only, photo-only, audio-only, or any combination.
         let sanitizedContent = FeedContentService.sanitize(newComment)
-        guard !sanitizedContent.isEmpty else { return }
+        guard canSendComment else { return }
+
+        // v4.3 content-safety phase 4C — rate-limit gate.
+        let tier = BotHeuristicService.cachedTier(for: currentUserId, in: modelContext)
+        switch RateLimitService.allow(.commentCreate, by: currentUserId, tier: tier, in: modelContext) {
+        case .softLimited(let retry):
+            safetyToast = "you're commenting fast — try again in \(retry < 60 ? "a moment" : "\(Int(retry/60)) min")"
+            return
+        case .hardCapped:
+            safetyToast = "you've hit today's comment limit"
+            return
+        case .allowed:
+            break
+        }
+
+        let audience = ContentSafetyService.Audience.from(post.audience)
+
+        // Text audit — fast slur scan when there's text.
+        if !sanitizedContent.isEmpty,
+           case .rejected(let reason) = ContentSafetyService.auditText(sanitizedContent, audience: audience) {
+            safetyToast = reason
+            return
+        }
+
+        // Pick the dominant media kind for the row. Photo wins over audio
+        // wins over text since the visual is the headline.
+        let kind: CommentMediaKind = {
+            if stagedPhotoData != nil { return .photo }
+            if stagedAudioData != nil { return .audio }
+            return .text
+        }()
 
         let comment = Comment(
             postId: post.id,
@@ -403,8 +592,35 @@ struct CommentsSheet: View {
             content: sanitizedContent,
             timestamp: Date(),
             parentCommentId: replyTarget?.id,
-            replyToAuthorName: replyTarget?.authorName
+            replyToAuthorName: replyTarget?.authorName,
+            mediaKind: kind,
+            audioData: stagedAudioData,
+            audioDurationSeconds: stagedAudioDurationSeconds,
+            photoData: stagedPhotoData
         )
+
+        // Async media audit — for photo/audio, we do the Vision/Speech
+        // pass after insert so the UI feels instant. Held verdicts mark
+        // the row; rejected verdicts soft-delete it inline.
+        if let photoData = stagedPhotoData {
+            Task {
+                let verdict = await ContentSafetyService.audit(imageData: photoData, audience: audience)
+                await MainActor.run {
+                    applyMediaVerdict(verdict, on: comment)
+                }
+            }
+        }
+        if let audioData = stagedAudioData {
+            Task {
+                let result = await ContentSafetyService.audit(audioData: audioData, audience: audience)
+                await MainActor.run {
+                    if let transcript = result.transcript {
+                        comment.audioTranscript = transcript
+                    }
+                    applyMediaVerdict(result.verdict, on: comment)
+                }
+            }
+        }
 
         modelContext.insert(comment)
         post.commentCount += 1
@@ -433,9 +649,31 @@ struct CommentsSheet: View {
         }
 
         newComment = ""
+        stagedPhotoData = nil
+        stagedPhotoItem = nil
+        stagedAudioData = nil
+        stagedAudioDurationSeconds = nil
         withAnimation(.easeOut(duration: 0.2)) {
             replyTarget = nil
         }
+    }
+
+    /// Applies a media-audit verdict to a freshly-inserted comment.
+    /// Held marks the row for verification (Phase 2 server canonical
+    /// audit will follow up). Rejected soft-hides + surfaces toast.
+    private func applyMediaVerdict(_ verdict: ContentSafetyService.Verdict, on comment: Comment) {
+        switch verdict {
+        case .allowed:
+            comment.moderationVerdictRaw = "allowed"
+        case .held(let reason):
+            comment.moderationVerdictRaw = "held"
+            safetyToast = reason
+        case .rejected(let reason):
+            comment.moderationVerdictRaw = "rejected"
+            comment.isHiddenByModeration = true
+            safetyToast = reason
+        }
+        try? modelContext.save()
     }
 
     // MARK: - Remote Comments Fetch

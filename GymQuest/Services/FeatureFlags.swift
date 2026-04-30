@@ -52,6 +52,14 @@ final class FeatureFlags: ObservableObject {
         didSet { save("robotDemosEnabled", value: robotDemosEnabled) }
     }
 
+    /// v4.3 Colift design — gates the new identity surfaces, day-of-week
+    /// ritual, smart top card, smart caption chips, anticipation banners,
+    /// activity filter chips, and Discover sub-tabs. Default ON; flip OFF
+    /// to fall back to the v4.2 layout for A/B comparison.
+    @Published var coliftV43Enabled: Bool {
+        didSet { save("coliftV43Enabled", value: coliftV43Enabled) }
+    }
+
     /// Nutrition/meal logging
     @Published var nutritionEnabled: Bool {
         didSet { save("nutritionEnabled", value: nutritionEnabled) }
@@ -186,12 +194,17 @@ final class FeatureFlags: ObservableObject {
         self.stravaImportEnabled = false // Removed
         self.whoopEnabled = false // Removed
         self.robotDemosEnabled = defaults.object(forKey: prefix + "robotDemosEnabled") as? Bool ?? true
+        self.coliftV43Enabled = defaults.object(forKey: prefix + "coliftV43Enabled") as? Bool ?? true
         self.nutritionEnabled = defaults.object(forKey: prefix + "nutritionEnabled") as? Bool ?? true
         self.workoutPartyEnabled = defaults.object(forKey: prefix + "workoutPartyEnabled") as? Bool ?? true
         self.voiceNotesEnabled = defaults.object(forKey: prefix + "voiceNotesEnabled") as? Bool ?? true
         self.gymLocationSharing = defaults.object(forKey: prefix + "gymLocationSharing") as? Bool ?? true
         self.exerciseGifsEnabled = defaults.object(forKey: prefix + "exerciseGifsEnabled") as? Bool ?? true
-        self.devSkipAuth = defaults.object(forKey: prefix + "devSkipAuth") as? Bool ?? false
+        // `-UITesting-V43Audit` launch arg force-enables dev auth bypass so
+        // the audit harness lands on Home with a seeded profile. Lives here
+        // (not at decision sites) so every consumer of `devSkipAuth` agrees.
+        let v43AuditFlag = ProcessInfo.processInfo.arguments.contains("-UITesting-V43Audit")
+        self.devSkipAuth = v43AuditFlag || (defaults.object(forKey: prefix + "devSkipAuth") as? Bool ?? false)
         self.premiumEnabled = defaults.object(forKey: prefix + "premiumEnabled") as? Bool ?? true
 
         // Market-dominating features
@@ -220,6 +233,7 @@ final class FeatureFlags: ObservableObject {
         healthKitImportEnabled = true
         // stravaImportEnabled and whoopEnabled removed
         robotDemosEnabled = true
+        coliftV43Enabled = true
         nutritionEnabled = true
         enhancedPREnabled = true
         workoutCardsEnabled = true
@@ -251,6 +265,7 @@ final class FeatureFlags: ObservableObject {
         healthKitImportEnabled = false
         // stravaImportEnabled and whoopEnabled removed
         robotDemosEnabled = true
+        coliftV43Enabled = true
         nutritionEnabled = true
         workoutPartyEnabled = true
         voiceNotesEnabled = true

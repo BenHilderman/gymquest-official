@@ -30,6 +30,7 @@ struct FriendsFeedView: View {
     @Query(sort: \Post.timestamp, order: .reverse) private var allPosts: [Post]
     @Query private var follows: [Friend]
     @Query private var presenceStates: [UserPresenceState]
+    @Query private var savedGyms: [SavedGym]
     @Query private var allUserProfiles: [UserProfile]
     @Query private var likes: [Like]
     @Query private var comments: [Comment]
@@ -53,6 +54,46 @@ struct FriendsFeedView: View {
     @State private var staleRefreshCount: Int = 0
     /// Ephemeral toast shown at the top of the feed after a refresh.
     @State private var refreshToast: String? = nil
+    /// v4.3 §3B — selected filter chip ("all" by default).
+    @State private var v43FriendsFilter: V43FriendsFilter = .forYou
+    /// v4.3 §3 — locked spec: "your people today" rotates per open and
+    /// stays stable while the user is on the surface. Random per render
+    /// causes flicker on scroll, so we fix the index per presentation.
+    @State private var v43YourPeopleSeed = RotationSeed()
+    /// v4.3 §3B — top-of-page segment ([feed] vs [activity]).
+    @State private var v43Segment: V43FriendsSegment = .feed
+
+    private enum V43FriendsSegment: String, CaseIterable, Identifiable {
+        case feed, activity
+        var id: String { rawValue }
+    }
+
+    @ViewBuilder
+    private var v43SegmentPicker: some View {
+        HStack(spacing: 0) {
+            ForEach(V43FriendsSegment.allCases) { seg in
+                Button {
+                    v43Segment = seg
+                } label: {
+                    Text(seg.rawValue)
+                        .font(.system(size: 14, weight: v43Segment == seg ? .semibold : .medium))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(
+                            v43Segment == seg
+                                ? AnyShapeStyle(GQColors.surfaceBase)
+                                : AnyShapeStyle(Color.clear)
+                        )
+                        .foregroundStyle(GQColors.textPrimary)
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(4)
+        .background(GQColors.overlayLight)
+        .clipShape(Capsule())
+    }
     private let minuteTimer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
 
     /// UserDefaults key holding the timestamp of the last Activity view
@@ -77,9 +118,32 @@ struct FriendsFeedView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 0) {
+                    // v4.3 §3B — [feed] [activity] segmented control at top.
+                    if FeatureFlags.shared.coliftV43Enabled {
+                        v43SegmentPicker
+                            .padding(.horizontal, 16)
+                            .padding(.top, 8)
+                            .padding(.bottom, 4)
+                    }
+
+                    if v43Segment == .activity && FeatureFlags.shared.coliftV43Enabled {
+                        SocialActivityView(profile: profile)
+                            .frame(minHeight: 600)
+                    } else {
                     // Removed: aliveAmbientStrip. The FriendsRow strip below
                     // already shows live members; doubling up on signals
                     // pushed the feed down without adding info.
+
+                    // v4.3 Item 3 — "your people today" slim strip above the stories row.
+                    // Friend-derived only, no Discover content. Hides when no signal.
+                    if FeatureFlags.shared.coliftV43Enabled, let line = v43YourPeopleTodayLine {
+                        Text(line)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(GQColors.textSecondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 6)
+                    }
 
                     if let toast = refreshToast {
                         refreshToastBanner(toast)
@@ -121,6 +185,12 @@ struct FriendsFeedView: View {
                         .background(GQColors.background)
                     }
 
+                    // v4.3 §3B — filter chips: all / training now / just posted / same gym.
+                    if FeatureFlags.shared.coliftV43Enabled {
+                        v43FilterChipsRow
+                            .padding(.bottom, 4)
+                    }
+
                     let feed = mixedFeed
                     if feed.isEmpty {
                         emptyState
@@ -137,6 +207,20 @@ struct FriendsFeedView: View {
                                     .frame(height: 1)
                             }
 
+                            // v4.3 §3B — pattern interrupts every 8-10 posts.
+                            // FRIEND-derived (your network's stats / your own
+                            // memory). Never injected from Discover.
+                            if FeatureFlags.shared.coliftV43Enabled
+                                && index > 0
+                                && index % 9 == 0 {
+                                v43PatternInterrupt(at: index)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 12)
+                                Rectangle()
+                                    .fill(GQColors.borderProminent)
+                                    .frame(height: 1)
+                            }
+
                             switch item {
                             case .post(let post):
                                 PostCardV2(
@@ -148,7 +232,7 @@ struct FriendsFeedView: View {
                                 .id(post.id)
                             case .suggestedPost(let post):
                                 VStack(spacing: 0) {
-                                    suggestedPostBanner
+                                    suggestedPostBanner(for: post)
                                     PostCardV2(
                                         post: post,
                                         currentUserId: profile.id,
@@ -164,6 +248,7 @@ struct FriendsFeedView: View {
 
                         backToTrainingFooter
                     }
+                    } // end of feed segment branch
                 }
                 .padding(.bottom, 100)
                 .frame(maxWidth: .infinity)
@@ -172,7 +257,7 @@ struct FriendsFeedView: View {
             .background(GQColors.surfaceBase)
             .refreshable { await performRefresh() }
         }
-        .navigationTitle("Friends")
+        .navigationTitle("feed")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
@@ -180,6 +265,19 @@ struct FriendsFeedView: View {
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 NavAvatarButton(profile: profile)
+            }
+            // v4.3 §3B / §6A — paper-airplane to DMs lives on Friends header.
+            ToolbarItem(placement: .topBarTrailing) {
+                NavigationLink {
+                    MessagesListView(unreadCount: 0,
+                                     reactStreakConvoCount: 0,
+                                     threads: [],
+                                     suggestions: [])
+                } label: {
+                    Image(systemName: "paperplane")
+                        .font(.system(size: 17, weight: .medium))
+                        .foregroundColor(.primary)
+                }
             }
             ToolbarItem(placement: .topBarTrailing) {
                 activityBellButton
@@ -191,6 +289,141 @@ struct FriendsFeedView: View {
         }
         .onReceive(minuteTimer) { now in
             minuteTick = now
+        }
+    }
+
+    /// v4.3 Item 3 — "your people today" slim strip line. Friend-derived,
+    /// rotates per open from a small pool. Returns nil when no signal —
+    /// the strip hides entirely.
+    private var v43YourPeopleTodayLine: String? {
+        var pool: [String] = []
+        let now = Date()
+        let weekStart = Calendar(identifier: .iso8601).date(byAdding: .day, value: -7, to: now) ?? .distantPast
+        let followedIds = Set(follows.filter { $0.userId == profile.id }.map(\.odId))
+
+        // Friends who posted this week (count by workoutType)
+        let recentFriendPosts = allPosts.filter {
+            followedIds.contains($0.authorId) && $0.timestamp >= weekStart
+        }
+        let typeCounts = Dictionary(grouping: recentFriendPosts) { $0.workoutType ?? "workout" }
+            .mapValues { $0.count }
+        if let topType = typeCounts.max(by: { $0.value < $1.value }), topType.value >= 3 {
+            pool.append("\(topType.value) of your friends did \(topType.key.lowercased()) this week")
+        }
+
+        // Co-presence: friends who trained at user's saved gym this week
+        let coPresenceCount = recentFriendPosts.filter { $0.locationName != nil }.count
+        if coPresenceCount > 0 {
+            pool.append("\(coPresenceCount) friends trained at your gym this week")
+        }
+
+        guard !pool.isEmpty else { return nil }
+        return pool[v43YourPeopleSeed.index % pool.count]
+    }
+
+    /// v4.3 §3B — pattern interrupt card. Alternates between "vs your friends
+    /// this week" stat and "1 year ago" memory card. FRIEND-derived only.
+    @ViewBuilder
+    private func v43PatternInterrupt(at index: Int) -> some View {
+        let memoryEvery2 = (index / 9) % 2 == 0
+        if memoryEvery2 {
+            v43MemoryCard
+        } else {
+            v43VsFriendsCard
+        }
+    }
+
+    @ViewBuilder
+    private var v43MemoryCard: some View {
+        let cal = Calendar(identifier: .gregorian)
+        let oneYearAgo = cal.date(byAdding: .year, value: -1, to: .init()) ?? .distantPast
+        let memoryPosts = allPosts.filter { post in
+            post.authorId == profile.id
+                && cal.isDate(post.timestamp, inSameDayAs: oneYearAgo)
+        }
+        VStack(alignment: .leading, spacing: 6) {
+            Text("1 year ago")
+                .font(.system(size: 11, weight: .semibold))
+                .textCase(.uppercase)
+                .foregroundColor(GQColors.textSecondary)
+            if let p = memoryPosts.first {
+                Text("you posted: \(p.workoutType ?? "a workout")")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(GQColors.textPrimary)
+            } else {
+                Text("on this day a year ago — nothing yet. start one today.")
+                    .font(.system(size: 13))
+                    .foregroundColor(GQColors.textSecondary)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 14).fill(GQColors.overlayLight))
+    }
+
+    @ViewBuilder
+    private var v43VsFriendsCard: some View {
+        let cal = Calendar(identifier: .gregorian)
+        let weekStart = cal.date(byAdding: .day, value: -7, to: .init()) ?? .distantPast
+        let myWeekPosts = allPosts.filter { $0.authorId == profile.id && $0.timestamp >= weekStart }.count
+        let friendIds = Set(follows.filter { $0.userId == profile.id }.map(\.odId))
+        let friendsWeekPosts = allPosts.filter { friendIds.contains($0.authorId) && $0.timestamp >= weekStart }.count
+        VStack(alignment: .leading, spacing: 6) {
+            Text("vs your friends this week")
+                .font(.system(size: 11, weight: .semibold))
+                .textCase(.uppercase)
+                .foregroundColor(GQColors.textSecondary)
+            HStack(spacing: 16) {
+                VStack(alignment: .leading) {
+                    Text("you").font(.caption).foregroundColor(GQColors.textTertiary)
+                    Text("\(myWeekPosts)").font(.system(size: 22, weight: .bold, design: .rounded))
+                }
+                VStack(alignment: .leading) {
+                    Text("your friends").font(.caption).foregroundColor(GQColors.textTertiary)
+                    Text("\(friendsWeekPosts)").font(.system(size: 22, weight: .bold, design: .rounded))
+                }
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 14).fill(GQColors.overlayLight))
+    }
+
+    /// v4.3 locked Feed rebrand — 4 principle-aligned filter chips.
+    /// Default = `forYou` (mixed). `friends` preserves the v4.3 strict
+    /// friends-only experience as an opt-in.
+    private enum V43FriendsFilter: String, CaseIterable, Identifiable {
+        case forYou = "for you"
+        case friends
+        case live
+        case nearYou = "near you"
+        case all  // legacy — folded into `forYou` semantics; kept for compat
+        var id: String { rawValue }
+    }
+
+    @ViewBuilder
+    private var v43FilterChipsRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                // Show only the 4 v4.3 locked chips; legacy `.all` is hidden.
+                ForEach(V43FriendsFilter.allCases.filter { $0 != .all }) { f in
+                    Button {
+                        v43FriendsFilter = f
+                    } label: {
+                        Text(f.rawValue)
+                            .font(.system(size: 13, weight: .medium))
+                            .padding(.horizontal, 12).padding(.vertical, 7)
+                            .background(
+                                Capsule().fill(v43FriendsFilter == f
+                                    ? AnyShapeStyle(GQGradients.primary)
+                                    : AnyShapeStyle(GQColors.overlayLight))
+                            )
+                            .foregroundStyle(v43FriendsFilter == f ? .white : GQColors.textPrimary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 16)
         }
     }
 
@@ -606,12 +839,58 @@ struct FriendsFeedView: View {
     /// friend posts, and "People You Might Know" cards. Cold-start
     /// (user follows nobody) falls back to a suggestion-led feed so
     /// the page is never empty.
+    ///
+    /// v4.3 locked Feed rebrand: chip selection scopes content.
+    ///   - `forYou` (default) — full mix with Discover backfill
+    ///   - `friends` — strict v4.3 friends-only (suppress Discover content)
+    ///   - `live` — only friends currently training
+    ///   - `nearYou` — same-gym posts only
     private var mixedFeed: [FeedItem] {
         _ = refreshTick
 
-        let friend = friendPosts
-        let suggested = Array(suggestedPosts.prefix(12))
-        let peoplePool = suggestedFromClubs
+        // Apply chip-based scoping first.
+        let allowDiscoverBackfill: Bool = {
+            switch v43FriendsFilter {
+            case .forYou, .all: return true
+            case .friends, .live, .nearYou: return false
+            }
+        }()
+
+        let friend: [Post] = {
+            // v4.3 Item B locked — throwbacks never bump in feeds. They live
+            // on the author's profile and only surface in "1 year ago" memory
+            // cards. Strip them from every chip's content.
+            let nonThrowback = friendPosts.filter { !$0.isThrowback }
+            switch v43FriendsFilter {
+            case .live:
+                let liveFriendIds = Set(presenceStates
+                    .filter { $0.status == .training }
+                    .map(\.userId))
+                return nonThrowback.filter { liveFriendIds.contains($0.authorId) }
+            case .nearYou:
+                let mySavedGymNames = Set(savedGyms.filter { $0.userId == profile.id }.map(\.name))
+                return nonThrowback.filter { post in
+                    guard let location = post.locationName else { return false }
+                    return mySavedGymNames.contains(location)
+                }
+            case .forYou, .all:
+                // Locked spec ranking: friends > live > clubmates > crew >
+                // backfill. Within friend-authored posts, live-friend posts
+                // (author currently training) get boosted to the top so the
+                // surface feels real-time. Order within each tier remains
+                // chronological (most recent first).
+                let liveFriendIds = Set(presenceStates
+                    .filter { $0.status == .training }
+                    .map(\.userId))
+                let live = nonThrowback.filter { liveFriendIds.contains($0.authorId) }
+                let other = nonThrowback.filter { !liveFriendIds.contains($0.authorId) }
+                return live + other
+            default:
+                return nonThrowback
+            }
+        }()
+        let suggested = allowDiscoverBackfill ? Array(suggestedPosts.prefix(12)) : []
+        let peoplePool = allowDiscoverBackfill ? suggestedFromClubs : []
 
         // Partition people into slices of 4 so each interstitial card
         // shows fresh faces.
@@ -677,11 +956,25 @@ struct FriendsFeedView: View {
         return items
     }
 
-    private var suggestedPostBanner: some View {
-        HStack(spacing: 4) {
+    /// v4.3 locked spec — backfill cards labeled "from your gym" or
+    /// "you might like" (not "SUGGESTED FOR YOU"). Honors the doctrine
+    /// that strangers in the friend feed are clearly tagged. Picks the
+    /// "from your gym" label only when the post's location matches one
+    /// of the user's saved gyms; otherwise falls back to the broader
+    /// "you might like" recommendation label.
+    private func suggestedPostBanner(for post: Post) -> some View {
+        let label: String = {
+            guard FeatureFlags.shared.coliftV43Enabled else { return "SUGGESTED FOR YOU" }
+            let mySavedGymNames = Set(savedGyms.filter { $0.userId == profile.id }.map(\.name))
+            if let location = post.locationName, mySavedGymNames.contains(location) {
+                return "FROM YOUR GYM"
+            }
+            return "YOU MIGHT LIKE"
+        }()
+        return HStack(spacing: 4) {
             Image(systemName: "sparkles")
                 .font(.system(size: 9, weight: .bold))
-            Text("SUGGESTED FOR YOU")
+            Text(label)
                 .font(.system(size: 9, weight: .bold))
                 .tracking(0.6)
             Spacer(minLength: 0)
@@ -772,7 +1065,9 @@ struct FriendsFeedView: View {
                 Image(systemName: "person.2")
                     .font(.system(size: 36))
                     .foregroundStyle(GQGradients.primary)
-                Text("Quiet on the feed")
+                Text(FeatureFlags.shared.coliftV43Enabled
+                     ? "follow people to fill your feed"
+                     : "Quiet on the feed")
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundColor(GQColors.textPrimary)
                 Text(suggestedFromClubs.isEmpty
@@ -784,6 +1079,23 @@ struct FriendsFeedView: View {
                     .padding(.horizontal, 40)
             }
             .padding(.top, 40)
+
+            // v4.3 §3B — Discover preview labeled clearly when the feed is
+            // empty. One of the 5 allowed Discover Engine surfaces.
+            if FeatureFlags.shared.coliftV43Enabled {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("while your feed is empty, here's what's trending")
+                        .font(.system(size: 11, weight: .semibold))
+                        .textCase(.uppercase)
+                        .foregroundColor(GQColors.textSecondary)
+                        .padding(.horizontal, 16)
+                    TrendingNowChipsRail(titles: ["push", "RDLs", "incline DB", "back day", "form fix"])
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .onAppear {
+                    try? DiscoverEngineSurfaceAudit.allow(surface: .friendsFeedEmpty)
+                }
+            }
 
             if !suggestedFromClubs.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {

@@ -213,6 +213,19 @@ struct ActiveWorkoutView: View {
     @State private var workoutMedia: [PostMedia] = []
     @State private var showingWorkoutCamera = false
     @State private var elapsedTime = 0
+    /// v4.3 §7A — Ghost Mode level toggleable from the header. Default
+    /// matches user's Privacy & Trust preference (friends).
+    @State private var v43GhostLevel: GhostModeLevel = .friends
+    /// v4.3 §7A — count of unread reactions for the "X friends hyped you"
+    /// pill at the bottom. Wired to the existing reaction inbox in the
+    /// next integration pass.
+    @State private var v43HypedCount: Int = 0
+    /// v4.3 §7A — full-screen PR Moment overlay flag. Triggered alongside
+    /// the legacy `activePRBanner` when a PR fires; auto-dismisses 2 sec.
+    @State private var v43ShowPRMoment: Bool = false
+    /// v4.3 §7A — pre-proof "finish moment" 3-sec gate before the proof card.
+    @State private var v43ShowFinishMoment: Bool = false
+    @State private var v43FinishMomentShown: Bool = false
     @State private var timer: Timer?
     @State private var restTimer: Timer?
     @State private var isResting = false
@@ -382,6 +395,16 @@ struct ActiveWorkoutView: View {
                                     onSetCompleted: { exerciseName in
                                         startRestTimer(exerciseName: exerciseName)
                                         WorkoutDraft.save(workoutType: workoutType, customTitle: customTitle, startTime: workoutStartTime, exercises: exercises)
+                                        // v4.3 §10 — broadcast set log to active partner.
+                                        if let lastSet = exercises.first(where: { $0.name == exerciseName })?
+                                            .sets.last(where: { $0.isCompleted }) {
+                                            PartnerModeService.shared.notifySetLogged(
+                                                by: profile.id,
+                                                exerciseName: exerciseName,
+                                                weight: lastSet.weight,
+                                                reps: lastSet.reps
+                                            )
+                                        }
                                     },
                                     overloadSuggestion: overloadSuggestions[exercise.name],
                                     onPRDetected: { pr in
@@ -437,10 +460,59 @@ struct ActiveWorkoutView: View {
                 .padding(.top, 60)
             }
 
+            // v4.3 §7A — pre-proof "finish moment" 3-sec gate. Counts up
+            // totals before the proof card flow, layered above everything.
+            if v43ShowFinishMoment {
+                Color.black.opacity(0.85).ignoresSafeArea()
+                FinishMomentView(
+                    totalDurationLabel: formatTime(elapsedTime),
+                    totalVolumeLabel: formatVolume(totalVolume),
+                    prCount: livePRsDetected.count,
+                    aboutToSee: 0,
+                    partnerLine: nil
+                )
+                .padding(.horizontal, 24)
+                .zIndex(60)
+            }
+
+            // v4.3 §7A — full-screen PR Moment celebration. Layered on top of
+            // the existing inline banner; only renders when a PR fires AND the
+            // v4.3 design flag is on. Auto-dismisses 2 sec after appearing.
+            if v43ShowPRMoment, let pr = activePRBanner, FeatureFlags.shared.coliftV43Enabled {
+                PRMomentCelebration(
+                    displayValue: pr.exerciseName,
+                    unitsLabel: pr.displayDelta,
+                    onShare: {
+                        showingPostEditor = true
+                        v43ShowPRMoment = false
+                    },
+                    onDismiss: {
+                        withAnimation(.easeOut(duration: 0.2)) { v43ShowPRMoment = false }
+                    }
+                )
+                .transition(.opacity)
+                .zIndex(50)
+            }
+
             // Mini confetti burst for PRs
             if showPRConfetti {
                 MiniConfettiBurst()
                     .allowsHitTesting(false)
+            }
+
+            // v4.3 §7A — "X friends hyped you" pill anchored to bottom.
+            // Only renders when the social layer has unread reactions —
+            // otherwise stays invisible to keep the workout chrome clean.
+            if v43HypedCount > 0 {
+                VStack {
+                    Spacer()
+                    FriendsHypedPill(count: v43HypedCount) {
+                        // Tap → expand reaction inbox. Wired to existing
+                        // reaction surface in the next pass.
+                    }
+                    .padding(.bottom, 110)
+                }
+                .allowsHitTesting(true)
             }
 
             #if canImport(UIKit)
@@ -686,6 +758,19 @@ struct ActiveWorkoutView: View {
                 }
 
                 Spacer()
+
+                // v4.3 §7A — privacy/ghost toggle visible in workout header.
+                WorkoutGhostToggle(level: $v43GhostLevel)
+                    .padding(.trailing, 4)
+
+                // v4.3 §7A — "X watching" pill when broadcasting. Real
+                // viewer count plumbs through `partyService` once the
+                // attendee channel exposes it; for now show "1+" when
+                // the party is live so the design surfaces immediately.
+                if isSharingLive && partyService.isActive {
+                    XWatchingPill(count: 1)
+                        .padding(.trailing, 6)
+                }
 
                 // Broadcast
                 Button {
@@ -1134,6 +1219,17 @@ struct ActiveWorkoutView: View {
             startedAt: workoutStartTime
         )
         #endif
+
+        // v4.3 §7A — start the PR ring buffer if the user opted in. Captures
+        // the trailing 3 sec so the next PR can hand it to the slow-mo
+        // proof-card pipeline.
+        if FeatureFlags.shared.coliftV43Enabled {
+            Task { @MainActor in
+                if await PRRingBufferRecorder.shared.requestPermission() {
+                    PRRingBufferRecorder.shared.startRolling()
+                }
+            }
+        }
     }
 
     private func loadOverloadSuggestions() {
@@ -1166,6 +1262,27 @@ struct ActiveWorkoutView: View {
 
     private func finishWorkout() {
         guard canFinishWorkout else { return }
+
+        // v4.3 §7A — show 3-sec "finish moment" pre-proof when v4.3 is on.
+        // Counts up totals, surfaces "X people are about to see this", then
+        // continues to the existing save+post-editor flow.
+        if FeatureFlags.shared.coliftV43Enabled && !v43FinishMomentShown {
+            v43FinishMomentShown = true
+            v43ShowFinishMoment = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+                Task { @MainActor in
+                    withAnimation(.easeOut(duration: 0.25)) {
+                        v43ShowFinishMoment = false
+                    }
+                    finishWorkoutCore()
+                }
+            }
+            return
+        }
+        finishWorkoutCore()
+    }
+
+    private func finishWorkoutCore() {
         timer?.invalidate()
         #if canImport(ActivityKit)
         ColiftWorkoutLiveActivity.end()
@@ -1347,8 +1464,34 @@ struct ActiveWorkoutView: View {
         withAnimation(.spring(response: 0.35, dampingFraction: 0.65)) {
             activePRBanner = pr
             showPRConfetti = true
+            // v4.3 §7A — full-screen celebration; auto-dismisses 2 sec.
+            v43ShowPRMoment = true
         }
         HapticManager.shared.prDetected()
+        // v4.3 §10 — sync PR moment to active partner.
+        PartnerModeService.shared.notifyPRHit(
+            by: profile.id,
+            exerciseName: pr.exerciseName,
+            value: Double(pr.displayDelta.filter { "0123456789.".contains($0) }) ?? 0
+        )
+        // v4.3 §7A — auto-record last 3 sec via the ring buffer and hand
+        // off to the proof video exporter. Surfaces a slow-mo replay clip
+        // ready for the post editor.
+        if FeatureFlags.shared.coliftV43Enabled,
+           let clipURL = PRRingBufferRecorder.shared.snapshotPRClip() {
+            Task {
+                let stats = "\(pr.exerciseName) · \(pr.displayDelta)"
+                _ = try? await ProofVideoExporter.shared.exportSlowMoPRReplay(
+                    clipURL: clipURL,
+                    statsOverlay: stats
+                )
+            }
+        }
+        Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { _ in
+            Task { @MainActor in
+                withAnimation(.easeOut(duration: 0.25)) { v43ShowPRMoment = false }
+            }
+        }
 
         prBannerTimer?.invalidate()
         prBannerTimer = Timer.scheduledTimer(withTimeInterval: 4, repeats: false) { _ in
@@ -1377,6 +1520,8 @@ struct ActiveWorkoutView: View {
     private func cleanupAndExit() {
         timer?.invalidate()
         restTimer?.invalidate()
+        // v4.3 §7A — release the PR ring buffer when the workout ends.
+        PRRingBufferRecorder.shared.stopRolling()
         appState.liveWorkoutStatus = nil
     }
 

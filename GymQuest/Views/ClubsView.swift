@@ -674,6 +674,11 @@ struct ClubFeedView: View {
     @Query private var allEvents: [ClubEvent]
     @Query private var presenceStates: [UserPresenceState]
     @Query private var allFollowsForAlive: [Friend]
+    /// v4.3 Item G — header pool needs joinedAt timestamps to surface
+    /// "[friend] just joined [crew]" facts. Membership table is the
+    /// source of truth for join dates.
+    @Query private var allClubMembershipsHeader: [ClubMembership]
+    @Query private var allUserProfilesHeader: [UserProfile]
 
     let profile: UserProfile
 
@@ -692,6 +697,9 @@ struct ClubFeedView: View {
     @State private var selectedVibeFilter: String? = nil
     @State private var showAllYourClubs: Bool = false
     @State private var showAllEvents: Bool = false
+    /// v4.3 Item G — session-stable rotation seed for the Crews header pool.
+    /// Locked spec: "refreshes per open" — not per render.
+    @State private var v43CrewsHeaderSeed = RotationSeed()
 
     // Demo "user location" — Kingston, ON. Replace with CoreLocation once
     // the real auth flow lands. Keeping the haversine helper lets us
@@ -1069,6 +1077,114 @@ struct ClubFeedView: View {
         }
     }
 
+    /// v4.3 Item G — Crews tab rotating header: real network + proximity
+    /// facts only, no algorithmic "trending" recommendations. Picks one fact
+    /// per open from a pool; hides entirely when no fact is available.
+    private var v43CrewsHeaderLine: String? {
+        var pool: [String] = []
+
+        // Network: events tonight in user's clubs.
+        let now = Date()
+        let nextDay = now.addingTimeInterval(24 * 3600)
+        let myClubIds = Set(yourClubs.map(\.id))
+        let upcomingTonight = allEvents.filter {
+            myClubIds.contains($0.clubId)
+                && $0.date > now
+                && $0.date < nextDay
+        }
+        if let event = upcomingTonight.first,
+           let clubName = allClubs.first(where: { $0.id == event.clubId })?.name {
+            pool.append("tonight in \(clubName.lowercased()): \(event.title.lowercased())")
+        }
+
+        // Network: live members across user's clubs.
+        let myClubMemberIds = Set(yourClubs.flatMap(\.memberIds)).subtracting([profile.id])
+        let liveCount = presenceStates.filter {
+            myClubMemberIds.contains($0.userId) && $0.status == .training
+        }.count
+        if liveCount > 0 {
+            pool.append("\(liveCount) crew \(liveCount == 1 ? "member" : "members") training right now")
+        }
+
+        // Proximity: nearby crews active count (works without joined crews).
+        let nearbyCount = topLevelClubs.filter { distanceString(for: $0) != nil }.count
+        if yourClubs.isEmpty && nearbyCount > 0 {
+            pool.append("\(nearbyCount) crews active near you")
+        }
+
+        // Network: a friend joined one of the user's clubs in the last week.
+        // Pulls from ClubMembership.joinedAt; intersects with the user's
+        // followed friends so the header stays personal.
+        let weekAgo = now.addingTimeInterval(-7 * 86_400)
+        let myFriendIds = Set(allFollowsForAlive.filter { $0.userId == profile.id }.map(\.odId))
+        if let recentJoin = allClubMembershipsHeader
+            .filter({ myClubIds.contains($0.clubId)
+                && myFriendIds.contains($0.userId)
+                && $0.userId != profile.id
+                && $0.joinedAt >= weekAgo })
+            .sorted(by: { $0.joinedAt > $1.joinedAt })
+            .first,
+           let friendName = allUserProfilesHeader.first(where: { $0.id == recentJoin.userId })?.name,
+           let crewName = allClubs.first(where: { $0.id == recentJoin.clubId })?.name {
+            pool.append("\(friendName.lowercased()) just joined \(crewName.lowercased())")
+        }
+
+        // Network: user's primary crew weekly attendance percentage.
+        // Locked spec line: "your crew hit X% attendance". We compute %
+        // of members with at least one logged workout in the last 7 days
+        // for the user's earliest-joined club.
+        if let primaryClub = yourClubs.first {
+            let memberSet = Set(primaryClub.memberIds)
+            let activeMemberIds = Set(presenceStates
+                .filter { memberSet.contains($0.userId) && ($0.startedAt ?? .distantPast) >= weekAgo }
+                .map(\.userId))
+            if !memberSet.isEmpty {
+                let pct = Int(100.0 * Double(activeMemberIds.count) / Double(memberSet.count))
+                if pct >= 25 {
+                    pool.append("your crew hit \(pct)% attendance this week")
+                }
+            }
+        }
+
+        // Proximity: a crew event near the user starts within 2 hours.
+        // Locked spec proximity facts list "crew event near you in 2h" —
+        // restricted to nearby clubs so distance signal is real.
+        let twoHoursOut = now.addingTimeInterval(2 * 3600)
+        let nearbyClubIds = Set(topLevelClubs
+            .filter { distanceString(for: $0) != nil }
+            .map(\.id))
+        if let upcomingNearby = allEvents
+            .filter({ nearbyClubIds.contains($0.clubId) && $0.date > now && $0.date <= twoHoursOut })
+            .sorted(by: { $0.date < $1.date })
+            .first,
+           let crewName = allClubs.first(where: { $0.id == upcomingNearby.clubId })?.name {
+            pool.append("crew event near you in 2h · \(crewName.lowercased())")
+        }
+
+        // Proximity: gym-clustered crews — "tonight at [gym]: N crews lifting
+        // together". Locked spec Item G entry. Groups nearby clubs by their
+        // shared `location` string and surfaces gyms hosting ≥2 crew events
+        // tonight.
+        let nearbyClubsByGym: [String: [Club]] = Dictionary(grouping: topLevelClubs
+            .filter { distanceString(for: $0) != nil && $0.location != nil }
+        ) { $0.location ?? "" }
+        if let (gymName, clusterClubs) = nearbyClubsByGym
+            .filter({ !$0.key.isEmpty && $0.value.count >= 2 })
+            .max(by: { $0.value.count < $1.value.count }) {
+            let crewIds = Set(clusterClubs.map(\.id))
+            let tonightAtGym = allEvents.filter {
+                crewIds.contains($0.clubId) && $0.date > now && $0.date < nextDay
+            }
+            let crewsHostingTonight = Set(tonightAtGym.map(\.clubId)).count
+            if crewsHostingTonight >= 2 {
+                pool.append("tonight at \(gymName.lowercased()): \(crewsHostingTonight) crews lifting together")
+            }
+        }
+
+        guard !pool.isEmpty else { return nil }
+        return pool[v43CrewsHeaderSeed.index % pool.count]
+    }
+
     /// Original list body, refactored out so map mode can swap in. The
     /// scroll view + LazyVStack with the pinned filter strip lives here.
     /// Alive Phase 1 — ambient header strip pinned at the top of the Clubs
@@ -1113,6 +1229,15 @@ struct ClubFeedView: View {
                 // already surfaces live presence + co-presence at the top
                 // of the list — doubling up was redundant.
 
+                // v4.3 Item G — Crews tab rotating header: network + proximity
+                // facts only, no algorithmic recommendations. Rotates per open.
+                // Hides when no factual signal available.
+                if FeatureFlags.shared.coliftV43Enabled, let line = v43CrewsHeaderLine {
+                    SquadMomentsLine(displayText: line)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 12)
+                }
+
                 // R4 — NOW ticker + co-presence banner. Auto-rotating
                 // strip of recent training presence + posts from your
                 // clubs. Co-presence banner appears when a friend is
@@ -1137,6 +1262,36 @@ struct ClubFeedView: View {
                         .padding(.top, 18)
                 }
 
+                // v4.3 §4C — explicit "Explore on map" button between
+                // "My crews" and "Nearby crews" per the fixed 6-section order.
+                if FeatureFlags.shared.coliftV43Enabled {
+                    Button {
+                        clubViewMode = .map
+                    } label: {
+                        HStack {
+                            Image(systemName: "map.fill")
+                                .foregroundColor(.white)
+                            Text("Explore on map")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(.white)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundColor(.white.opacity(0.7))
+                        }
+                        .padding(14)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14)
+                                .fill(LinearGradient(colors: [.purple, .blue],
+                                                       startPoint: .leading,
+                                                       endPoint: .trailing))
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 18)
+                }
+
                 Section {
                     if !computedEventRows.isEmpty {
                         groupedSection(header: "Tonight & This Week", icon: "calendar") {
@@ -1154,6 +1309,22 @@ struct ClubFeedView: View {
                         }
                         .padding(.top, 16)
                         .padding(.bottom, 16)
+                    }
+
+                    // v4.3 §4C — Weekly rituals section: crew challenges + recap
+                    // preview + leaderboard preview. Surfaces existing ClubChallenge
+                    // and ClubEvent data when v4.3 is on.
+                    if FeatureFlags.shared.coliftV43Enabled {
+                        groupedSection(header: "Weekly rituals", icon: "calendar.badge.clock") {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("crew challenges, recap previews, and leaderboard standings appear here once your crew is active.")
+                                    .font(.caption)
+                                    .foregroundColor(GQColors.textSecondary)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 8)
+                            }
+                        }
+                        .padding(.top, 16)
                     }
 
                     if selectedCategory != nil
@@ -4804,7 +4975,7 @@ struct ClubFeedView: View {
                 }
             }
             .gqPageBackground()
-            .navigationTitle("Search Clubs")
+            .navigationTitle("Search Crews")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -6448,7 +6619,7 @@ struct CreateClubSheet: View {
                         .foregroundColor(GQColors.textTertiary)
                 }
             }
-            .navigationTitle("Create Club")
+            .navigationTitle("Create Crew")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
@@ -6610,7 +6781,7 @@ struct SearchClubsSheet: View {
                 }
             }
             .searchable(text: $searchText, prompt: "Search by name, location, or category")
-            .navigationTitle("Find Clubs")
+            .navigationTitle("Find Crews")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
@@ -6722,6 +6893,13 @@ struct ClubDetailView: View {
     @Query private var allClubMemberships: [ClubMembership]
     @Query private var presenceStates: [UserPresenceState]
     @Query private var allFriends: [Friend]
+    @Query private var allCoPresenceLogs: [CoPresenceLog]
+    @Query private var allUserProfiles: [UserProfile]
+    @Query private var allWorkouts: [Workout]
+    /// v4.3 — Crew Moments needs per-user session counts. WorkoutCheckIn is
+    /// the only model with `userId + timestamp`, so it's the source of truth
+    /// for "most active this month" and "most consistent member" lines.
+    @Query private var allCrewCheckIns: [WorkoutCheckIn]
 
     let club: Club
     let profile: UserProfile
@@ -6788,6 +6966,99 @@ struct ClubDetailView: View {
         return clubSquads.first { userSquadIds.contains($0.id) }
     }
 
+    /// v4.3 — Crew Moments rotating personality stat (locked spec).
+    /// Three crew-specific lines, real crew data only, hides when empty:
+    ///   • most consistent member · N weeks
+    ///   • most active this month · N sessions
+    ///   • longest streak in crew · N days
+    /// Distinct from Squad Moments (Item A) which surfaces co-presence and
+    /// streak leader in a different shape.
+    @ViewBuilder
+    private var v43CrewMomentsLine: some View {
+        if isMember {
+            SquadMomentsLine(displayText: v43CrewMomentsText) {
+                v43CrewMomentsRotationSeed.advance()
+            }
+        }
+    }
+
+    /// Session-stable rotation seed. `advance` bumps the index so the user
+    /// can tap to cycle through alternative stats without re-rolling on
+    /// every render.
+    @State private var v43CrewMomentsRotationSeed = RotationSeed()
+
+    private var v43CrewMomentsText: String? {
+        let crewMemberIds = Set(club.memberIds)
+        let now = Date()
+        let cal = Calendar(identifier: .iso8601)
+        let monthAgo = now.addingTimeInterval(-30 * 86_400)
+        let twelveWeeksAgo = now.addingTimeInterval(-12 * 7 * 86_400)
+
+        // Per-member check-ins so we can compute consistency + activity.
+        let recentCheckIns = allCrewCheckIns.filter { crewMemberIds.contains($0.userId) }
+
+        var pool: [String] = []
+
+        // 1. Most consistent member: distinct training-weeks count over the
+        //    last 12 weeks. Threshold ≥3 weeks so a single-active member
+        //    doesn't trigger a sad line.
+        var weeksByUser: [UUID: Set<Int>] = [:]
+        for checkIn in recentCheckIns where checkIn.timestamp >= twelveWeeksAgo {
+            let weekKey = cal.component(.weekOfYear, from: checkIn.timestamp)
+            weeksByUser[checkIn.userId, default: []].insert(weekKey)
+        }
+        if let top = weeksByUser.max(by: { $0.value.count < $1.value.count }),
+           top.value.count >= 3,
+           let name = allUserProfiles.first(where: { $0.id == top.key })?.name {
+            pool.append("most consistent member: \(name.lowercased()) · \(top.value.count) weeks")
+        }
+
+        // 2. Most active this month: session count over last 30 days, ≥4
+        //    bar so the line stays meaningful.
+        var sessionsThisMonth: [UUID: Int] = [:]
+        for checkIn in recentCheckIns where checkIn.timestamp >= monthAgo {
+            sessionsThisMonth[checkIn.userId, default: 0] += 1
+        }
+        if let top = sessionsThisMonth.max(by: { $0.value < $1.value }),
+           top.value >= 4,
+           let name = allUserProfiles.first(where: { $0.id == top.key })?.name {
+            pool.append("most active this month: \(name.lowercased()) · \(top.value) sessions")
+        }
+
+        // 3. Longest streak in crew: from ClubMembership.currentStreak,
+        //    direct field. ≥7 days bar so a 1-day streak doesn't surface.
+        if let leader = memberships.max(by: { $0.currentStreak < $1.currentStreak }),
+           leader.currentStreak >= 7,
+           let name = allUserProfiles.first(where: { $0.id == leader.userId })?.name {
+            pool.append("longest streak in crew: \(name.lowercased()) · \(leader.currentStreak) days")
+        }
+
+        guard !pool.isEmpty else { return nil }
+        return pool[v43CrewMomentsRotationSeed.index % pool.count]
+    }
+
+    /// v4.3 §5D — Crew Streak Badge footer: days in crew + rank + next milestone.
+    /// Only renders for joined members; quiet for guests.
+    @ViewBuilder
+    private var v43CrewStreakBadge: some View {
+        if isMember {
+            let myMembership = memberships.first(where: { $0.userId == profile.id })
+            let daysIn: Int = {
+                guard let joined = myMembership?.joinedAt else { return 0 }
+                return max(0, Int(Date().timeIntervalSince(joined) / 86_400))
+            }()
+            let nextMilestone: Int? = {
+                let milestones = [30, 60, 100, 180, 365]
+                return milestones.first(where: { $0 > daysIn })
+            }()
+            CrewStreakBadge(
+                daysInCrew: daysIn,
+                attendanceRankPercent: nil,
+                nextMilestoneDays: nextMilestone
+            )
+        }
+    }
+
     var body: some View {
         ScrollView {
             VStack(spacing: 10) {
@@ -6810,6 +7081,10 @@ struct ClubDetailView: View {
                 weeklyHighlightCard     // R5.8 — Sunday auto-stitched reel
                 onThisDayCard           // R5.10 — replay from a year ago
                 prReplayCard            // R7.10 — slow-mo PR card
+                v43CrewMomentsLine      // v4.3 — rotating "crew personality" stat
+                    .padding(.horizontal, 16)
+                v43CrewStreakBadge      // v4.3 §5D — rank + milestone footer
+                    .padding(.horizontal, 16)
                 clubSectionPicker
                 sectionContent
                 Spacer(minLength: 40)

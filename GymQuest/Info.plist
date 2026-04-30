@@ -35,8 +35,6 @@
 	<string>GymQuest uses your health data to track workouts, activity, and fitness progress.</string>
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>GymQuest saves your workout data to Apple Health.</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Lift AI uses your location only when starting a workout, only to share with friends you choose. Strangers never see where you train.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Lift AI uses the microphone for voice search and to record audio notes on your workouts.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>

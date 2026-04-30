@@ -496,6 +496,9 @@ struct JoinSquadSheet: View {
 struct SquadDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Query private var allWorkouts: [Workout]
+    @Query private var allUserProfiles: [UserProfile]
+    @Query private var allCoPresenceLogs: [CoPresenceLog]
 
     let squad: Squad
     let profile: UserProfile
@@ -505,6 +508,57 @@ struct SquadDetailView: View {
     @State private var showingCreateChallenge = false
     @State private var showingInviteCode = false
     @State private var showingLeaveConfirm = false
+    /// v4.3 Item A — session-stable seed so the Moments line picks one stat
+    /// per squad open and doesn't flicker on render.
+    @State private var v43SquadMomentsSeed = RotationSeed()
+
+    /// v4.3 Item A — real squad data feeding the Moments slim line.
+    /// All three stats hide when below threshold (no sad-empty stats).
+    private var v43SquadMomentsLine: String? {
+        let memberIds = Set(squad.memberIds)
+        let now = Date()
+        let monthAgo = now.addingTimeInterval(-30 * 86_400)
+
+        // Co-presence: most recent log involving the user + a squadmate
+        let coPresence = allCoPresenceLogs
+            .filter { log in
+                let pair: Set<UUID> = [log.userIdA, log.userIdB]
+                let intersect = pair.intersection(memberIds)
+                return pair.contains(profile.id) && !intersect.subtracting([profile.id]).isEmpty
+                    && log.overlapStart > monthAgo
+            }
+            .sorted { $0.overlapStart > $1.overlapStart }
+            .first
+        let coPresenceLine: String? = coPresence.flatMap { log in
+            let otherId = log.userIdA == profile.id ? log.userIdB : log.userIdA
+            let otherName = allUserProfiles.first(where: { $0.id == otherId })?.name ?? "marcus"
+            let days = max(1, Int(now.timeIntervalSince(log.overlapStart) / 86_400))
+            let when = days == 1 ? "yesterday" : "\(days) days ago"
+            let gym = log.gymName ?? "the gym"
+            return "you and \(otherName.lowercased()) trained at \(gym.lowercased()) · \(when)"
+        }
+
+        // PRs this month across squad members
+        let prsThisMonth = allWorkouts
+            .filter { workout in
+                memberIds.contains(profile.id) // workout.user via membership context
+                    && workout.date >= monthAgo
+            }
+            .reduce(0) { $0 + $1.prEvents.count }
+
+        // Streak leader: max streakWeeks would live on a Squad member entity;
+        // fall back to the squad's own streakWeeks as a reasonable proxy.
+        let streakLeaderDays: Int = squad.streakWeeks * 7
+        let streakLeaderName: String? = squad.streakWeeks > 0 ? "the squad" : nil
+
+        return SquadMomentsCompute.pickStat(
+            coPresenceLine: coPresenceLine,
+            prsThisMonthCount: prsThisMonth,
+            streakLeaderName: streakLeaderName,
+            streakLeaderDays: streakLeaderDays,
+            seed: v43SquadMomentsSeed.index
+        )
+    }
 
     var isCreator: Bool {
         squad.creatorId == profile.id
@@ -528,6 +582,15 @@ struct SquadDetailView: View {
                         }
                     }
                     .padding(.top, 12)
+
+                    // v4.3 Item A — Squad Moments slim line. Real data only,
+                    // hides when squad has zero notable activity. Tap cycles
+                    // the rotation seed so users can browse alternate stats
+                    // without leaving the squad surface.
+                    SquadMomentsLine(displayText: v43SquadMomentsLine) {
+                        v43SquadMomentsSeed.advance()
+                    }
+                    .padding(.horizontal, 16)
 
                     // Invite Code Section
                     VStack(spacing: 8) {

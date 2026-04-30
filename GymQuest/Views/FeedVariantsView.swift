@@ -161,7 +161,7 @@ struct FeedVariantsView: View {
             Picker("", selection: .constant(0)) {
                 Text("Friends").tag(0)
                 Text("Shorts").tag(1)
-                Text("Clubs").tag(2)
+                Text("Crews").tag(2)
             }
             .pickerStyle(.segmented)
             .padding(.horizontal, 16)

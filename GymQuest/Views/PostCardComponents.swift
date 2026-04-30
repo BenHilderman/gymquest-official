@@ -110,6 +110,10 @@ struct PostCardV2: View {
                 inlineCommentPreview
             } else {
                 headerRow
+                // v4.3 Item B locked — throwback label so retroactive posts
+                // never look like fresh proof. Honors the "post = real moment"
+                // promise: throwbacks date-stamp clearly.
+                v43ThrowbackLabel
                 inspiredByBadge
                 workoutIdentityBadge
                 // Header/hero seam handled by an always-on top-edge
@@ -118,6 +122,10 @@ struct PostCardV2: View {
                 // mode instead of fighting the media's own colors.
                 heroSection
                 inlineMusicRow
+                // v4.3 §3B PostCardV2 anatomy upgrades.
+                v43StatsStrip
+                v43PartnerIndicator
+                v43CrossoverRow
                 useThisWorkoutBar
                 captionAndReactions
             }
@@ -456,7 +464,157 @@ struct PostCardV2: View {
         }
     }
 
+    /// v4.3 Item B locked — throwback label rendered on retroactive posts.
+    /// Always shows when `post.isThrowback`. Date-stamps clearly so viewers
+    /// know this is a memory, not a "just happened" proof.
     @ViewBuilder
+    private var v43ThrowbackLabel: some View {
+        if post.isThrowback {
+            HStack(spacing: 4) {
+                Image(systemName: "calendar")
+                    .font(.system(size: 10, weight: .semibold))
+                Text("throwback · \(throwbackDateLabel)")
+                    .font(.system(size: 11, weight: .semibold))
+                Spacer(minLength: 0)
+            }
+            .foregroundColor(GQColors.textSecondary)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 4)
+        }
+    }
+
+    private var throwbackDateLabel: String {
+        let cal = Calendar(identifier: .gregorian)
+        let days = cal.dateComponents([.day], from: post.timestamp, to: .init()).day ?? 0
+        if days < 7 { return "\(days) days ago" }
+        if days < 30 {
+            let weeks = days / 7
+            return weeks == 1 ? "1 week ago" : "\(weeks) weeks ago"
+        }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d"
+        return "from \(formatter.string(from: post.timestamp).lowercased())"
+    }
+
+    // MARK: - v4.3 §3B PostCardV2 anatomy upgrades
+
+    /// Stats strip: top set / volume / PR badge inline below the hero.
+    /// Sourced from existing `cachedWorkout` and `cachedPRs`.
+    @ViewBuilder
+    private var v43StatsStrip: some View {
+        if FeatureFlags.shared.coliftV43Enabled {
+            let workout = cachedWorkout
+            let topSet = v43TopSetLabel(from: workout)
+            let volume = v43VolumeLabel(from: workout)
+            let prCount = cachedPRs.count
+            if topSet != nil || volume != nil || prCount > 0 {
+                HStack(spacing: 12) {
+                    if let topSet {
+                        v43StatChip(label: "top set", value: topSet, icon: "bolt.fill")
+                    }
+                    if let volume {
+                        v43StatChip(label: "volume", value: volume, icon: "chart.bar.fill")
+                    }
+                    if prCount > 0 {
+                        v43StatChip(label: "\(prCount) PR\(prCount == 1 ? "" : "s")", value: "🐐", icon: nil)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 6)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func v43StatChip(label: String, value: String, icon: String?) -> some View {
+        HStack(spacing: 4) {
+            if let icon { Image(systemName: icon).font(.system(size: 9, weight: .semibold)) }
+            Text(value).font(.system(size: 12, weight: .bold, design: .rounded))
+            Text(label).font(.system(size: 10)).foregroundColor(GQColors.textSecondary)
+        }
+        .padding(.horizontal, 8).padding(.vertical, 4)
+        .background(Capsule().fill(GQColors.overlayLight))
+        .foregroundColor(GQColors.textPrimary)
+    }
+
+    private func v43TopSetLabel(from workout: SharedWorkoutData?) -> String? {
+        guard let exercises = workout?.exercises else { return nil }
+        var bestWeight: Double = 0
+        var bestExercise = ""
+        var bestReps = 0
+        for ex in exercises {
+            for s in ex.sets where s.weight > bestWeight {
+                bestWeight = s.weight
+                bestExercise = ex.name
+                bestReps = s.reps
+            }
+        }
+        guard bestWeight > 0 else { return nil }
+        return "\(Int(bestWeight))×\(bestReps) \(bestExercise.split(separator: " ").first.map(String.init) ?? "")"
+    }
+
+    private func v43VolumeLabel(from workout: SharedWorkoutData?) -> String? {
+        guard let exercises = workout?.exercises else { return nil }
+        let totalKg = exercises.flatMap(\.sets).reduce(0.0) { $0 + (Double($1.reps) * $1.weight) }
+        guard totalKg > 0 else { return nil }
+        if totalKg >= 1000 {
+            return String(format: "%.1ft", totalKg / 1000)
+        }
+        return "\(Int(totalKg)) lb"
+    }
+
+    /// Partner post indicator: both avatars side-by-side with caption.
+    /// Renders only when `post.partnerUserId` (added in migration 4) is set.
+    @ViewBuilder
+    private var v43PartnerIndicator: some View {
+        if FeatureFlags.shared.coliftV43Enabled, post.partnerUserId != nil {
+            let partnerName = post.partnerDisplayName ?? "partner"
+            HStack(spacing: -8) {
+                Circle().fill(GQGradients.primary).frame(width: 22, height: 22)
+                    .overlay(Text(String(post.authorName.prefix(1)).uppercased())
+                        .font(.system(size: 9, weight: .bold)).foregroundColor(.white))
+                    .overlay(Circle().stroke(GQColors.surfaceBase, lineWidth: 2))
+                Circle().fill(GQGradients.primary).frame(width: 22, height: 22)
+                    .overlay(Text(String(partnerName.prefix(1)).uppercased())
+                        .font(.system(size: 9, weight: .bold)).foregroundColor(.white))
+                    .overlay(Circle().stroke(GQColors.surfaceBase, lineWidth: 2))
+                Text("\(post.authorName.lowercased()) + \(partnerName.lowercased()) lifted together")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(GQColors.textSecondary)
+                    .padding(.leading, 12)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 16).padding(.vertical, 4)
+        }
+    }
+
+    /// Crossover row: "marcus, sarah also did push this week".
+    /// Surfaces other followed users who did the same workout type recently.
+    @ViewBuilder
+    private var v43CrossoverRow: some View {
+        if FeatureFlags.shared.coliftV43Enabled, let names = v43CrossoverNames, !names.isEmpty {
+            HStack(spacing: 4) {
+                Image(systemName: "person.2.fill")
+                    .font(.system(size: 10))
+                    .foregroundColor(GQColors.textTertiary)
+                Text(names.joined(separator: ", ").lowercased() + " also did " + (post.workoutType?.lowercased() ?? "this") + " this week")
+                    .font(.system(size: 11))
+                    .foregroundColor(GQColors.textSecondary)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 16).padding(.vertical, 4)
+        }
+    }
+
+    private var v43CrossoverNames: [String]? {
+        // Lightweight client-side derivation: surfaces empty for now since
+        // PostCardV2 doesn't have access to the broader feed. The actual
+        // crossover comes from `FriendsRecapService` in the next pass.
+        nil
+    }
+
     private var headerRow: some View {
         HStack {
             PostHeaderEnhanced(
