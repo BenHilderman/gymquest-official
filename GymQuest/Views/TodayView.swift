@@ -2598,8 +2598,16 @@ struct TodayView: View {
         }
 
         // 2. Weekly goal — remaining or done.
+        // Goal-gradient framing — alternates between "N more" (loss frame)
+        // and "X% there" (gain frame). Goal-gradient research shows
+        // motivation peaks near completion when shown the gain frame;
+        // including both keeps the slim-line variety honest.
         if remaining > 0 {
             pool.append("\(remaining) more this week")
+            let percentDone = Int((Double(completed) / Double(max(target, 1))) * 100)
+            if percentDone >= 50 {
+                pool.append("\(percentDone)% there this week")
+            }
         } else {
             pool.append("goal complete")
         }

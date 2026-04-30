@@ -745,6 +745,16 @@ final class Workout {
     @Relationship(deleteRule: .cascade) var prEvents: [PREvent]
     @Relationship(deleteRule: .cascade) var mediaItems: [MediaItem]
 
+    /// v4.3 psychology pass — private workout journal. Free-form text
+    /// the user logs for themselves on the post-save card. NEVER
+    /// surfaced socially. Used for the personal mood-vs-volume graph
+    /// in profile history. Not synced to Supabase.
+    var journalNote: String = ""
+    /// v4.3 psychology pass — single-emoji mood tag paired with the
+    /// journal note. "" / "💪" / "😮‍💨" / "🥲" / "🔥" / "🧊". Empty
+    /// when not tagged.
+    var moodEmoji: String = ""
+
     init(
         id: UUID = UUID(),
         date: Date = Date(),
@@ -1200,6 +1210,37 @@ final class UserProfile {
     /// The mission question answer — "Who do you want to show up for?"
     /// Set during onboarding, visible in profile header. Pure motivation anchor.
     var showUpFor: String = ""
+
+    /// v4.3 psychology pass — habit-stack anchor. Onboarding asks
+    /// "anchor lifting to something you already do — coffee, walk,
+    /// after work, before bed?" Stored verbatim. Surfaces as quiet
+    /// identity stat ("lifts after coffee · 47 sessions"). Cements
+    /// habit through routine pairing per Atomic Habits §11.
+    var habitAnchor: String = ""
+
+    /// v4.3 psychology pass — life-stage tag. Optional onboarding
+    /// step: "where are you in your lifting?" Options: skip / new /
+    /// returning / postpartum / perimenopause / injury rehab.
+    /// Affects training plan suggestions and Coach tone. NEVER
+    /// surfaced socially.
+    var lifingStage: String = ""
+
+    /// v4.3 psychology pass — current cycle phase, deeply opt-in,
+    /// on-device only. Empty string = not tracking. Other values:
+    /// "follicular" / "ovulation" / "luteal" / "period". Coach
+    /// reads this to soften intensity suggestions during high-fatigue
+    /// phases. Never syncs to Supabase.
+    var currentCyclePhase: String = ""
+
+    /// v4.3 psychology pass — Coach tone preference. Options:
+    /// "supportive" / "neutral" / "hype" / "educational" / "data".
+    /// Default "neutral".
+    var coachTone: String = "neutral"
+
+    /// v4.3 psychology pass — single Privacy & Trust toggle that
+    /// hard-locks audience to .friends/.squad everywhere. Replaces
+    /// per-post management for users who want quiet by default.
+    var noStrangersMode: Bool = false
 
     /// Last time the user saw a Weekly Recap Proof Card. Used to avoid
     /// re-presenting the same week's recap. Memo 4 "anticipated cadence" driver.
@@ -3027,6 +3068,11 @@ final class Club {
     var memberCount: Int
     var isVerified: Bool                // Official gym/university account
     var tags: [String]                  // e.g., ["university", "gym", "weightlifting"]
+    /// v4.3 psychology pass — community vibe tags. Self-declared by
+    /// creator/admin: "women-led" / "mixed" / "lifters-only" /
+    /// "beginners-welcome" / "serious" / "chill". Powers the Discover
+    /// crew filter chips so users find community-fit faster.
+    var vibeTags: [String] = []
     var createdAt: Date
     var parentClubId: UUID?        // non-nil = this is a channel/sub-club
     var category: ClubCategory?

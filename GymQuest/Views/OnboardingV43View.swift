@@ -19,8 +19,33 @@ enum OnboardingV43Step: Int, CaseIterable {
     case experience
     case styleAndVibe
     case savedGym
+    /// v4.3 psychology pass — Atomic Habits §11 habit-stack anchor.
+    /// Optional, skippable. Surfaces in profile as quiet identity stat.
+    case habitAnchor
+    /// v4.3 psychology pass — life-stage tag. Adapts coach tone +
+    /// training-plan suggestions. Never surfaced socially.
+    case stage
 
     var isLast: Bool { self == OnboardingV43Step.allCases.last }
+}
+
+enum HabitAnchorChoice: String, CaseIterable, Identifiable {
+    case morningCoffee = "after morning coffee"
+    case afterWork = "after work"
+    case beforeBed = "before bed"
+    case lunchBreak = "lunch break"
+    case afterDropOff = "after school drop-off"
+    case morning = "first thing in the morning"
+    var id: String { rawValue }
+}
+
+enum LifingStageChoice: String, CaseIterable, Identifiable {
+    case newToLifting = "new to lifting"
+    case returning = "returning"
+    case postpartum = "postpartum"
+    case perimenopause = "perimenopause"
+    case injuryRehab = "injury rehab"
+    var id: String { rawValue }
 }
 
 enum FitnessGoalChoice: String, CaseIterable, Identifiable {
@@ -77,6 +102,12 @@ struct OnboardingV43Selections {
     var savedGymName: String = ""
     var privacyDefault: PostAudience = .friends
     var connectAppleHealth: Bool = false
+    /// v4.3 psychology pass — habit-stack anchor (Atomic Habits §11).
+    /// Optional. Empty string when skipped.
+    var habitAnchor: String = ""
+    /// v4.3 psychology pass — life-stage tag. Optional, defaults to
+    /// empty (skip). Never surfaced socially.
+    var lifingStage: String = ""
 }
 
 struct OnboardingV43View: View {
@@ -165,6 +196,20 @@ struct OnboardingV43View: View {
                     .font(.system(size: 12))
                     .foregroundColor(GQColors.textTertiary)
             }
+        case .habitAnchor:
+            stepHeader(title: "anchor lifting to something you already do?",
+                       subtitle: "habits stick when paired with routine. optional.")
+            chipGrid(HabitAnchorChoice.allCases.map(\.rawValue),
+                     selected: selections.habitAnchor.isEmpty ? nil : selections.habitAnchor) { v in
+                selections.habitAnchor = v
+            }
+        case .stage:
+            stepHeader(title: "where are you in your lifting?",
+                       subtitle: "shapes your plan and coach tone. private to you. optional.")
+            chipGrid(LifingStageChoice.allCases.map(\.rawValue),
+                     selected: selections.lifingStage.isEmpty ? nil : selections.lifingStage) { v in
+                selections.lifingStage = v
+            }
         }
     }
 
@@ -249,13 +294,13 @@ struct OnboardingV43View: View {
     }
 
     /// Each step needs at least one selection before `next` enables — except
-    /// `savedGym`, which is optional (user can skip with empty name).
+    /// `savedGym`, `habitAnchor`, and `stage`, which are skippable.
     private var isStepSatisfied: Bool {
         switch step {
         case .goal: return selections.goal != nil
         case .experience: return selections.experience != nil
         case .styleAndVibe: return selections.split != nil
-        case .savedGym: return true
+        case .savedGym, .habitAnchor, .stage: return true
         }
     }
 

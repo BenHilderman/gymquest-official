@@ -111,6 +111,13 @@ struct ContentView: View {
         if !selections.savedGymName.isEmpty, profile.gymName.isEmpty {
             profile.gymName = selections.savedGymName
         }
+        // v4.3 psychology pass — habit-anchor + stage from new onboarding steps.
+        if !selections.habitAnchor.isEmpty, profile.habitAnchor.isEmpty {
+            profile.habitAnchor = selections.habitAnchor
+        }
+        if !selections.lifingStage.isEmpty, profile.lifingStage.isEmpty {
+            profile.lifingStage = selections.lifingStage
+        }
         try? modelContext.save()
     }
 
