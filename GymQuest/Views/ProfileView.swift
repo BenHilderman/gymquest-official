@@ -3903,6 +3903,16 @@ struct SettingsView: View {
             // v4.3 phase 3 — Held content (appeals).
             heldContentRow
             settingsDivider
+            // v4.3 psychology pass — single switch hard-locks audience
+            // to friends/squad. Cleaner than per-post management.
+            NoStrangersToggleRow(profile: profile)
+            settingsDivider
+            // v4.3 psychology pass — how the coach talks.
+            CoachToneRow(profile: profile)
+            settingsDivider
+            // v4.3 psychology pass — opt-in cycle phase tracker (on-device only).
+            CyclePhaseSettingsRow(profile: profile)
+            settingsDivider
             // v4.3 §8B — full Settings sections destination.
             v43FullSettingsRow
             settingsDivider

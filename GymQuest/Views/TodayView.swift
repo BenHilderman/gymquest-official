@@ -67,6 +67,11 @@ struct TodayView: View {
     /// the key so each squad row gets its own stable pick on the same Home
     /// open — same vibe as Crews header / Plus hero / Squad Moments.
     @State private var v43SquadPreviewSeeds: [UUID: Int] = [:]
+    /// v4.3 psychology pass — monthly recap card trigger. Set on first
+    /// launch of a new month with the prior month's stats; cleared on
+    /// dismiss or share. UserDefaults `monthlyRecapSeen-{monthName}`
+    /// prevents repeat presentations.
+    @State private var v43MonthlyRecapStats: MonthlyRecapStats? = nil
     /// v4.3 §2 — Stories row on Home backfills with public bubbles when
     /// fewer than 3 followed friends have an active story in the last 24h.
     /// The discover-stories source is deferred (same path as the caught-up
@@ -251,7 +256,29 @@ struct TodayView: View {
             WeeklyScheduleEditorSheet(profile: profile)
                 .presentationDetents([.large])
         }
+        .sheet(item: $v43MonthlyRecapStats) { stats in
+            MonthlyRecapCard(
+                stats: stats,
+                onShare: {
+                    MonthlyRecapResolver.markSeen(monthName: stats.monthName)
+                    v43MonthlyRecapStats = nil
+                    // Share flow lands when the share-card image generator
+                    // ships; dismissing here for now is the honest path.
+                },
+                onDismiss: {
+                    MonthlyRecapResolver.markSeen(monthName: stats.monthName)
+                    v43MonthlyRecapStats = nil
+                }
+            )
+            .presentationDetents([.medium, .large])
+        }
         .task {
+            // v4.3 psychology pass — first-launch-of-new-month trigger.
+            // Skips when the prior-month recap has already been shown.
+            if let stats = MonthlyRecapResolver.priorMonthStats(in: modelContext),
+               !MonthlyRecapResolver.hasSeen(monthName: stats.monthName) {
+                v43MonthlyRecapStats = stats
+            }
             checkForDraft()
             MockDataSeeder.seedIfNeeded(modelContext: modelContext, profile: profile)
             MockDataSeeder.fillCurrentWeek(modelContext: modelContext)
@@ -2975,6 +3002,7 @@ struct TodayView: View {
                     .font(.system(size: 11, weight: .semibold))
                 Text("·").foregroundStyle(.secondary)
                 StreakVisualBadge(days: workoutsThisWeekCount)
+                    .streakFlameBurst(days: workoutsThisWeekCount)
                 Text("·").foregroundStyle(.secondary)
                 Text("level \(level) · \(toGo) XP to \(level + 1)")
                     .font(.system(size: 11, weight: .medium))

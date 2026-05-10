@@ -71,11 +71,7 @@ struct MonthlyRecapCard: View {
 
     private func statTile(label: String, value: String) -> some View {
         VStack(spacing: 4) {
-            Text(value)
-                .font(.system(size: 26, weight: .bold, design: .rounded))
-                .foregroundColor(GQColors.textPrimary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
+            statValue(value)
             Text(label)
                 .font(.system(size: 11, weight: .medium))
                 .foregroundColor(GQColors.textTertiary)
@@ -88,9 +84,31 @@ struct MonthlyRecapCard: View {
                 .fill(GQColors.adaptiveOverlay(0.04))
         )
     }
+
+    /// Renders the stat value with a counter-up animation when the value
+    /// is numeric. Falls back to plain Text when it's non-numeric (e.g.
+    /// the top-exercise name).
+    @ViewBuilder
+    private func statValue(_ value: String) -> some View {
+        if let numeric = Double(value) {
+            // Detect format: integer if no fractional part, else 1dp.
+            let format: AnimatedStatNumber.NumberFormat =
+                numeric == numeric.rounded() ? .integer : .oneDecimal
+            AnimatedStatNumber(target: numeric, format: format)
+        } else {
+            Text(value)
+                .font(.system(size: 26, weight: .bold, design: .rounded))
+                .foregroundColor(GQColors.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+        }
+    }
 }
 
-struct MonthlyRecapStats {
+struct MonthlyRecapStats: Identifiable {
+    /// `id` keys off the month name — there's only ever one recap per
+    /// month and Identifiable makes `.sheet(item:)` work cleanly.
+    var id: String { monthName }
     let monthName: String     // "april"
     let sessionCount: Int
     let distinctDays: Int

@@ -410,12 +410,19 @@ class PRService: ObservableObject {
 
     // MARK: - Workout Summary
 
-    /// Generate a workout summary for shareable cards
-    func generateWorkoutSummary(workout: Workout, profile: UserProfile, allWorkouts: [Workout]) -> WorkoutSummary {
+    /// Generate a workout summary for shareable cards. When
+    /// `freezeContext` is provided, trusted-tier accounts can consume
+    /// one auto-granted streak freeze per month before the streak breaks.
+    /// v4.3 psychology pass — silent: no panic UI, no shame.
+    func generateWorkoutSummary(
+        workout: Workout,
+        profile: UserProfile,
+        allWorkouts: [Workout],
+        freezeContext: ModelContext? = nil
+    ) -> WorkoutSummary {
         let calendar = Calendar.current
         let sortedWorkouts = allWorkouts.sorted { $0.date > $1.date }
 
-        // Calculate streak
         var streak = 0
         var checkDate = calendar.startOfDay(for: Date())
 
@@ -427,7 +434,17 @@ class PRService: ObservableObject {
             if hasSession {
                 streak += 1
             } else if streak > 0 {
-                break
+                // Try a streak freeze before breaking. Only fires when
+                // the caller passed a model context (so callers that
+                // don't care about freezes get unchanged behavior).
+                if let ctx = freezeContext,
+                   StreakFreezeService.hasAvailableFreeze(userId: profile.id, forDay: checkDate, in: ctx) {
+                    StreakFreezeService.consumeFreeze(userId: profile.id, forDay: checkDate, in: ctx)
+                    // Day "counted" via freeze — streak persists without
+                    // incrementing (no workout that day).
+                } else {
+                    break
+                }
             }
 
             checkDate = calendar.date(byAdding: .day, value: -1, to: checkDate) ?? checkDate

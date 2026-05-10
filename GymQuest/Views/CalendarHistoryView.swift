@@ -153,6 +153,13 @@ struct CalendarHistoryView: View {
             )
         }
         .buttonStyle(.plain)
+        // v4.3 psychology pass — sweep + glow choreography on today's
+        // cell when a workout saves. Empty-today shows a breath pulse;
+        // already-trained cells are stable. Other days pass through.
+        .calendarFillOnSave(
+            date: date,
+            isTrainedToday: workout != nil && workout?.type != .rest
+        )
     }
 
     // MARK: - Helpers

@@ -2845,6 +2845,13 @@ struct WorkoutCompletionExperience: View {
     let onSharePost: () -> Void
     let onDone: () -> Void
 
+    @Environment(\.modelContext) private var modelContext
+    /// All workouts — used to compute streak + total count for the
+    /// identity toast and to feed FirstStrengthMilestoneService.
+    @Query(sort: \Workout.date, order: .reverse) private var allWorkouts: [Workout]
+    @Query private var allFollows: [Friend]
+    @Query private var savedGyms: [SavedGym]
+
     @State private var phase: Int = 0
     @State private var showConfetti = false
     @State private var darkOverlayOpacity: Double = 1.0
@@ -2855,6 +2862,12 @@ struct WorkoutCompletionExperience: View {
     @State private var animatedVolume: Int = 0
     @State private var animatedXP: Int = 0
     @State private var shareButtonScale: CGFloat = 1.0
+    /// v4.3 psychology pass — fired first time a strength-first milestone
+    /// clears; the celebration card surfaces inline in the experience.
+    @State private var firstStrengthMilestones: [FirstStrengthMilestone] = []
+    /// v4.3 psychology pass — fullScreenCover trigger for streak milestone
+    /// landing card. Only set when the user crossed 7/30/100/365 days.
+    @State private var streakMilestoneToShow: StreakMilestone? = nil
 
     private var totalSets: Int {
         exercises.reduce(0) { $0 + $1.sets.filter { $0.isCompleted }.count }
@@ -2889,8 +2902,21 @@ struct WorkoutCompletionExperience: View {
 
             ScrollView {
                 VStack(spacing: 24) {
+                    // v4.3 psychology pass — identity-stamping copy first.
+                    // Present-tense, tier-keyed off streak + workout count.
+                    if phase >= 1 {
+                        identityReinforcementSection
+                    }
                     completionHeaderSection
                     statsSection
+                    // v4.3 psychology pass — "marcus is at your gym
+                    // right now" social-witness line. Hides when no signal.
+                    if phase >= 2, let witness = witnessLine {
+                        WitnessSignalLine(signalText: witness)
+                    }
+                    if !firstStrengthMilestones.isEmpty {
+                        firstStrengthSection
+                    }
                     if hasPRs { prSection }
                     if didLevelUp { levelUpSection }
                     actionsSection
@@ -2898,6 +2924,20 @@ struct WorkoutCompletionExperience: View {
                 .padding(.horizontal, GQLayout.screenHorizontal)
                 .padding(.vertical, 20)
                 .padding(.top, 40)
+            }
+            .fullScreenCover(item: $streakMilestoneToShow) { milestone in
+                StreakIdentityMilestoneCard(
+                    milestone: milestone,
+                    onDismiss: {
+                        milestone.markSeen()
+                        streakMilestoneToShow = nil
+                    },
+                    onShare: {
+                        milestone.markSeen()
+                        streakMilestoneToShow = nil
+                        onSharePost()
+                    }
+                )
             }
 
             if showConfetti {
@@ -2912,6 +2952,10 @@ struct WorkoutCompletionExperience: View {
                 .allowsHitTesting(false)
         }
         .onAppear {
+            // v4.3 psychology pass — detect milestones immediately so
+            // the cards appear in the same render pass as the
+            // celebration animation.
+            detectMilestonesOnAppear()
             // Dark fade-in
             withAnimation(.easeOut(duration: 0.3)) {
                 darkOverlayOpacity = 0
@@ -2958,9 +3002,86 @@ struct WorkoutCompletionExperience: View {
         }
     }
 
-    // MARK: - Completion Header
+    // MARK: - v4.3 psychology pass sections
+
+    /// Identity reinforcement toast — present-tense copy from
+    /// `IdentityCopy.headline(streakDays:totalWorkouts:)`. Replaces the
+    /// stale "Workout Saved" toast pattern with something that cements
+    /// behavior into identity.
+    @ViewBuilder
+    private var identityReinforcementSection: some View {
+        let streakDays = computeCurrentStreakDays()
+        let totalWorkouts = allWorkouts.count
+        let copy = IdentityCopy.headline(streakDays: streakDays, totalWorkouts: totalWorkouts)
+        IdentityReinforcementToast(title: copy.0, subtitle: copy.1)
+            .transition(.opacity.combined(with: .move(edge: .top)))
+    }
 
     @ViewBuilder
+    private var firstStrengthSection: some View {
+        VStack(spacing: 10) {
+            ForEach(firstStrengthMilestones, id: \.self) { milestone in
+                HStack(spacing: 12) {
+                    Image(systemName: "star.circle.fill")
+                        .font(.system(size: 22))
+                        .foregroundStyle(GQGradients.primary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(milestone.celebrationLine)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(GQColors.textPrimary)
+                        Text(milestone.subtitle)
+                            .font(.system(size: 12))
+                            .foregroundColor(GQColors.textTertiary)
+                    }
+                    Spacer()
+                }
+                .padding(14)
+                .homeSocialCard(cornerRadius: 14)
+            }
+        }
+    }
+
+    /// Counts consecutive distinct-day workouts walking back from today.
+    /// Uses `allWorkouts` which is sorted reverse by date. Skips ahead
+    /// past gaps so the answer is the *current* streak only.
+    private func computeCurrentStreakDays() -> Int {
+        let cal = Calendar(identifier: .gregorian)
+        let today = cal.startOfDay(for: Date())
+        let workoutDays = Set(allWorkouts.map { cal.startOfDay(for: $0.date) })
+        var streak = 0
+        var day = today
+        while workoutDays.contains(day) {
+            streak += 1
+            guard let prev = cal.date(byAdding: .day, value: -1, to: day) else { break }
+            day = prev
+        }
+        return streak
+    }
+
+    /// Witness line via WitnessSignal helper. Pulls saved gym names and
+    /// the user's follow graph from queries above. Computed lazily.
+    private var witnessLine: String? {
+        let gymNames = Set(savedGyms.filter { $0.userId == profile.id }.map(\.name))
+        return WitnessSignal.line(
+            currentUserId: profile.id,
+            savedGymNames: gymNames,
+            in: modelContext
+        )
+    }
+
+    /// Fires once when the experience appears: scan strength-firsts +
+    /// resolve streak milestone for the day.
+    private func detectMilestonesOnAppear() {
+        // First-strength milestones (first pull-up, plate bench, etc.)
+        firstStrengthMilestones = FirstStrengthMilestoneService.newlyAchievedMilestones(
+            userBodyweightLb: nil,   // bodyweight not in scope here; pass-through nil
+            in: modelContext
+        )
+        // Streak milestone landing card.
+        let streakDays = computeCurrentStreakDays()
+        streakMilestoneToShow = StreakMilestone.current(for: streakDays)
+    }
+
     private var completionHeaderSection: some View {
         VStack(spacing: 12) {
             ZStack {

@@ -63,6 +63,15 @@ struct RootView: View {
                     SupabaseSyncService.shared.startSync(userId: userId)
                 }
             }
+            // v4.3 psychology pass — grant this month's streak freeze
+            // if the user is trusted-tier. Idempotent: already-granted
+            // freezes are returned unchanged.
+            let authedDescriptor = FetchDescriptor<UserProfile>(
+                predicate: #Predicate { $0.isAuthenticated == true }
+            )
+            if let me = (try? modelContext.fetch(authedDescriptor))?.first {
+                StreakFreezeService.grantIfEligible(userId: me.id, in: modelContext)
+            }
         }
     }
 
