@@ -256,14 +256,19 @@ struct TodayView: View {
             WeeklyScheduleEditorSheet(profile: profile)
                 .presentationDetents([.large])
         }
-        .sheet(item: $v43MonthlyRecapStats) { stats in
+        .sheet(item: $v43MonthlyRecapStats, onDismiss: {
+            // Mark seen whether the user tapped "done", "share", or
+            // swiped the sheet away — otherwise a swipe-down would
+            // re-trigger the recap on the next app launch.
+            if let stats = v43MonthlyRecapStats {
+                MonthlyRecapResolver.markSeen(monthName: stats.monthName)
+            }
+        }) { stats in
             MonthlyRecapCard(
                 stats: stats,
                 onShare: {
                     MonthlyRecapResolver.markSeen(monthName: stats.monthName)
                     v43MonthlyRecapStats = nil
-                    // Share flow lands when the share-card image generator
-                    // ships; dismissing here for now is the honest path.
                 },
                 onDismiss: {
                     MonthlyRecapResolver.markSeen(monthName: stats.monthName)

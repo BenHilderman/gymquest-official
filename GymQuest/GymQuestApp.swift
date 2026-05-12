@@ -146,7 +146,11 @@ struct LiftAIApp: App {
             VariationEdge.self,
             PatternMastery.self,
             ExerciseMastery.self,
-            ConfidenceRating.self
+            ConfidenceRating.self,
+
+            // Maya MVP (validation build)
+            SavedWin.self,
+            RunItBackState.self
         ])
 
         #if canImport(UIKit)
@@ -231,6 +235,15 @@ struct LiftAIApp: App {
             if let errorMessage = databaseError {
                 // Show error state when database couldn't initialize
                 DatabaseErrorView(message: errorMessage)
+                    .preferredColorScheme(.light)
+            } else if featureFlags.validationMVPEnabled {
+                // Locked Maya MVP build — bypasses auth, ContentView,
+                // tab bar, and every deferred surface. Single product
+                // path for user testing.
+                MayaMVPRootView()
+                    .environmentObject(appState)
+                    .environmentObject(featureFlags)
+                    .modelContainer(container)
                     .preferredColorScheme(.light)
             } else {
                 RootView()

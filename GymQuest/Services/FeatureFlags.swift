@@ -120,6 +120,17 @@ final class FeatureFlags: ObservableObject {
         didSet { save("devSkipAuth", value: devSkipAuth) }
     }
 
+    /// Maya MVP validation build — routes the entire app to the locked
+    /// Maya MVP flow (Cold Start → Active Replay → Rest → Final Set →
+    /// Shared Win → Saved → Run It Back). When true, ALL other surfaces
+    /// (Discover / Crew Pulse / Squads / Watch / DMs / Stories / public
+    /// posting / leaderboards / notifications) are hidden from the
+    /// default route. Reuses existing models + design tokens where
+    /// useful but presents a single clean product path for user testing.
+    @Published var validationMVPEnabled: Bool {
+        didSet { save("validationMVPEnabled", value: validationMVPEnabled) }
+    }
+
     /// Progressive overload suggestions during workouts
     @Published var progressiveOverloadEnabled: Bool {
         didSet { save("progressiveOverloadEnabled", value: progressiveOverloadEnabled) }
@@ -205,6 +216,10 @@ final class FeatureFlags: ObservableObject {
         // (not at decision sites) so every consumer of `devSkipAuth` agrees.
         let v43AuditFlag = ProcessInfo.processInfo.arguments.contains("-UITesting-V43Audit")
         self.devSkipAuth = v43AuditFlag || (defaults.object(forKey: prefix + "devSkipAuth") as? Bool ?? false)
+        // Maya MVP validation build — default TRUE so any tester install
+        // lands on the Maya flow without manual flag toggling. Flip via
+        // dev settings to access the legacy full app for engineering work.
+        self.validationMVPEnabled = defaults.object(forKey: prefix + "validationMVPEnabled") as? Bool ?? true
         self.premiumEnabled = defaults.object(forKey: prefix + "premiumEnabled") as? Bool ?? true
 
         // Market-dominating features
