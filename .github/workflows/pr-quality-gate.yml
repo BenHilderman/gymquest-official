@@ -49,7 +49,7 @@ jobs:
 
       - name: Upload Test Results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-results-${{ matrix.device }}
           path: TestResults.xcresult
@@ -103,7 +103,7 @@ jobs:
 
       - name: Upload UI Test Results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ui-test-results
           path: UITestResults.xcresult
